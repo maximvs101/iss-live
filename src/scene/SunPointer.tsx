@@ -1,0 +1,68 @@
+/**
+ * Says where the Sun is when it is not on screen.
+ *
+ * The disc and its halo are drawn at the real solar direction, and that turned out not to be
+ * enough to *find* it: the Sun occupies a fraction of a degree inside a 42° field, so it is out of
+ * frame most of the time and there is nothing to tell you which way to turn. Lighting alone leaves
+ * the reader to infer the geometry from which panels are bright, which is the inference this whole
+ * feature exists to spare them.
+ *
+ * So: a marker pinned to the edge of the view, in the direction of the Sun, whenever the Sun is
+ * outside it. When it comes into frame the marker disappears, because by then the halo is doing
+ * the job better.
+ *
+ * Positioned by mutating the DOM node directly rather than through React state. This runs on every
+ * frame, and a `setState` at 60 Hz would re-render the tree sixty times a second to move one
+ * element a few pixels.
+ */
+import { useFrame, useThree } from '@react-three/fiber'
+import { Vector3 } from 'three'
+import type { RefObject } from 'react'
+import { useOrbitStore } from '../orbit/useOrbit'
+import { markerPlacement } from './sunMarker'
+import { sunDirectionLvlh } from '../orbit/propagator'
+
+/** Distance to the Sun in the scene. Matches StationView; only the direction matters here. */
+const SUN_DISTANCE = 600
+
+/** Keeps the marker clear of the very corner, where it would sit half under the panel edges. */
+const MARGIN = 0.88
+
+export function SunPointer({ target }: { target: RefObject<HTMLDivElement | null> }) {
+  const camera = useThree((three) => three.camera)
+  const size = useThree((three) => three.size)
+  const at = new Vector3()
+
+  useFrame(() => {
+    const node = target.current
+    if (!node) return
+
+    const state = useOrbitStore.getState().state
+    if (!state) return
+
+    // In eclipse there is nothing to point at: the Earth is between the station and the Sun.
+    if (state.shadow >= 0.5) {
+      node.style.opacity = '0'
+      return
+    }
+
+    const [x, y, z] = sunDirectionLvlh(state, new Date())
+    at.set(x * SUN_DISTANCE, y * SUN_DISTANCE, z * SUN_DISTANCE)
+
+    // In camera space first: `project` alone cannot tell a point in front from one behind.
+    const behind = at.clone().applyMatrix4(camera.matrixWorldInverse).z > 0
+    const ndc = at.clone().project(camera)
+    const place = markerPlacement(ndc.x, ndc.y, behind, MARGIN)
+
+    if (!place.visible) {
+      node.style.opacity = '0'
+      return
+    }
+
+    node.style.opacity = '1'
+    node.style.left = `${place.x * size.width}px`
+    node.style.top = `${place.y * size.height}px`
+  })
+
+  return null
+}

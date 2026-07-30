@@ -12,12 +12,13 @@ import { useRef } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, Stars } from '@react-three/drei'
 import { AdditiveBlending, BackSide } from 'three'
-import type { DirectionalLight, Mesh } from 'three'
+import type { DirectionalLight, Group } from 'three'
 import { useOrbitStore } from '../orbit/useOrbit'
 import { sunDirectionLvlh } from '../orbit/propagator'
 import { IssGltf } from './nasa/IssGltf'
 import { useIssModel } from './nasa/useIssModel'
 import { EARTH_CENTRE, EARTH_RADIUS } from './earthLimb'
+import { SunPointer } from './SunPointer'
 
 /** Distance to the Sun in the scene: far enough that its rays are parallel. */
 const SUN_DISTANCE = 600
@@ -34,20 +35,36 @@ const SUN_DISTANCE = 600
 const NIGHT_FLOOR = 0.18
 
 /**
- * The Sun: the light, and now the disc it comes from.
+ * Nested additive shells standing in for a glow.
+ *
+ * The bare disc was there and nobody found it: at 600 units the Sun subtends half a degree inside
+ * a 42° field, so it is in frame perhaps one time in six and reads as a speck when it is. A halo
+ * an order of magnitude wider is what makes a bright source legible — real optics spread it across
+ * the lens, and every photograph of the Sun anyone has seen is mostly halo.
+ *
+ * Additive and depth-write-off, so the shells brighten whatever they overlap instead of stacking
+ * into a grey ball, and so the outermost one does not occlude the core.
+ */
+const GLOW = [
+  { radius: 26, opacity: 0.5 },
+  { radius: 52, opacity: 0.22 },
+  { radius: 105, opacity: 0.09 },
+]
+
+/**
+ * The Sun: the light, the disc it comes from, and the glow that makes it findable.
  *
  * The direction was already right — `sunDirectionLvlh` is checked against the beta angle computed
  * by an entirely separate route — but nothing on screen said where it was. A lit station with no
  * visible source leaves the reader to infer the geometry from the shading, which is exactly the
  * thing worth showing outright.
  *
- * The disc is drawn larger than life. At this distance the real Sun subtends half a degree, about
- * 2.6 units across, which reads as a speck; 9 keeps it a recognisable body without pretending to
- * be an angular measurement.
+ * Larger than life, and openly so: the real Sun would be 2.6 units across here. What is preserved
+ * is the *direction*, which is the part that carries information.
  */
 function Sun() {
   const light = useRef<DirectionalLight>(null)
-  const disc = useRef<Mesh>(null)
+  const body = useRef<Group>(null)
 
   useFrame(() => {
     const state = useOrbitStore.getState().state
@@ -60,10 +77,10 @@ function Sun() {
       light.current.position.set(...at)
       light.current.intensity = 3.2 * (NIGHT_FLOOR + (1 - NIGHT_FLOOR) * (1 - state.shadow))
     }
-    if (disc.current) {
-      disc.current.position.set(...at)
+    if (body.current) {
+      body.current.position.set(...at)
       // Hidden in eclipse, because that is precisely what eclipse means: the Earth is in the way.
-      disc.current.visible = state.shadow < 0.5
+      body.current.visible = state.shadow < 0.5
     }
   })
 
@@ -91,11 +108,26 @@ function Sun() {
         shadow-bias={-0.0006}
       />
 
-      <mesh ref={disc}>
-        <sphereGeometry args={[9, 24, 24]} />
-        {/* Unlit: a light source lit by other lights would be a contradiction. */}
-        <meshBasicMaterial color="#fff4d6" toneMapped={false} />
-      </mesh>
+      <group ref={body}>
+        <mesh>
+          <sphereGeometry args={[13, 32, 32]} />
+          {/* Unlit, and out of the tone mapper's reach so it clips to white like a real source. */}
+          <meshBasicMaterial color="#fffdf5" toneMapped={false} />
+        </mesh>
+        {GLOW.map((shell) => (
+          <mesh key={shell.radius}>
+            <sphereGeometry args={[shell.radius, 24, 24]} />
+            <meshBasicMaterial
+              color="#ffe9b8"
+              transparent
+              opacity={shell.opacity}
+              blending={AdditiveBlending}
+              depthWrite={false}
+              toneMapped={false}
+            />
+          </mesh>
+        ))}
+      </group>
     </>
   )
 }
@@ -137,35 +169,70 @@ function Earth() {
   )
 }
 
-/** Fill light standing in for earthshine, strengthened when the station is in shadow. */
+/**
+ * Earthshine: the planet below throwing sunlight back onto the station's belly.
+ *
+ * Real, and strong — the Earth reflects about a third of what hits it, and fills a third of the
+ * sky from here. It is the reason the underside of the station is never truly black in orbital
+ * photographs, and the reason the silhouette stays readable through an eclipse, where it is all
+ * that is left.
+ */
 function EarthShine() {
   const light = useRef<DirectionalLight>(null)
 
   useFrame(() => {
     if (!light.current) return
     const shadow = useOrbitStore.getState().state?.shadow ?? 0
-    light.current.intensity = 0.35 + 0.5 * shadow
+    light.current.intensity = 0.38 + 0.55 * shadow
   })
 
   // Coming from nadir: the Earth reflecting sunlight onto the belly of the station.
-  return <directionalLight ref={light} position={[0, -200, 0]} intensity={0.35} color="#6f93c4" />
+  return <directionalLight ref={light} position={[0, -200, 0]} intensity={0.38} color="#6f93c4" />
 }
 
 export function StationView() {
   const { scene, loading, progress, error } = useIssModel()
+  // Mutated every frame from inside the Canvas; see SunPointer.
+  const sunMarker = useRef<HTMLDivElement>(null)
 
   return (
     <>
       {/* Shadows on: the solar wings shading the truss is the single largest gain in realism the
           scene can make, and it costs one shadow map. */}
-      <Canvas shadows camera={{ position: [70, 40, 90], fov: 42, near: 0.5, far: 4000 }} dpr={[1, 2]}>
-        <color attach="background" args={['#05070c']} />
-        <ambientLight intensity={0.35} color="#9fb6d0" />
-        <hemisphereLight args={['#2a4a6a', '#0a0f18', 0.4]} />
+      {/*
+        Soft shadows and a slightly lifted exposure.
+        
+        `PCFSoft` costs a little and buys edges that are not staircases; the exposure compensates
+        for the fill light that was just taken away, so the lit side keeps its brightness while
+        the unlit side goes properly dark.
+      */}
+      <Canvas
+        shadows="soft"
+        gl={{ toneMappingExposure: 1.15 }}
+        camera={{ position: [70, 40, 90], fov: 42, near: 0.5, far: 4000 }}
+        dpr={[1, 2]}
+      >
+        <color attach="background" args={['#04060b']} />
+        {/*
+          Almost no fill, because there is almost none up there.
+          
+          Ambient 0.35 and hemisphere 0.4 were making every surface legible from every angle, which
+          is comfortable and quite wrong: orbital photographs are brutally contrasty, one hard
+          source and a black sky.
+          
+          Halving it is the single largest step towards looking like a photograph rather than a
+          product render. Cutting it to a fifth was tried first and overshot — physically closer,
+          and it left the shadow side unreadable, which matters in a tool whose whole purpose is
+          inspecting the parts on that side. This is the compromise, stated rather than pretended
+          away.
+        */}
+        <ambientLight intensity={0.16} color="#9fb6d0" />
+        <hemisphereLight args={['#24425e', '#05080e', 0.22]} />
         <Sun />
         <EarthShine />
 
         <Earth />
+        <SunPointer target={sunMarker} />
 
         {scene && <IssGltf scene={scene} />}
 
@@ -179,6 +246,12 @@ export function StationView() {
           makeDefault
         />
       </Canvas>
+
+      {/* Sits over the canvas, moved by SunPointer. Hidden until the Sun leaves the frame. */}
+      <div ref={sunMarker} className="sun-marker" aria-hidden="true">
+        <span className="sun-marker__dot" />
+        Sun
+      </div>
 
       {loading && <ModelProgress progress={progress} />}
       {error && <ModelError message={error.message} />}

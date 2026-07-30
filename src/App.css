@@ -1573,3 +1573,35 @@
   stroke-width: 2.5px;
   stroke-linejoin: round;
 }
+
+/* --- Which way the Sun is --- */
+
+/*
+ * Pinned to the edge of the 3D view in the Sun's direction, and only while the Sun is off screen.
+ * `translate(-50%, -50%)` so the coordinates SunPointer writes are its centre, not its corner.
+ */
+.sun-marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px 3px 5px;
+  border-radius: 999px;
+  background: rgba(7, 10, 16, 0.72);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #ffe9b8;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+
+.sun-marker__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff4d6;
+  box-shadow: 0 0 6px 2px rgba(255, 233, 184, 0.65);
+}

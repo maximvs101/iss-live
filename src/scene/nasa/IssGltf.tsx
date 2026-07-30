@@ -219,6 +219,11 @@ export function IssGltf({ scene, rotation = [0, -Math.PI / 2, 0] }: IssGltfProps
 
   const handleClick = (event: ThreeEvent<MouseEvent>) => {
     event.stopPropagation()
+    // A drag that begins on the model still ends in a click, so rotating the view was selecting
+    // whatever happened to be under the pointer when the button came up — noticed three times in
+    // a row while turning the scene to look for something else. `delta` is how far the pointer
+    // travelled between press and release; past a few pixels the gesture was a rotation.
+    if (event.delta > 4) return
     const part = event.object instanceof Mesh ? meshParts.get(event.object) : undefined
     select(part && part !== selected ? part : null)
   }

@@ -315,6 +315,39 @@ nothing else. Forcing full sunlight temporarily, screenshotting, and reverting s
 half: hard terminators across the modules, the port wings dark while the starboard ones blaze, and
 the disc itself at the frame's edge.
 
+### Making the scene look like a photograph
+
+Three changes, in the order they mattered.
+
+**The fill light was the problem.** Ambient 0.35 plus hemisphere 0.4 made every surface legible
+from every angle — comfortable, and quite wrong. Orbital photographs are brutally contrasty: one
+hard source and a black sky. Cutting the fill to a fifth was tried first and overshot: physically
+closer, and it left the shadow side unreadable, which matters in a tool whose whole purpose is
+inspecting the parts on that side. Halving it is the compromise, and it is stated in the code
+rather than pretended away.
+
+**The Sun could not be found.** A disc half a degree wide inside a 42° field is in frame perhaps
+one time in six, so a halo — nested additive shells, an order of magnitude wider — now makes it
+unmistakable when it is there.
+
+**And a marker says where it is when it is not.** Pinned to the edge of the view in the Sun's
+direction, sliding along that edge as the camera turns, gone the moment the Sun comes into frame
+and the halo can speak for itself. Hidden during eclipse, because then there is genuinely nothing
+to point at.
+
+The placement is a pure function with its own tests, because its interesting cases cannot be
+reached by hand: the Sun crosses the field in a fraction of a drag. One of those cases is a real
+trap — `project` folds a point *behind* the camera back into the frame with both signs inverted,
+so an unguarded reading marks a Sun at your back as dead ahead, and off to the wrong side as well.
+
+### Rotating the view was selecting parts
+
+Noticed three times in a row while turning the scene to look for the Sun: a drag that begins on the
+model still ends in a click, so releasing the button selected whatever was under the pointer.
+`event.delta` is how far the pointer travelled between press and release; past four pixels the
+gesture was a rotation, not a choice. Verified both ways — a 160 px drag now changes nothing, and a
+click with no movement still selects.
+
 ### An Earth to be above
 
 The scene had a station and a sky and nothing to be *over*, which left the model reading as an
