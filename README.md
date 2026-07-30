@@ -362,6 +362,42 @@ and it is off by the same amount on every wing — **45.0° ± 0.6 across all ei
 alternating between the pairs, which is what mirrored geometry does to a shared angle. Correcting it
 brings all eight to within about 6° of the Sun.
 
+### Open: the solar arrays do not point at the Sun
+
+Measured again in **sunlight** — the earlier readings were all taken during eclipse, with the Sun
+behind the Earth, which is the wrong moment to judge a sun-tracking mechanism. The arrays sit
+**47° to 88° off the Sun**, and the figure moves with the geometry rather than staying put.
+
+The measurement itself is now sound, which took two corrections. The Sun is identified by role —
+it is the only light that casts shadows — after the first probe picked the brightest light and got
+earthshine during eclipse. And the panel normal is the least-variance direction of the vertex cloud
+rather than the thinnest bounding box, because an axis-aligned box inflates on two axes when a
+plate sits at an angle. Principal components put the normal at local **X** on all eight wings,
+which is where the box had it, so that assumption survived being checked.
+
+Seven explanations have been tried and none holds:
+
+| Hypothesis | Test | Result |
+|---|---|---|
+| Wrong light | identify by `castShadow` | fixed, discrepancy remains |
+| Wrong panel normal | PCA over the vertex cloud | normal is local X, as assumed |
+| Mirrored frame | all 8 sign combinations of the solar vector | best 44.7° |
+| Joints cannot reach the Sun | 360° × 360° sweep | **1.3° reachable** |
+| Stale data | re-measured with the stream live | persists |
+| Wrong rotation axis | all 9 axis pairs for SARJ × BGA | declared `z`/`z` is the **best** |
+| Wrong angle sign | 4 sign conventions | best 47.6° |
+
+So the rig can point the arrays at the Sun, and the angles NASA publishes do not take it there. No
+constant offset accounts for it either: a 45° figure that looked convincing during eclipse fell
+apart in sunlight, where neither joint alone closes the gap.
+
+This is not a regression from the lighting work — it is a pre-existing property of the joint
+rigging that the lighting work made *measurable* for the first time. It is recorded here rather
+than patched: fitting a correction until the arrays look right would be assuming the answer, and
+the one honest reading left is that either a convention in the joint bindings is wrong in a way
+these tests do not reach, or the station is genuinely flying a non-tracking array attitude — which
+its own `AUTOTRACK` mode argues against.
+
 ### The scene was also not saying when it had stopped listening
 
 That is the finding worth keeping. Holding the last known angles through a loss of signal is right
