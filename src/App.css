@@ -1605,3 +1605,31 @@
   background: #fff4d6;
   box-shadow: 0 0 6px 2px rgba(255, 233, 184, 0.65);
 }
+
+/*
+ * Says the joints have stopped moving because the data stopped.
+ *
+ * Top-centre rather than beside the hint at the bottom: this is a statement about what the whole
+ * scene is showing, not a tip about how to use it.
+ */
+.frozen-joints {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: min(560px, calc(100% - 32px));
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 176, 58, 0.35);
+  border-radius: 6px;
+  background: rgba(7, 10, 16, 0.82);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-dim);
+  text-align: center;
+  pointer-events: none;
+}
+
+.frozen-joints strong {
+  color: var(--accent);
+  font-weight: 600;
+}

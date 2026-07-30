@@ -315,6 +315,45 @@ nothing else. Forcing full sunlight temporarily, screenshotting, and reverting s
 half: hard terminators across the modules, the port wings dark while the starboard ones blaze, and
 the disc itself at the frame's edge.
 
+### Do the solar arrays actually point at the Sun?
+
+The strongest check available on the 3D scene, because three independent things have to agree for
+it to pass: the SARJ and BGA angles come from NASA's telemetry, the solar vector from SGP4 and a
+solar ephemeris, and the joint axes from the GLB's own node hierarchy. Measured in the live scene
+by taking each wing's panel normal — the thinnest axis of its geometry in the joint's frame, local
+X on all eight, with the 1391:448 extents matching the real 34 × 12 m — and comparing it to the
+light's direction.
+
+**The wings came out 50.2° off the Sun.** All eight, within half a degree of each other, which is
+the signature of something systematic rather than noise.
+
+Ruling things out, in order. It is not a mirrored frame: sweeping all eight sign combinations of
+the solar vector, the best any of them managed was 44.7°, where a sign error would have produced a
+near-zero candidate. It is not the joint axes: sweeping the starboard SARJ and its BGA over the
+full 360° × 360° found a reachable pointing of **1.6°**, so the rig can do it. And it is not the
+model's orientation, which three physical facts confirm — the Cupola sits at y = −8 (nadir is −Y),
+Zvezda at z = +25 and Harmony at z = −12 (aft is +Z).
+
+The answer was in the header: **`Signal interrupted — last data 13 min 17 s ago`**. The Sun moves
+through the station's frame at 360° / 92.96 min = 3.87° a minute. 13.3 × 3.87 = **51.5°** against
+50.2° measured. Sampling every thirty seconds while the telemetry sat frozen, the correction needed
+drifted at exactly that rate — 12° over three minutes against 11.5° predicted. Re-measured later at
+a 15.65-minute outage: **62.5° measured, 60.6° predicted, agreeing to 1.9°**.
+
+Nothing was wrong. The scene was drawing precisely what it had been told, thirteen minutes earlier.
+
+### But it was not saying so
+
+That is the finding worth keeping. Holding the last known angles through a loss of signal is right
+— a station that snapped to a rest pose every few minutes would be worse — but the scene was silent
+about it, while the header two hundred pixels away admitted the outage. The consequence is
+specific and quantifiable, so the scene now states it: *"Joints frozen — no telemetry for 15 min
+39 s. The solar arrays are drawn where they last reported; the Sun has moved about 61° since."*
+
+The drift is computed from the outage, not quoted as a constant, and a test pins it at two
+durations. It is the same principle the telemetry rows already follow — missing data is shown as
+missing — applied to the one view that was still quietly implying otherwise.
+
 ### Making the scene look like a photograph
 
 Three changes, in the order they mattered.

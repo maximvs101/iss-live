@@ -19,6 +19,7 @@ import { IssGltf } from './nasa/IssGltf'
 import { useIssModel } from './nasa/useIssModel'
 import { EARTH_CENTRE, EARTH_RADIUS } from './earthLimb'
 import { SunPointer } from './SunPointer'
+import { FrozenJoints } from './FrozenJoints'
 
 /** Distance to the Sun in the scene: far enough that its rays are parallel. */
 const SUN_DISTANCE = 600
@@ -246,6 +247,8 @@ export function StationView() {
           makeDefault
         />
       </Canvas>
+
+      <FrozenJoints />
 
       {/* Sits over the canvas, moved by SunPointer. Hidden until the Sun leaves the frame. */}
       <div ref={sunMarker} className="sun-marker" aria-hidden="true">
