@@ -102,6 +102,12 @@ npm run dev
 | `npm run verify:telemetry` | every subscribed channel against ranges, internal consistency and SGP4 |
 | `npm run verify:plottable` | whether every channel offered for plotting is still being measured |
 | `npm run verify:media` | whether each curated image search still finds its own hardware |
+
+`npm run lint`, `npx tsc -b`, `npm test` and `npm run build` run on every push through GitHub
+Actions. The `verify:*` scripts deliberately do not: they open a real Lightstreamer session, query
+Celestrak, DONKI and the image catalogue, and judge live data — which makes them invaluable at a
+keyboard and useless in CI, where a quiet stream or a re-indexed catalogue would fail a build that
+has nothing wrong with it.
 | `npm run inspect:glb` | structure of a GLB file (nodes, triangles, textures) |
 | `npm run inspect:joints` | which local axis each joint actually turns about |
 
@@ -282,6 +288,23 @@ by construction in any column. It measures twice over, and the first is not redu
 gets no callback at all until it is first shown. Reading `clientWidth` in a layout effect owes
 nothing to painting and is right immediately — verified in a real browser whose tab was, as it
 happens, hidden: viewBox `0 0 1271 96` into a box of exactly 1271 × 96.
+
+### The 3D view could not be used without a mouse
+
+Selecting a module meant clicking a mesh: `onClick` and `onPointerMove` on the model, and nothing
+else. That excludes a keyboard outright, and it is barely usable on a tablet — hovering does not
+exist there, and hitting a named strut with a fingertip is a test of aim rather than of intent.
+Since tablets are a stated target, this was a functional gap on a supported device.
+
+The inspector now carries a grouped `<select>` naming all **62 parts** across eight categories.
+A select rather than a list because sixty-two entries would be taller than the panel holding them,
+while a select is one control the platform already makes reachable, operable and announced. It
+stays in place once something is selected, so moving from one part to the next does not mean going
+back to the scene and aiming again, and it moves when the scene is clicked so the two never
+disagree about what is on screen.
+
+It pairs with the deep link: choosing Zvezda updates the panel, the photograph and the address bar,
+without the canvas being involved at all.
 
 ### Sized for tablets and desktops, and not for phones
 
