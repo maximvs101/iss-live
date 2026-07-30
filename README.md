@@ -315,6 +315,33 @@ nothing else. Forcing full sunlight temporarily, screenshotting, and reverting s
 half: hard terminators across the modules, the port wings dark while the starboard ones blaze, and
 the disc itself at the frame's edge.
 
+### An Earth to be above
+
+The scene had a station and a sky and nothing to be *over*, which left the model reading as an
+object on a shelf rather than a thing in orbit.
+
+It cannot be to scale. The Earth would be 6,371,000 units across with its centre 6,791,000 below,
+in a scene whose far plane is 4,000, so something has to give — and the thing worth keeping is what
+the eye reads: **how much sky the planet fills**. From 420 km the Earth's angular radius is
+`asin(6371 / 6791)` = 69.7°, covering 139° of the sky and putting the horizon well below the station
+rather than at its feet. A sphere of radius r at distance d subtends `asin(r / d)`, so matching the
+angle means `d = r · (R + h) / R`. At r = 1800 the centre sits at 1919 and the far side at 3719,
+inside the existing far plane — the depth buffer keeps the range it was tuned for and the station's
+fine geometry does not begin to z-fight.
+
+That one line of arithmetic is exactly the kind that goes wrong invisibly: a horizon at 60° and one
+at 80° both look like a horizon. **The same two numbers also produce a plausible wrong answer** —
+`acos(6371 / 6791)` = 20.3° is the footprint half-angle seen from Earth's centre, and I reached for
+it first. A test now pins the angle at 69.7° and separately asserts the result is *not* the
+footprint figure.
+
+It is deliberately unmarked: no coastlines, no cloud. This is a horizon, not a globe — the map view
+already answers *where*, and a low-resolution texture over a sphere this size would invite a
+reading of geography it cannot support. What it adds is somewhere for the station to be, a
+terminator on the ground that agrees with the one on the station because both come from the same
+light, and a thin atmosphere shell rendered from the inside so the limb glows where a 40 km layer
+is finally thick enough to see.
+
 ### The map said nothing to a screen reader
 
 `<svg role="img">` makes the drawing a **leaf** in the accessibility tree. Every `<title>` inside

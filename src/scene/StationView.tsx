@@ -11,14 +11,18 @@
 import { useRef } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, Stars } from '@react-three/drei'
+import { AdditiveBlending, BackSide } from 'three'
 import type { DirectionalLight, Mesh } from 'three'
 import { useOrbitStore } from '../orbit/useOrbit'
 import { sunDirectionLvlh } from '../orbit/propagator'
 import { IssGltf } from './nasa/IssGltf'
 import { useIssModel } from './nasa/useIssModel'
+import { EARTH_CENTRE, EARTH_RADIUS } from './earthLimb'
 
 /** Distance to the Sun in the scene: far enough that its rays are parallel. */
 const SUN_DISTANCE = 600
+
+
 
 /**
  * Minimum lighting kept during shadow passes.
@@ -96,6 +100,43 @@ function Sun() {
   )
 }
 
+/**
+ * The planet the station is falling around.
+ *
+ * Deliberately unmarked — no coastlines, no cloud. This is a horizon, not a globe: the map view
+ * already answers *where*, and a low-resolution texture stretched over a sphere this size would
+ * invite a reading of the geography it cannot support. What it gives is the one thing the scene
+ * lacked: somewhere for the station to be, and a terminator on the ground that agrees with the
+ * terminator on the station, because both come from the same light.
+ */
+function Earth() {
+  return (
+    <group position={[0, -EARTH_CENTRE, 0]}>
+      {/* Neither casting nor receiving: it sits far outside the shadow camera's frustum, which is
+          sized to the station, and asking for either would only spend resolution on nothing. */}
+      <mesh castShadow={false} receiveShadow={false}>
+        <sphereGeometry args={[EARTH_RADIUS, 64, 48]} />
+        <meshStandardMaterial color="#1b4f7a" roughness={0.95} metalness={0} />
+      </mesh>
+
+      {/* Atmosphere: a slightly larger shell seen from inside, glowing where it is edge-on. The
+          limb is the only place a 40 km layer is thick enough to see, and this is what puts it
+          there. */}
+      <mesh>
+        <sphereGeometry args={[EARTH_RADIUS * 1.025, 64, 48]} />
+        <meshBasicMaterial
+          color="#5aa9e6"
+          transparent
+          opacity={0.18}
+          side={BackSide}
+          blending={AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
+    </group>
+  )
+}
+
 /** Fill light standing in for earthshine, strengthened when the station is in shadow. */
 function EarthShine() {
   const light = useRef<DirectionalLight>(null)
@@ -123,6 +164,8 @@ export function StationView() {
         <hemisphereLight args={['#2a4a6a', '#0a0f18', 0.4]} />
         <Sun />
         <EarthShine />
+
+        <Earth />
 
         {scene && <IssGltf scene={scene} />}
 
