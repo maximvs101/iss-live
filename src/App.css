@@ -662,6 +662,17 @@
   color: var(--accent);
 }
 
+/*
+ * The heading holds its line; the summary beside it gives way.
+ *
+ * Without this the title wrapped — "PASSES / OVERHEAD" on two lines — while the summary next to it
+ * kept its full width, which is the wrong thing to protect. It only showed once the side column
+ * became fluid and could be narrower than the 400 px it was designed at.
+ */
+.panel__toggle > .panel__title {
+  white-space: nowrap;
+}
+
 /* Pushed to the far end, and allowed to shorten rather than widen the panel. */
 .panel__toggle > .panel__designation {
   margin-left: auto;
