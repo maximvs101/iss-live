@@ -289,6 +289,36 @@ gets no callback at all until it is first shown. Reading `clientWidth` in a layo
 nothing to painting and is right immediately — verified in a real browser whose tab was, as it
 happens, hidden: viewBox `0 0 1271 96` into a box of exactly 1271 × 96.
 
+### The map said nothing to a screen reader
+
+`<svg role="img">` makes the drawing a **leaf** in the accessibility tree. Every `<title>` inside
+it — the station's position, the subsolar point, the observer's state, the times along the track —
+was collapsed away and never announced, leaving one fixed sentence about a map that changes every
+second.
+
+The drawing cannot carry the data, so a live region beside it does: *"Station at 38.6 degrees
+north, 28.8 degrees east, over Turkey, in sunlight."* Hemispheres are spelled out because a screen
+reader reads `43.4° N` as "43.4 N", which is not a latitude. When a location has been set it adds
+whether the station is above the horizon from there, using `withinFootprint` — the same test the
+circle is drawn from.
+
+Announced on a **timer, not on every change**: the position updates once a second, and a polite
+region fed at that rate talks over itself and buries the rest of the page. Thirty seconds is about
+two degrees of latitude. One exception, and it needed catching — the component mounts before the
+orbital elements have loaded, so the opening sentence is "waiting for orbital elements", and the
+timer alone would have left it there for a full cycle after the answer arrived.
+
+Ten tests cover it, including both hemispheres and the wording, because this is the one part of the
+map nobody sighted will ever check.
+
+### The graticule was drawn but not named
+
+Lines every 30° tell you the grid is regular and nothing else — you cannot read a longitude off
+them. They now carry `60° N`, `120° W` and the rest, with a dark halo drawn under the text
+(`paint-order: stroke`) so they stay legible over ocean, over land and under the night shading
+alike, without a background plate. Verified by position rather than by eye: every label sits within
+3 px of what `lonToX` and `latToY` say its parallel or meridian is.
+
 ### The 3D view could not be used without a mouse
 
 Selecting a module meant clicking a mesh: `onClick` and `onPointerMove` on the model, and nothing

@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useOrbitStore } from '../../orbit/useOrbit'
 import { useObserverStore } from '../../orbit/observer'
 import { landPolygons } from './coastlines'
+import { MapAnnouncement } from './MapAnnouncement'
 import { IssMarker, IssShape } from './IssMarker'
 import {
   footprintPoints,
@@ -27,6 +28,10 @@ import {
 
 /** Map coordinates. The SVG scales to its container; these are just the aspect ratio. */
 const SIZE: MapSize = { width: 720, height: 360 }
+
+/** Parallels and meridians drawn, and now labelled. The equator carries no letter. */
+const GRATICULE_LAT = [-60, -30, 0, 30, 60]
+const GRATICULE_LON = [-120, -60, 0, 60, 120]
 
 /**
  * Coastlines, projected once, as outlines and as fills.
@@ -189,11 +194,31 @@ export function MapView() {
 
         {/* Graticule every 30 degrees. */}
         <g stroke="#3d7fb4" strokeWidth={0.4} opacity={0.4}>
-          {[-60, -30, 0, 30, 60].map((lat) => (
+          {GRATICULE_LAT.map((lat) => (
             <line key={lat} x1={0} x2={SIZE.width} y1={latToY(lat, SIZE)} y2={latToY(lat, SIZE)} />
           ))}
-          {[-120, -60, 0, 60, 120].map((lon) => (
+          {GRATICULE_LON.map((lon) => (
             <line key={lon} y1={0} y2={SIZE.height} x1={lonToX(lon, SIZE)} x2={lonToX(lon, SIZE)} />
+          ))}
+        </g>
+
+        {/*
+          The graticule, named.
+          
+          Unlabelled lines every 30° tell you the grid is regular and nothing else — you cannot read
+          a longitude off them. Drawn under the geography so a label never sits on top of a
+          coastline, and over the ocean fill so it stays legible where there is no land.
+        */}
+        <g className="map-graticule" aria-hidden="true">
+          {GRATICULE_LAT.filter((lat) => lat !== 0).map((lat) => (
+            <text key={lat} x={4} y={latToY(lat, SIZE) - 3}>
+              {Math.abs(lat)}° {lat > 0 ? 'N' : 'S'}
+            </text>
+          ))}
+          {GRATICULE_LON.map((lon) => (
+            <text key={lon} x={lonToX(lon, SIZE) + 3} y={SIZE.height - 4}>
+              {lon === 0 ? '0°' : `${Math.abs(lon)}° ${lon > 0 ? 'E' : 'W'}`}
+            </text>
           ))}
         </g>
 
@@ -282,6 +307,10 @@ export function MapView() {
           </g>
         )}
       </svg>
+
+      {/* `role="img"` on the SVG collapses everything inside it, so the live data is announced
+          here instead. See MapAnnouncement. */}
+      <MapAnnouncement />
 
       <MapLegend subsolar={night.subsolar} observer={observer} overhead={overhead} />
     </div>

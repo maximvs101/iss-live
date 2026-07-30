@@ -1544,3 +1544,21 @@
   color: var(--idle);
   flex: none;
 }
+
+/*
+ * Graticule labels.
+ *
+ * The halo is the whole trick: these sit over ocean, over land and under the night shading, and
+ * `paint-order: stroke` draws the dark outline first so the text stays readable on every one of
+ * them without a background plate.
+ */
+.map-graticule text {
+  font-family: var(--mono);
+  font-size: 8px;
+  fill: #9fd4f5;
+  opacity: 0.55;
+  paint-order: stroke;
+  stroke: #08243c;
+  stroke-width: 2.5px;
+  stroke-linejoin: round;
+}
