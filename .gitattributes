@@ -1,0 +1,16 @@
+# Line endings are decided here rather than by whoever happens to clone.
+#
+# This repository is authored on Windows and its CI runs on Linux. Without a rule, git's per-machine
+# `core.autocrlf` decides, and a file can arrive in a diff as entirely rewritten because one side
+# checked it out with CRLF. Text is stored and checked out as LF everywhere; binaries are declared
+# so git never tries to translate them at all.
+* text=auto eol=lf
+
+*.glb -text
+*.wasm -text
+*.png -text
+*.jpg -text
+*.ico -text
+
+# UTF-16, and git's heuristics guess wrong about it.
+*.xml -text
