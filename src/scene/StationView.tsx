@@ -11,7 +11,7 @@
 import { useRef } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, Stars } from '@react-three/drei'
-import type { DirectionalLight } from 'three'
+import type { DirectionalLight, Mesh } from 'three'
 import { useOrbitStore } from '../orbit/useOrbit'
 import { sunDirectionLvlh } from '../orbit/propagator'
 import { IssGltf } from './nasa/IssGltf'
@@ -29,20 +29,71 @@ const SUN_DISTANCE = 600
  */
 const NIGHT_FLOOR = 0.18
 
-function SunLight() {
+/**
+ * The Sun: the light, and now the disc it comes from.
+ *
+ * The direction was already right — `sunDirectionLvlh` is checked against the beta angle computed
+ * by an entirely separate route — but nothing on screen said where it was. A lit station with no
+ * visible source leaves the reader to infer the geometry from the shading, which is exactly the
+ * thing worth showing outright.
+ *
+ * The disc is drawn larger than life. At this distance the real Sun subtends half a degree, about
+ * 2.6 units across, which reads as a speck; 9 keeps it a recognisable body without pretending to
+ * be an angular measurement.
+ */
+function Sun() {
   const light = useRef<DirectionalLight>(null)
+  const disc = useRef<Mesh>(null)
 
   useFrame(() => {
-    if (!light.current) return
     const state = useOrbitStore.getState().state
     if (!state) return
 
     const [x, y, z] = sunDirectionLvlh(state, new Date())
-    light.current.position.set(x * SUN_DISTANCE, y * SUN_DISTANCE, z * SUN_DISTANCE)
-    light.current.intensity = 3.2 * (NIGHT_FLOOR + (1 - NIGHT_FLOOR) * (1 - state.shadow))
+    const at: [number, number, number] = [x * SUN_DISTANCE, y * SUN_DISTANCE, z * SUN_DISTANCE]
+
+    if (light.current) {
+      light.current.position.set(...at)
+      light.current.intensity = 3.2 * (NIGHT_FLOOR + (1 - NIGHT_FLOOR) * (1 - state.shadow))
+    }
+    if (disc.current) {
+      disc.current.position.set(...at)
+      // Hidden in eclipse, because that is precisely what eclipse means: the Earth is in the way.
+      disc.current.visible = state.shadow < 0.5
+    }
   })
 
-  return <directionalLight ref={light} intensity={3.2} color="#fff6e8" />
+  return (
+    <>
+      {/*
+        The only shadow-casting light in the scene.
+        
+        The frustum is sized to the station itself — 109 m of truss, 74 m of modules — because an
+        orthographic shadow camera spends its whole resolution on whatever volume it is given, and
+        a generous one would blur every edge it exists to draw.
+      */}
+      <directionalLight
+        ref={light}
+        intensity={3.2}
+        color="#fff6e8"
+        castShadow
+        shadow-mapSize={[2048, 2048]}
+        shadow-camera-left={-70}
+        shadow-camera-right={70}
+        shadow-camera-top={70}
+        shadow-camera-bottom={-70}
+        shadow-camera-near={SUN_DISTANCE - 120}
+        shadow-camera-far={SUN_DISTANCE + 120}
+        shadow-bias={-0.0006}
+      />
+
+      <mesh ref={disc}>
+        <sphereGeometry args={[9, 24, 24]} />
+        {/* Unlit: a light source lit by other lights would be a contradiction. */}
+        <meshBasicMaterial color="#fff4d6" toneMapped={false} />
+      </mesh>
+    </>
+  )
 }
 
 /** Fill light standing in for earthshine, strengthened when the station is in shadow. */
@@ -64,11 +115,13 @@ export function StationView() {
 
   return (
     <>
-      <Canvas camera={{ position: [70, 40, 90], fov: 42, near: 0.5, far: 4000 }} dpr={[1, 2]}>
+      {/* Shadows on: the solar wings shading the truss is the single largest gain in realism the
+          scene can make, and it costs one shadow map. */}
+      <Canvas shadows camera={{ position: [70, 40, 90], fov: 42, near: 0.5, far: 4000 }} dpr={[1, 2]}>
         <color attach="background" args={['#05070c']} />
         <ambientLight intensity={0.35} color="#9fb6d0" />
         <hemisphereLight args={['#2a4a6a', '#0a0f18', 0.4]} />
-        <SunLight />
+        <Sun />
         <EarthShine />
 
         {scene && <IssGltf scene={scene} />}

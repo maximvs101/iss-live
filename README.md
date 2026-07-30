@@ -289,6 +289,32 @@ gets no callback at all until it is first shown. Reading `clientWidth` in a layo
 nothing to painting and is right immediately — verified in a real browser whose tab was, as it
 happens, hidden: viewBox `0 0 1271 96` into a box of exactly 1271 × 96.
 
+### The Sun was lighting the station and nobody could see it
+
+The 3D scene already lit itself from the real Sun: `sunDirectionLvlh` puts the solar vector in the
+station's own frame, and the light fades as `shadow` rises. That direction is worth trusting —
+a test checks it against the **beta angle**, computed by an entirely separate route, and the two
+agree to a millionth. A wrong sign there would produce a scene that looks completely plausible
+while lighting the station from the wrong side, which is not the kind of error anyone catches by
+looking.
+
+What was missing was that nothing on screen said *where* the Sun was. There is now a disc at the
+light's position, drawn unlit — a light source lit by other lights would be a contradiction — and
+hidden during eclipse, because that is what eclipse means. It is bigger than life: at that distance
+the real Sun subtends half a degree, about 2.6 units, which reads as a speck.
+
+**And the station now shades itself.** One shadow-casting light, every mesh casting and receiving,
+and the truss and radiators lay real bands across the modules. The shadow camera's frustum is sized
+to the station — 109 m of truss, 74 m of modules — because an orthographic shadow camera spends its
+whole resolution on the volume it is given, and a generous one blurs every edge it exists to draw.
+Measured after the change: still 60 fps at 1318 × 660.
+
+Checking it needed a trick worth recording. The station was in Earth's shadow when the work landed,
+so the scene was correctly dim and the Sun correctly invisible — which proves the eclipse path and
+nothing else. Forcing full sunlight temporarily, screenshotting, and reverting showed the other
+half: hard terminators across the modules, the port wings dark while the starboard ones blaze, and
+the disc itself at the frame's edge.
+
 ### The map said nothing to a screen reader
 
 `<svg role="img">` makes the drawing a **leaf** in the accessibility tree. Every `<title>` inside

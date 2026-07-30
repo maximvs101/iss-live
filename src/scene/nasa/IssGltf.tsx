@@ -84,6 +84,10 @@ export function IssGltf({ scene, rotation = [0, -Math.PI / 2, 0] }: IssGltfProps
     const copy = scene.clone(true)
     copy.traverse((object) => {
       if (!(object instanceof Mesh)) return
+      // Every mesh both casts and receives: the station shades itself, and a wing that cast a
+      // shadow without catching one would look lit from inside.
+      object.castShadow = true
+      object.receiveShadow = true
       object.material = Array.isArray(object.material)
         ? object.material.map((material) => material.clone())
         : object.material.clone()
