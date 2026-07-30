@@ -334,15 +334,35 @@ full 360° × 360° found a reachable pointing of **1.6°**, so the rig can do i
 model's orientation, which three physical facts confirm — the Cupola sits at y = −8 (nadir is −Y),
 Zvezda at z = +25 and Harmony at z = −12 (aft is +Z).
 
-The answer was in the header: **`Signal interrupted — last data 13 min 17 s ago`**. The Sun moves
-through the station's frame at 360° / 92.96 min = 3.87° a minute. 13.3 × 3.87 = **51.5°** against
-50.2° measured. Sampling every thirty seconds while the telemetry sat frozen, the correction needed
-drifted at exactly that rate — 12° over three minutes against 11.5° predicted. Re-measured later at
-a 15.65-minute outage: **62.5° measured, 60.6° predicted, agreeing to 1.9°**.
+Part of the answer was in the header: **`Signal interrupted — last data 13 min 17 s ago`**. The Sun
+moves through the station's frame at 360° / 92.96 min = 3.87° a minute, and sampling every thirty
+seconds while the telemetry sat frozen, the correction needed drifted at exactly that rate — 12°
+over three minutes against 11.5° predicted. That much is independently confirmed: when the stream
+came back, the starboard SARJ resumed at **3.84 °/min** measured over 3.33 minutes against 3.87
+predicted.
 
-Nothing was wrong. The scene was drawing precisely what it had been told, thirteen minutes earlier.
+**But it was not the whole answer, and the first version of this section said it was.** Two mistakes
+led there. The probe selected the brightest `DirectionalLight` as the Sun — and during eclipse the
+Sun is dimmed to its 0.18 floor while earthshine is boosted, so the brighter light is earthshine,
+pointing at the nadir. A reading of `[0, -1, 0]` is what gave that away. And the arithmetic agreed
+too readily: 62.5° against 60.6° predicted looked like proof and was a measurement against the
+wrong vector.
 
-### But it was not saying so
+Re-measured with the Sun identified by role instead — it is the only light that casts shadows — and
+with the stream live, the discrepancy is still there and it decomposes cleanly:
+
+| | best reachable | telemetry | error |
+|---|---|---|---|
+| Starboard SARJ | 183° | 184.2° | **1.2°** |
+| BGA 1A | 110° | 154.8° | **44.8°** |
+
+The SARJ needs no correction at all, and that is the load-bearing result: it validates the solar
+vector, the model's frame and the joint axes in one measurement. What is left is the beta gimbal,
+and it is off by the same amount on every wing — **45.0° ± 0.6 across all eight**, with the sign
+alternating between the pairs, which is what mirrored geometry does to a shared angle. Correcting it
+brings all eight to within about 6° of the Sun.
+
+### The scene was also not saying when it had stopped listening
 
 That is the finding worth keeping. Holding the last known angles through a loss of signal is right
 — a station that snapped to a rest pose every few minutes would be worse — but the scene was silent
