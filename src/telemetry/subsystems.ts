@@ -45,7 +45,7 @@ export const SUBSYSTEMS: Subsystem[] = [
     id: 'eps',
     label: 'Power',
     tagline:
-      'Eight 34-metre solar wings generate up to 120 kW. Two joints keep them facing the Sun: the SARJ turns once per orbit, the BGA compensates for the seasonal tilt.',
+      'Eight 34-metre solar wings provide 75 to 90 kW. Two joints keep them facing the Sun: the SARJ turns once per orbit, the BGA compensates for the seasonal tilt.',
     disciplines: ['SPARTAN', 'SPARTAN/VVO', 'VVO'],
     sections: [
       {

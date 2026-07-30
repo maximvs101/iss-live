@@ -90,9 +90,10 @@ function Sun() {
       {/*
         The only shadow-casting light in the scene.
         
-        The frustum is sized to the station itself — 109 m of truss, 74 m of modules — because an
+        The frustum is sized to the station itself — 94 m of truss, 73 m of arrays — because an
         orthographic shadow camera spends its whole resolution on whatever volume it is given, and
-        a generous one would blur every edge it exists to draw.
+        a generous one would blur every edge it exists to draw. Half the diagonal of that footprint
+        is 59.5 m, so ±62 covers every caster with a little to spare.
       */}
       <directionalLight
         ref={light}
@@ -100,10 +101,10 @@ function Sun() {
         color="#fff6e8"
         castShadow
         shadow-mapSize={[2048, 2048]}
-        shadow-camera-left={-70}
-        shadow-camera-right={70}
-        shadow-camera-top={70}
-        shadow-camera-bottom={-70}
+        shadow-camera-left={-62}
+        shadow-camera-right={62}
+        shadow-camera-top={62}
+        shadow-camera-bottom={-62}
         shadow-camera-near={SUN_DISTANCE - 120}
         shadow-camera-far={SUN_DISTANCE + 120}
         shadow-bias={-0.0006}
@@ -206,11 +207,15 @@ export function StationView() {
         `PCFSoft` costs a little and buys edges that are not staircases; the exposure compensates
         for the fill light that was just taken away, so the lit side keeps its brightness while
         the unlit side goes properly dark.
+
+        The camera sits at 104 units, pulled in from 121 by the same 94/109 as the truss-length
+        correction, so the station fills the same fraction of the frame as it did before the scale
+        was fixed.
       */}
       <Canvas
         shadows="soft"
         gl={{ toneMappingExposure: 1.15 }}
-        camera={{ position: [70, 40, 90], fov: 42, near: 0.5, far: 4000 }}
+        camera={{ position: [60, 34, 78], fov: 42, near: 0.5, far: 4000 }}
         dpr={[1, 2]}
       >
         <color attach="background" args={['#04060b']} />

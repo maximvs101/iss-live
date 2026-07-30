@@ -27,8 +27,27 @@ import { useSelectionStore } from '../../ui/selection'
 import type { PartId } from '../parts'
 import { JOINT_BINDINGS, partOfNode } from './nodeMapping'
 
-/** Real span of the station, from one solar wing tip to the other, in metres. */
-const ISS_SPAN_METERS = 109
+/**
+ * Real span of the station across the truss, in metres — the model's longest axis.
+ *
+ * This was 109 m, the figure most sources repeat, and NASA's own documents do not support it.
+ * Three of them agree on 94: the current facts page ("Truss Length: 310 feet (94 meters)"), the
+ * *Reference Guide to the ISS*, 2015 edition ("95 m (311 ft) from the P6 to S6 trusses") and
+ * Boeing's EPS overview ("the ISS's 310-foot long truss").
+ *
+ * The model settles it, because the scale has one free parameter and the model has three axes.
+ * Measured in the browser with the joints held at rest, at this scale:
+ *
+ * | | model | NASA |
+ * |---|---|---|
+ * | truss and modules, port to starboard | 92.6 m | 94 m |
+ * | the arrays, fore to aft | 69.5 m | 73 m |
+ * | structure, nadir to zenith | 29.0 m | radiators deployed, ~27 m |
+ *
+ * Every axis lands within 5 %. At 109 m they come out at 107.4 and 80.6, which is 14 % and 10 %
+ * over. Only one number is chosen here; the others are checks, and they prefer 94.
+ */
+const ISS_SPAN_METERS = 94
 
 /**
  * Joint diagnostic, enabled with `?rigtest=1` in development.

@@ -50,6 +50,9 @@ The catalogue names the symbols but does not say how to interpret them. These do
 | [ISS Mimic Telemetry Screens](https://docs.google.com/presentation/d/11LBGKdbBd1ZbKKpKJ8Y54hAPogtyMLfRmvKoN2bRaHQ/edit) | which readings are **not working**, wing naming, TRRJ modes, antenna geometry, station modes |
 | [Lightstreamer ISS Live demo](https://demos.lightstreamer.com/ISSLive/) | the reference rendering, including the `day/HH:MM:SS` time format and per-symbol timestamps |
 | issmimic.space [ch. 2](https://www.issmimic.space/chapter2), [ch. 4](https://www.issmimic.space/chapter4), [ch. 5](https://www.issmimic.space/chapter5) | the water loops, the RFG-to-antenna assignment, the airlock leak-check hold |
+| [Reference Guide to the ISS, Utilization Edition](https://www.nasa.gov/wp-content/uploads/2017/09/np-2015-05-022-jsc-iss-guide-2015-update-111015-508c.pdf) (NP-2015-05-022-JSC, 2015) | what each subsystem is for, the CMG and solar-cell figures, station-level dimensions |
+| [Boeing ISS Electric Power System overview](https://ia902801.us.archive.org/20/items/GandalfDDI-SpaceShuttleDocuments/Misc_Space_Non-Shuttle/ISS_EPS.pdf) | the only source found that gives the BGA's rotation range and its four command modes |
+| [SARJ Anomaly Investigation](https://ntrs.nasa.gov/api/citations/20100021920/downloads/20100021920.pdf) (NASA/CP-2010-216272) | the SARJ's rotation rate and mechanical layout |
 
 The Mimic deck is the useful one, because it is candid about its own gaps. It labels the
 electrical current readout "not working" and the total power usage "not working currently" —
@@ -305,7 +308,7 @@ the real Sun subtends half a degree, about 2.6 units, which reads as a speck.
 
 **And the station now shades itself.** One shadow-casting light, every mesh casting and receiving,
 and the truss and radiators lay real bands across the modules. The shadow camera's frustum is sized
-to the station — 109 m of truss, 74 m of modules — because an orthographic shadow camera spends its
+to the station — 94 m of truss, 73 m of arrays — because an orthographic shadow camera spends its
 whole resolution on the volume it is given, and a generous one blurs every edge it exists to draw.
 Measured after the change: still 60 fps at 1318 × 660.
 
@@ -397,6 +400,46 @@ than patched: fitting a correction until the arrays look right would be assuming
 the one honest reading left is that either a convention in the joint bindings is wrong in a way
 these tests do not reach, or the station is genuinely flying a non-tracking array attitude — which
 its own `AUTOTRACK` mode argues against.
+
+#### Checked against NASA's own descriptions of the mechanism
+
+The *Reference Guide to the International Space Station*, Utilization Edition (NP-2015-05-022-JSC,
+September 2015) is an infographic document: it names the parts and their jobs but publishes no
+angular ranges. It confirms the division of labour the app describes — *"Solar (Array) Alpha
+Rotation Joint (SARJ) tracks the Sun throughout Earth orbit"*, *"Beta Gimbals are used for tracking
+the seasonal changes of the Sun"*, *"Electronics Control Unit (ECU) controls pointing of solar
+arrays"* — and settles some numbers, but not the ones the defect turns on. Two technical documents
+do: Boeing's ISS EPS overview and the NTRS SARJ anomaly paper (NASA/CP-2010-216272).
+
+| Claim in this project | What the documents say | Verdict |
+|---|---|---|
+| Two perpendicular joints aim the arrays | *"Two mutually perpendicular axes of rotation are used to point solar arrays towards the Sun"* | **confirmed** |
+| The BGA can reach any angle | *"The BGA is capable of a full 360 degrees of rotation"*, power passing through a roll ring over the whole range | **confirmed** — the 0–360° spread in the telemetry is not out of range |
+| The SARJ turns once per orbit, ~3.87 °/min | *"one full rotation per orbit … approximately every 90 minutes"*; *"360° continuous rotational capability"* | **confirmed**; measured 3.78 °/min over 13 min |
+| A wing is about 34 m long | *"Each solar array wing is 110-foot long by 38-foot wide"* → 33.5 × 11.6 m, ratio 2.89 | **confirmed**; the model's plate measures 3.10 |
+| Four 100 kg gyros at 6,600 rpm | *"Each CMG has 98-kilogram (220-pound) flywheel that spins at 6,600 revolutions per minute"* | **confirmed** |
+| "Eight wings generate up to 120 kW" | 2015 guide: *"up to 80 kilowatts"*; Boeing: *"about 84 kW at assembly complete"*; NASA's current facts page: *"75 to 90 kilowatts"* | **contradicted — corrected to 75–90 kW** |
+| 109 m of truss | Three NASA sources give 94–95 m | **contradicted — corrected to 94 m** |
+| The arrays should be within a few degrees of the Sun | *"These rotary joints … ensure full sun-tracking capability"* | **confirms the defect is ours** |
+
+Nothing in any of them gives the BGA's zero reference or sign convention, which is exactly what the
+defect turns on. And the public catalogue offers no BGA mode and no BGA commanded angle — only the
+SARJ has those — so "the arrays are deliberately biased" cannot be tested from this stream.
+
+What the reading did produce is a **new measurement that the documents do not predict**. NASA says
+the BGA compensates *seasonal* motion, and beta moves about 4°/day; over a 13-minute sample beta
+moved 0.05° while every BGA moved **1.2° to 1.7°** — twenty-five times more — with the sign
+mirrored between paired wings, exactly as the mirrored telemetry convention would put it. So the
+beta gimbals carry an orbital-rate term that "seasonal correction" does not account for. Against
+that, the same sample shows the eight wings sitting ~29° from their references while |beta| was
+19.8°, where ideal two-axis pointing requires those two to be equal.
+
+Two things were also confirmed live, and they matter because they pin the defect on this project
+rather than on the station: both SARJs report mode 5, `AUTOTRACK`; and the port SARJ sits **0.18°
+from its own commanded angle** (`S0000005`), so the station's control loop says the arrays are
+where they were told to go. Separately, the beta angle computed here from Celestrak elements came
+out at −19.76° against the published −19.7578° — 0.01° apart — so the solar vector is not the
+problem either.
 
 ### The scene was also not saying when it had stopped listening
 
@@ -926,9 +969,10 @@ come back as −180°.
 The shape itself is a compromise made once and then measured: the station carries eight solar
 wings in pairs at each end of the truss, and at marker size the gap within a pair falls below one
 device pixel, so the wings close up and the whole thing reads as a letter H. Each pair is drawn as
-one panel. The proportions are the real ones — 109 m across the truss against 73 m tip to tip
+one panel. The proportions are the real ones — **94 m** across the truss against 73 m tip to tip
 along the arrays — except the module stack, which is about three times too thick because 4 m
-against 109 m would disappear.
+against 94 m would disappear. The truss figure was 109 m until NASA's own documents were checked
+against each other, and the correction widened the wings by a sixth.
 
 ### Linking to a part, and the blind spot that made it worth building
 

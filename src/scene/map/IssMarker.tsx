@@ -23,16 +23,18 @@ const TRUSS = 9.5
  * Each pair is therefore one panel here — which is what the eye resolves in any case.
  */
 function Wing({ x, y }: { x: number; y: number }) {
-  return <rect x={x} y={y} width={5.4} height={4.8} rx={0.4} />
+  return <rect x={x} y={y} width={6.5} height={4.8} rx={0.4} />
 }
 
 export function IssShape() {
-  // Proportioned from the station itself: 109 m across the truss against 73 m tip-to-tip along the
-  // arrays, so the shape reaches about two thirds as far fore-and-aft as it does port-to-starboard.
-  // The panels start at the truss's edge — floating clear of it they read as four loose blocks
-  // rather than as one object.
+  // Proportioned from the station itself: **94 m** across the truss against 73 m tip-to-tip along
+  // the arrays, so the shape reaches about four fifths as far fore-and-aft as it does
+  // port-to-starboard. The truss figure was 109 m until NASA's own documents were checked against
+  // each other — see ISS_SPAN_METERS in IssGltf — and the correction widens the wings, which had
+  // been drawn a sixth too short. The panels start at the truss's edge: floating clear of it they
+  // read as four loose blocks rather than as one object.
   const ends = [4.4, -9.2]
-  const sides = [0.9, -6.3]
+  const sides = [0.9, -7.4]
 
   return (
     <g>
