@@ -1,0 +1,121 @@
+/**
+ * Close-up view of the station: NASA's model at scale, one unit per metre.
+ *
+ * The lighting follows the real position of the Sun in the station's frame, and fades as it enters
+ * the Earth's shadow — which happens about sixteen times a day.
+ *
+ * The model weighs 14.9 MB, so the first view of it costs a few seconds. Rather than stand in a
+ * simplified station, the view reports what it is doing and how far along it is: a placeholder
+ * shape would be indistinguishable from the real thing at a glance, and worse than an honest wait.
+ */
+import { useRef } from 'react'
+import { Canvas, useFrame } from '@react-three/fiber'
+import { OrbitControls, Stars } from '@react-three/drei'
+import type { DirectionalLight } from 'three'
+import { useOrbitStore } from '../orbit/useOrbit'
+import { sunDirectionLvlh } from '../orbit/propagator'
+import { IssGltf } from './nasa/IssGltf'
+import { useIssModel } from './nasa/useIssModel'
+
+/** Distance to the Sun in the scene: far enough that its rays are parallel. */
+const SUN_DISTANCE = 600
+
+/**
+ * Minimum lighting kept during shadow passes.
+ *
+ * The station spends about a third of every orbit in the Earth's shadow. Cutting all light would
+ * be faithful, but would leave the user facing a black screen every other half-hour: a very faint
+ * grazing light is kept so the silhouette stays readable.
+ */
+const NIGHT_FLOOR = 0.18
+
+function SunLight() {
+  const light = useRef<DirectionalLight>(null)
+
+  useFrame(() => {
+    if (!light.current) return
+    const state = useOrbitStore.getState().state
+    if (!state) return
+
+    const [x, y, z] = sunDirectionLvlh(state, new Date())
+    light.current.position.set(x * SUN_DISTANCE, y * SUN_DISTANCE, z * SUN_DISTANCE)
+    light.current.intensity = 3.2 * (NIGHT_FLOOR + (1 - NIGHT_FLOOR) * (1 - state.shadow))
+  })
+
+  return <directionalLight ref={light} intensity={3.2} color="#fff6e8" />
+}
+
+/** Fill light standing in for earthshine, strengthened when the station is in shadow. */
+function EarthShine() {
+  const light = useRef<DirectionalLight>(null)
+
+  useFrame(() => {
+    if (!light.current) return
+    const shadow = useOrbitStore.getState().state?.shadow ?? 0
+    light.current.intensity = 0.35 + 0.5 * shadow
+  })
+
+  // Coming from nadir: the Earth reflecting sunlight onto the belly of the station.
+  return <directionalLight ref={light} position={[0, -200, 0]} intensity={0.35} color="#6f93c4" />
+}
+
+export function StationView() {
+  const { scene, loading, progress, error } = useIssModel()
+
+  return (
+    <>
+      <Canvas camera={{ position: [70, 40, 90], fov: 42, near: 0.5, far: 4000 }} dpr={[1, 2]}>
+        <color attach="background" args={['#05070c']} />
+        <ambientLight intensity={0.35} color="#9fb6d0" />
+        <hemisphereLight args={['#2a4a6a', '#0a0f18', 0.4]} />
+        <SunLight />
+        <EarthShine />
+
+        {scene && <IssGltf scene={scene} />}
+
+        <Stars radius={800} depth={120} count={2500} factor={3} fade speed={0} />
+
+        <OrbitControls
+          enablePan
+          minDistance={15}
+          maxDistance={400}
+          target={[0, -3, 0]}
+          makeDefault
+        />
+      </Canvas>
+
+      {loading && <ModelProgress progress={progress} />}
+      {error && <ModelError message={error.message} />}
+    </>
+  )
+}
+
+function ModelProgress({ progress }: { progress: number }) {
+  const percent = Math.round(progress * 100)
+  // Past the download, the file still has to be decompressed and uploaded to the GPU, which the
+  // loader reports nothing about. Saying so beats a bar that sits at 100 % looking stuck.
+  const stage = percent >= 99 ? 'Decoding geometry…' : `Loading NASA model — ${percent}%`
+
+  return (
+    <div className="model-progress">
+      <span className="model-progress__label">{stage}</span>
+      <span className="model-progress__track">
+        <span className="model-progress__bar" style={{ width: `${Math.max(percent, 2)}%` }} />
+      </span>
+      <span className="model-progress__note">14.9 MB · cached by the browser afterwards</span>
+    </div>
+  )
+}
+
+function ModelError({ message }: { message: string }) {
+  return (
+    <div className="scene-error">
+      <h2>Station model unavailable</h2>
+      <p>
+        The 3D model could not be loaded. The orbital view and every telemetry panel still work —
+        only this view needs the file.
+      </p>
+      <pre>{message}</pre>
+    </div>
+  )
+}

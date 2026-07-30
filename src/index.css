@@ -1,0 +1,61 @@
+/**
+ * Visual foundations: a dark mission-control palette, restrained typography, and tabular figures
+ * so values do not jitter as they change.
+ */
+:root {
+  --bg: #070a10;
+  --bg-panel: #0d121b;
+  --bg-panel-alt: #111926;
+  --border: #1e2937;
+  --border-strong: #2c3a4d;
+
+  --text: #c7d2df;
+  --text-dim: #7d8da0;
+  --text-strong: #f2f6fb;
+
+  --accent: #ffb03a;
+  --accent-dim: rgba(255, 176, 58, 0.16);
+  --live: #3ddc97;
+  --warn: #ffb03a;
+  --alert: #ff6b5e;
+  --idle: #6b7c93;
+
+  --sans: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+
+  font: 15px/1.5 var(--sans);
+  color: var(--text);
+  background: var(--bg);
+  color-scheme: dark;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body,
+html,
+#root {
+  margin: 0;
+  height: 100%;
+}
+
+h1,
+h2,
+h3 {
+  color: var(--text-strong);
+  font-weight: 600;
+  margin: 0;
+}
+
+p {
+  margin: 0;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}

@@ -1,0 +1,39 @@
+# Everything that can be checked without a network conversation with NASA.
+#
+# The `verify:*` scripts are deliberately absent. They open a real Lightstreamer session, query
+# Celestrak, DONKI and the image catalogue, and judge live data — which makes them invaluable at a
+# keyboard and useless in CI, where a quiet stream or a re-indexed catalogue would fail a build
+# that has nothing wrong with it. They stay manual, and the README says why.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Types first: a type error makes every later failure harder to read.
+      - name: Typecheck
+        run: npx tsc -b
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      # Catches what tsc cannot: bundler resolution, the worker format satellite.js needs, and the
+      # JSON import attribute the overflight lookup depends on.
+      - name: Build
+        run: npm run build

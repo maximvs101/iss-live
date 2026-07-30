@@ -1,0 +1,1546 @@
+/** Layout: full-frame 3D scene on the left, reading column on the right. */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.app__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+
+.app__brand h1 {
+  font-size: 20px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.app__brand p {
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.app__controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.view-switch {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.view-switch__item {
+  padding: 6px 16px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  transition: background 0.15s, color 0.15s;
+}
+
+.view-switch__item:hover {
+  color: var(--text);
+}
+
+.view-switch__item--active {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+/*
+ * Two columns wherever two will fit, and a side column that gives ground before the data does.
+ *
+ * 400 px fixed with a 1100 px breakpoint was tuned on a desktop and failed the most common tablet
+ * there is: at 1024×768 the layout collapsed to one column, the map took 490 px of 768, and the
+ * telemetry began 641 px down — **nothing** was readable without scrolling, which is exactly the
+ * fault the whole layout was rebuilt to fix. Smartphones are out of scope by decision; a 1024-wide
+ * tablet is not, and it carries two columns comfortably once the side one is allowed to shrink.
+ */
+.app__main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(300px, 26vw, 400px);
+  min-height: 0;
+}
+
+/*
+ * Scene above, telemetry below, sharing the widest column.
+ *
+ * The map is locked to 2:1, so a full-height column left 560 px of 1196 showing nothing while the
+ * readings queued behind 1196 px of side panel — one exact screenful. Capping the scene by a
+ * fraction of the height rather than letting it take everything hands the remainder to the data.
+ */
+.app__primary {
+  display: grid;
+  /* The map is 2:1 and caps its own height, so the row takes exactly what it needs and the
+     telemetry gets the remainder — no letterbox, and no empty band either. */
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+}
+
+/* The model has no fixed aspect to size a row from, so its share is stated outright. It earns
+   more than the map: it is a three-dimensional object seen at an angle. */
+.app__primary--station {
+  grid-template-rows: minmax(240px, 58%) minmax(0, 1fr);
+}
+
+.app__scene {
+  position: relative;
+  min-height: 0;
+  min-width: 0;
+  background: #04060b;
+}
+
+/* What the station is passing over, above the numbers it belongs with. */
+.orbit-overflight {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: rgba(255, 176, 58, 0.06);
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.orbit-overflight strong {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.orbit-overflight__note {
+  font-size: 11px;
+  opacity: 0.65;
+}
+
+/* Flat map. The SVG keeps its 2:1 aspect and sits centred in whatever space it is given. */
+/* No `height: 100%`: the row is sized from this box now, not the other way round. */
+.map-view {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 14px 16px 12px;
+  box-sizing: border-box;
+}
+
+.map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.map-legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.map-legend__swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.map-legend__swatch--sun {
+  background: #ffd88a;
+  box-shadow: 0 0 0 2px rgba(255, 216, 138, 0.25);
+}
+
+/*
+ * Larger than the coloured swatches, and deliberately larger than the marker on the map: the
+ * shape has eight separate wings, and below about this size they close up into a solid bar and
+ * the silhouette reads as a letter H.
+ */
+.map-legend__icon {
+  width: 26px;
+  height: 18px;
+  flex: none;
+}
+
+.map-legend__swatch--future,
+.map-legend__swatch--past {
+  width: 14px;
+  height: 2px;
+  border-radius: 1px;
+}
+
+.map-legend__swatch--future {
+  background: var(--accent);
+}
+
+.map-legend__swatch--past {
+  background: #8899aa;
+}
+
+/* Dashed, like the track itself where the station is eclipsed. */
+.map-legend__swatch--eclipse {
+  width: 14px;
+  height: 2px;
+  border-radius: 0;
+  background: repeating-linear-gradient(
+    to right,
+    #7f93c4 0 3px,
+    transparent 3px 6px
+  );
+}
+
+.map-legend__swatch--night {
+  background: #0d2338;
+  border: 1px solid var(--border-strong);
+  border-radius: 2px;
+}
+
+/*
+ * Sized by width alone, never by height.
+ *
+ * `max-height` on a `width: 100%` SVG does not shrink it — the box stays full width and
+ * `preserveAspectRatio` letterboxes the drawing inside it, leaving the border floating a hundred
+ * pixels clear of the map on both sides. Since the drawing is 2:1, capping the width at `88vh`
+ * caps the height at `44vh` with no second constraint to fight.
+ */
+.map-view__svg {
+  width: min(100%, 88vh);
+  height: auto;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+}
+
+/* Shown while the 3D view's own bundle is fetched, before the model download even starts. */
+.scene__loading {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.scene__hint {
+  position: absolute;
+  left: 16px;
+  bottom: 14px;
+  font-size: 12px;
+  color: var(--text-dim);
+  background: rgba(7, 10, 16, 0.72);
+  padding: 5px 10px;
+  border-radius: 6px;
+  pointer-events: none;
+}
+
+/* --- Passes over a location --- */
+
+/* No margin of its own — `.passes__controls` owns the spacing of the row it sits in. */
+.passes__filter {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.pass {
+  display: grid;
+  grid-template-columns: 62px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(30, 41, 55, 0.5);
+}
+
+.pass__when {
+  display: flex;
+  flex-direction: column;
+}
+
+.pass__day {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--idle);
+}
+
+.pass__time {
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.pass__detail {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.pass__track {
+  font-size: 12px;
+  color: var(--text);
+  font-family: var(--mono);
+}
+
+.pass__meta {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.pass__badge {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  border: 1px solid rgba(255, 176, 58, 0.4);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+/* A visible pass is the one worth stepping outside for, so it gets a marker in the margin. */
+.pass--visible {
+  border-left: 2px solid var(--accent);
+  padding-left: 8px;
+  margin-left: -10px;
+}
+
+.button--wide {
+  width: 100%;
+  padding: 8px;
+  margin-top: 4px;
+}
+
+.coords {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+  align-items: end;
+  margin-top: 12px;
+}
+
+/*
+ * `min-width: 0` on both, and neither is optional.
+ *
+ * A grid track sized `1fr` will not shrink below its content's min-content width, and an <input>
+ * reports that as its default twenty characters — 205 px here. Two of those plus the button came
+ * to 451 px inside a 352 px panel, so the form pushed the side column past the 400 px it is
+ * supposed to occupy and stole the width from the map.
+ */
+.coords label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+.coords input {
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text-strong);
+  font-family: var(--mono);
+  font-size: 13px;
+}
+
+.coords input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.coords button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* --- Model loading --- */
+
+.model-progress {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: min(280px, 70%);
+  pointer-events: none;
+}
+
+.model-progress__label {
+  font-size: 13px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.model-progress__track {
+  width: 100%;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.model-progress__bar {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.2s ease-out;
+}
+
+.model-progress__note {
+  font-size: 11px;
+  color: var(--idle);
+}
+
+/* --- Hover label --- */
+
+.hover-label {
+  position: fixed;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-width: 240px;
+  padding: 7px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: rgba(7, 10, 16, 0.92);
+  backdrop-filter: blur(4px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  /* The label must never intercept the pointer it is following. */
+  pointer-events: none;
+}
+
+.hover-label__name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.hover-label__designation {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.hover-label__meta {
+  margin-top: 3px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--idle);
+}
+
+.scene-error {
+  padding: 32px;
+  max-width: 520px;
+}
+
+.scene-error h2 {
+  font-size: 16px;
+  color: var(--alert);
+}
+
+.scene-error p {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.scene-error pre {
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-panel);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: pre-wrap;
+}
+
+/*
+ * `min-width: 0` stops the 400 px grid track from being widened by its own contents. Without it a
+ * track's minimum is `auto`, meaning "as wide as the widest thing inside" — so one over-wide form
+ * anywhere in the column takes the space from the scene beside it.
+ */
+.app__side {
+  min-width: 0;
+  border-left: 1px solid var(--border);
+  background: var(--bg-panel);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- Stream status bar --- */
+
+/* Stream status, in the header. Compact by default; it grows only when something is wrong. */
+/* Two blocks side by side: what the stream is doing, then the counters.
+   Everything used to run along a single line, which read as one undifferentiated string. */
+.stream-status {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-left: 22px;
+  border-left: 1px solid var(--border);
+}
+
+.stream-status__state {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: none;
+}
+
+/* Label above, age below: the state is the headline, its age the qualifier. */
+.stream-status__state > span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.25;
+}
+
+.stream-status__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--idle);
+  flex: none;
+}
+
+.stream-status--live .stream-status__dot {
+  background: var(--live);
+  box-shadow: 0 0 10px var(--live);
+}
+
+.stream-status--waiting .stream-status__dot,
+.stream-status--stale .stream-status__dot,
+.stream-status--connecting .stream-status__dot {
+  background: var(--warn);
+}
+
+.stream-status--outage .stream-status__dot,
+.stream-status--offline .stream-status__dot {
+  background: var(--alert);
+}
+
+.stream-status__label {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-strong);
+}
+
+.stream-status__age {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-family: var(--mono);
+}
+
+.stream-status__facts {
+  display: flex;
+  gap: 20px;
+  margin: 0;
+}
+
+.stream-status__fact {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.25;
+}
+
+.stream-status__fact dt {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--idle);
+}
+
+.stream-status__fact dd {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The counters are the first thing to drop when the header runs out of room: the state and its
+   age are what matter, the rest is detail. */
+@media (max-width: 1200px) {
+  .stream-status__facts {
+    display: none;
+  }
+}
+
+.stream-status__explanation {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+/* --- Panels --- */
+
+.panel {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* --- Folding panel --- */
+
+/* A <details>, so open/shut, keyboard access and the disclosure semantics are the browser's. */
+.panel--folding > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.panel--folding > summary::-webkit-details-marker {
+  display: none;
+}
+
+.panel__toggle {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+/* The triangle, drawn rather than inherited, so it can sit at the size the row wants. */
+.panel__toggle::before {
+  content: '';
+  flex: none;
+  width: 0;
+  height: 0;
+  border-left: 5px solid var(--text-dim);
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transform: translateY(-1px);
+  transition: transform 120ms ease;
+}
+
+.panel--folding[open] > .panel__toggle::before {
+  transform: translateY(-1px) rotate(90deg);
+}
+
+.panel__toggle:hover .panel__title {
+  color: var(--accent);
+}
+
+/* Pushed to the far end, and allowed to shorten rather than widen the panel. */
+.panel__toggle > .panel__designation {
+  margin-left: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel__title {
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.panel__designation {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.panel__category {
+  margin-top: 8px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+}
+
+.panel__summary {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.55;
+}
+
+.panel__empty {
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.55;
+}
+
+.panel__section {
+  margin-top: 16px;
+}
+
+.panel__subtitle {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 6px;
+}
+
+.panel__subtitle-note {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 11px;
+  color: var(--idle);
+}
+
+.panel__footnote {
+  margin-top: 14px;
+  font-size: 11px;
+  color: var(--idle);
+  line-height: 1.5;
+}
+
+.button {
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-dim);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.button:hover {
+  color: var(--text);
+  border-color: var(--text-dim);
+}
+
+/* --- Grid of computed metrics --- */
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.metric {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+}
+
+.metric__label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+.metric__value {
+  display: block;
+  margin-top: 3px;
+  font-family: var(--mono);
+  font-size: 15px;
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.metric--sun .metric__value {
+  color: var(--accent);
+}
+
+.metric--shadow .metric__value {
+  color: #7ea6d8;
+}
+
+/* --- Telemetry rows --- */
+
+.telemetry-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: baseline;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(30, 41, 55, 0.5);
+}
+
+.telemetry-row__label {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.telemetry-row__value {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.telemetry-row__number {
+  color: var(--text-strong);
+  font-size: 14px;
+}
+
+.telemetry-row__unit {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* Inferred rather than published unit: the dotted rule invites a hover to read the note. */
+.telemetry-row__unit--inferred {
+  border-bottom: 1px dotted var(--idle);
+  cursor: help;
+}
+
+.telemetry-row__nodata {
+  color: var(--idle);
+  font-size: 14px;
+}
+
+.telemetry-row__age {
+  font-size: 10px;
+  color: var(--warn);
+}
+
+/* A continuous sensor that has not reported for over a day. Distinct from an enumerated state
+   holding steady, which is normal and stays in the quieter warning colour. */
+.telemetry-row__age--stalled {
+  color: var(--alert);
+  font-weight: 600;
+}
+
+.telemetry-row__hint {
+  grid-column: 1 / -1;
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.telemetry-row--empty .telemetry-row__label {
+  color: var(--text-dim);
+}
+
+/* --- Graphiques --- */
+
+/* The chart and the control that chooses what it draws, kept together as one block. */
+.plot {
+  margin-top: 14px;
+}
+
+.plot__picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.plot__picker-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--idle);
+  flex: none;
+}
+
+.plot__select {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.plot__select:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.plot__none {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-left: 2px solid var(--border-strong);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+.chart {
+  margin: 10px 0 0;
+}
+
+.chart__title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.chart__unit {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: var(--mono);
+}
+
+.chart__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 4px;
+}
+
+.chart__tick {
+  fill: var(--text-dim);
+  font-size: 8px;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.chart__endlabel {
+  fill: var(--text-strong);
+  font-size: 9px;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.chart__readout {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: var(--mono);
+}
+
+.chart__empty {
+  margin-top: 8px;
+  padding: 14px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+/* --- Subsystem tabs --- */
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 12px;
+}
+
+.tabs__item {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.tabs__item:hover {
+  color: var(--text);
+}
+
+.tabs__item--active {
+  background: var(--accent-dim);
+  border-color: rgba(255, 176, 58, 0.4);
+  color: var(--accent);
+}
+
+/*
+ * Narrow: one column, and the page scrolls rather than each panel scrolling inside itself.
+ *
+ * Panels that scroll internally are right when they sit side by side in a fixed frame and wrong
+ * when they are stacked — a nested scroller inside a page that also scrolls is the thing every
+ * reader hates. The order still puts the readings second, straight after the scene.
+ */
+@media (max-width: 900px) {
+  .app {
+    height: auto;
+    min-height: 100%;
+  }
+
+  .app__main {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+  }
+
+  .app__primary,
+  .app__primary--station {
+    grid-template-rows: auto auto;
+  }
+
+  .app__primary--station .app__scene {
+    min-height: 55vh;
+  }
+
+  /* The height cap exists to stop the map crowding the telemetry out of a fixed frame. Stacked
+     and scrolling there is nothing to crowd, so the map takes the width it is given. */
+  .map-view__svg {
+    width: 100%;
+  }
+
+  .panel--telemetry,
+  .app__side {
+    overflow-y: visible;
+  }
+
+  .app__side {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+}
+
+/* --- Sources --- */
+
+/* A link, not a button: it belongs to the page's small print, not to its controls. */
+.sources__open {
+  padding: 4px 2px;
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--border-strong);
+  cursor: pointer;
+}
+
+.sources__open:hover {
+  color: var(--accent);
+  text-decoration-color: var(--accent);
+}
+
+.sources {
+  width: min(620px, calc(100vw - 32px));
+  max-height: min(80vh, 760px);
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--bg-panel);
+  color: var(--text);
+  overflow: auto;
+}
+
+.sources::backdrop {
+  background: rgba(4, 6, 11, 0.72);
+}
+
+.sources__body {
+  padding: 20px 22px 22px;
+}
+
+.sources__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.sources__header h2 {
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.sources__close {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.sources__close:hover {
+  background: var(--bg);
+  color: var(--text-strong);
+}
+
+.sources__intro {
+  margin-top: 10px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-dim);
+}
+
+.sources__group {
+  margin-top: 22px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+}
+
+.sources__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sources__list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.sources__list a {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-strong);
+  text-decoration: none;
+}
+
+.sources__list a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.sources__used {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.sources__note {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+.sources__footnote {
+  margin-top: 18px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--idle);
+}
+
+.sources__footnote code {
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+/* Pull the controls apart: the filter reads left, the destructive action sits at the far end. */
+.passes__controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+/* --- Telemetry strip --- */
+
+/*
+ * The panel that now occupies the bottom of the main column.
+ *
+ * It scrolls inside itself rather than pushing the page: the scene above it must stay put, and a
+ * subsystem with thirty channels should not be able to shove the map off the screen.
+ */
+.panel--telemetry {
+  min-height: 0;
+  overflow-y: auto;
+  border-top: 1px solid var(--border);
+  border-bottom: 0;
+}
+
+/* Title, tabs and consoles on one line — chrome costs readings, in a panel this shape. */
+.telemetry__head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.telemetry__head .tabs {
+  margin-top: 0;
+}
+
+/* Pushed to the far end and allowed to disappear before it wraps the row. */
+.telemetry__consoles {
+  margin-top: 0;
+  margin-left: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.telemetry__tagline {
+  margin-top: 6px;
+  max-width: 80ch;
+}
+
+/*
+ * Sections flow into as many columns as the width allows.
+ *
+ * `auto-fill` rather than `auto-fit`: with `auto-fit` a single section would stretch across the
+ * whole strip and its values would sit a metre from their labels. Empty tracks are the better
+ * failure here.
+ */
+/* Plot on the left, readings flowing beside it, both dropping to full width when narrow. */
+/*
+ * Plot across the top, readings beneath it.
+ *
+ * Beside the readings it was 640 px wide and 226 tall, and those 640 px were a whole column of
+ * values that could not be shown. A single trace needs time on the horizontal, not depth, so it
+ * now runs the full width at a third of the height and the readings get every column that fits.
+ */
+.telemetry__body {
+  margin-top: 4px;
+}
+
+/*
+ * Column *flow* rather than grid tracks.
+ *
+ * A grid gives every item in a row the height of the tallest, so the sixteen-channel photovoltaic
+ * block sat alone on its own row with half the strip blank beside it. Flowing into columns lets
+ * each section start wherever the previous one ended.
+ *
+ * 260 with an 18 px gutter, and the two are chosen together: a column needs
+ * `n × column-width + (n − 1) × gap` to fit, and picking the width alone once left the browser one
+ * column short of what the space allowed, silently doubling the strip's height.
+ */
+.telemetry__sections {
+  margin-top: 8px;
+  columns: 260px;
+  column-gap: 18px;
+}
+
+/*
+ * Sections may run across a column boundary; a heading and a row may not.
+ *
+ * Keeping whole sections together sounds tidier and costs more than it is worth: the
+ * sixteen-channel photovoltaic block is 543 px on its own, so it set the height of every column
+ * beside it and three quarters of the strip stood empty. Letting the content flow and protecting
+ * only what must not be split — a heading from the rows it introduces, a row from itself — packs
+ * the same readings into the height of the longest *column* instead of the longest section.
+ */
+.telemetry__sections .panel__subtitle {
+  break-after: avoid;
+}
+
+.telemetry__sections .telemetry-row {
+  break-inside: avoid;
+}
+
+/* --- Space weather --- */
+
+/* Date, what it was, how big — the same three-part shape as a pass. */
+.weather-row {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  gap: 10px;
+  align-items: baseline;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(30, 41, 55, 0.5);
+  font-size: 12px;
+}
+
+.weather-row__when {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--idle);
+}
+
+.weather-row__what {
+  color: var(--text-dim);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.weather-row__value {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+/* M-class and above: the ones that mean a dose rather than an index. */
+.weather-row--notable .weather-row__value {
+  color: var(--accent);
+}
+
+/* --- Part photograph --- */
+
+.part-photo {
+  margin: 12px 0 0;
+}
+
+.part-photo img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  /* Reserves the space before the JPEG arrives, so the panel does not jump under the reader. */
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  background: var(--bg);
+}
+
+.part-photo figcaption {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 5px;
+  font-size: 11px;
+}
+
+.part-photo figcaption a {
+  color: var(--text-dim);
+  text-decoration: none;
+}
+
+.part-photo figcaption a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.part-photo__credit {
+  color: var(--idle);
+}
+
+/* The image and its controls, which sit on top of it. */
+.part-photo__frame {
+  position: relative;
+}
+
+/*
+ * Arrows over the picture rather than thumbnails beneath it.
+ *
+ * A strip of five 34 px thumbnails told you almost nothing — at that size one crew photograph
+ * looks like another — while costing a row of height in a panel that has none to spare.
+ */
+.part-photo__arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  background: rgba(7, 10, 16, 0.6);
+  color: var(--text-strong);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+/* Revealed on hover, and always for a keyboard user who has tabbed to them. */
+.part-photo:hover .part-photo__arrow,
+.part-photo__arrow:focus-visible {
+  opacity: 1;
+}
+
+/*
+ * Always visible where there is no pointer to hover with.
+ *
+ * Without this the arrows are unreachable in practice on a phone: they still work when tapped, but
+ * nothing ever tells you they are there, and the `1 / 5` counter does not read as a control. Found
+ * by finally looking at the rendered panel rather than at its DOM — the structure was correct and
+ * the affordance was missing.
+ */
+@media (hover: none) {
+  .part-photo__arrow {
+    opacity: 1;
+  }
+}
+
+.part-photo__arrow:hover {
+  background: rgba(7, 10, 16, 0.85);
+  color: var(--accent);
+}
+
+.part-photo__arrow--back {
+  left: 0;
+  border-radius: 0 4px 4px 0;
+}
+
+.part-photo__arrow--next {
+  right: 0;
+  border-radius: 4px 0 0 4px;
+}
+
+/* Always visible: it is the only cue that there is more than one picture. */
+.part-photo__count {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(7, 10, 16, 0.7);
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+/* Times along the track ahead. Small and set in the mono face, like every other reading. */
+.map-tick {
+  font-family: var(--mono);
+  font-size: 8px;
+  fill: #ffcf7a;
+  paint-order: stroke;
+  stroke: #041020;
+  stroke-width: 2.5px;
+  stroke-linejoin: round;
+}
+
+/* The observer's own position: a cross in the legend too, not another disc. */
+.map-legend__swatch--observer {
+  border-radius: 0;
+  background:
+    linear-gradient(to right, transparent 45%, #e8e6e0 45% 55%, transparent 55%),
+    linear-gradient(to bottom, transparent 45%, #e8e6e0 45% 55%, transparent 55%);
+}
+
+.map-legend__swatch--observer-up {
+  background:
+    linear-gradient(to right, transparent 45%, #7ef0b0 45% 55%, transparent 55%),
+    linear-gradient(to bottom, transparent 45%, #7ef0b0 45% 55%, transparent 55%);
+  box-shadow: 0 0 0 1px rgba(126, 240, 176, 0.5);
+  border-radius: 50%;
+}
+
+/* The full-resolution link sits inside the credit line, so it needs its own affordance. */
+.part-photo__original {
+  color: var(--text-dim);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--border-strong);
+}
+
+.part-photo__original:hover {
+  color: var(--accent);
+  text-decoration-color: var(--accent);
+}
+
+/*
+ * Short viewports: the map and the panel furniture give way, the readings do not.
+ *
+ * A 1024×768 tablet has 768 px of height to spend and the desktop layout spends 320 of them on
+ * chrome before the first reading — tabs wrapping onto three lines, a two-line tagline, a chart —
+ * inside a strip only 278 px tall. Everything below simply never appeared.
+ *
+ * Keyed on height rather than width, because that is what is actually scarce: a 1280×800 laptop
+ * has the same problem as the tablet and none of its narrowness.
+ *
+ * The threshold is 1100 px, not the 850 first tried. At 850 a 1920×1080 desktop kept the roomy
+ * arrangement and showed **13 of 30** readings, while a 1280×800 laptop showed **26** — the larger
+ * screen showing less, which is the wrong way round. 1080p is the common case and belongs on the
+ * compact side of the line; only a genuinely tall screen has height to spare.
+ */
+@media (max-height: 1100px) {
+  /* 68vh of width is 34vh of map — still the largest thing on screen, no longer most of it. */
+  .map-view__svg {
+    width: min(100%, 68vh);
+  }
+
+  .map-view {
+    padding: 10px 12px 8px;
+  }
+
+  /* Context, not data. First to go when the two compete for the same pixels. */
+  .telemetry__tagline,
+  .telemetry__consoles {
+    display: none;
+  }
+
+  .panel--telemetry {
+    padding: 12px 16px;
+  }
+
+  /*
+   * Readings first, chart after.
+   *
+   * The plot is 142 px of the strip and, on a screen this short, it was standing between the
+   * reader and every number behind it. One trace does not outrank thirty values for the top of
+   * the panel; it is still there, one short scroll down.
+   */
+  .telemetry__body {
+    display: flex;
+    flex-direction: column-reverse;
+  }
+
+  .telemetry__sections {
+    margin-top: 0;
+  }
+}
+
+/* --- Choosing a part without a mouse --- */
+
+.part-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.part-picker__label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--idle);
+  flex: none;
+}
