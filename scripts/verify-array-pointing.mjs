@@ -1,33 +1,39 @@
 /**
  * Checks where the solar arrays are actually pointing, against where the Sun actually is.
  *
- * This exists because the 3D scene cannot answer the question honestly. Measuring it in the
+ * This exists because the 3D scene cannot be trusted to answer the question. Measuring it in the
  * browser needs the render loop, and the render loop stops whenever the window is not the one in
- * front — twice now a set of readings turned out to have been taken from a frozen frame, with the
- * Sun still sitting at three.js's default `(0, 1, 0)`. Here the same geometry is rebuilt from the
- * glTF file and the same solar vector from the same propagator, with nothing that can silently
- * stop running.
+ * front — three times a set of readings turned out to have come from a frozen frame, with the Sun
+ * still sitting at three.js's default `(0, 1, 0)`, and each time the numbers looked reasonable
+ * enough to publish. Here the geometry is rebuilt from the glTF file and the solar vector from the
+ * propagator, with nothing in the path that can silently stop.
  *
- * What it reports, per wing:
+ * Two parts, in order, because they are answerable independently:
  *
- *   off-Sun      the angle between the blanket's normal and the Sun. Zero is face-on.
- *   ideal BGA    the beta angle that would put the blanket face-on, given the alpha angle the
- *                station is publishing. Found by sweeping, not by algebra, so it makes no
- *                assumption about which way the joint turns.
- *   offset       ideal minus published. A constant across all eight wings, holding still as the
- *                geometry changes, means the model's rest pose is not the joint's zero — a rigging
- *                constant. Something that moves with the orbit means the station is off-pointing
- *                its arrays on purpose, which NASA documents it doing.
+ *   Geometry   Re-derives from the model the constants `nodeMapping` declares — the quarter turn
+ *              on each beta joint, the axis each alpha joint turns about, the frame the truss
+ *              lands in — and checks the rest orientations are real rotations. No Sun, no clock,
+ *              no stream. A change to the model, or a typo in the table, fails here.
  *
- * Usage: node scripts/verify-array-pointing.mjs [--samples 1]
+ *   Pointing   Applies the live telemetry and asks where each blanket ends up relative to the Sun.
+ *              `off-Sun` is the angle from face-on. `ideal BGA` is the angle that would face the
+ *              Sun, found by sweeping rather than by algebra so it assumes nothing about which way
+ *              the joint turns. `best reachable` is what no beta angle can remove: large there
+ *              means the residual is not in this joint.
+ *
+ * Exits non-zero if any check fails, so it can be run without reading it.
+ *
+ * Usage: npm run verify:arrays
  */
 import { readFileSync } from 'node:fs'
 import { Euler, Matrix4, Quaternion, Vector3 } from 'three'
 import { twoline2satrec } from 'satellite.js'
 import { propagateIss, betaAngle, sunDirectionLvlh } from '../src/orbit/propagator.ts'
-import { JOINT_BINDINGS } from '../src/scene/nasa/nodeMapping.ts'
+import { JOINT_BINDINGS, jointAngle } from '../src/scene/nasa/nodeMapping.ts'
 
-const MODEL = 'public/models/iss-igoal.glb'
+// Resolved against this file, not the working directory: run from the wrong folder and a relative
+// path fails with a missing-module error that says nothing about the real mistake.
+const MODEL = new URL('../public/models/iss-igoal.glb', import.meta.url)
 const CELESTRAK = 'https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=TLE'
 
 const LIGHTSTREAMER = 'https://push.lightstreamer.com/lightstreamer'
@@ -106,7 +112,8 @@ function setJoint(binding, angle) {
     .multiply(
       new Quaternion().setFromAxisAngle(
         AXES[binding.axis],
-        (((binding.sign ?? 1) * angle + (binding.zero ?? 0)) * Math.PI) / 180,
+        // The same function the scene uses, imported rather than copied.
+        (jointAngle(binding, angle) * Math.PI) / 180,
       ),
     )
   node.applied = new Matrix4().compose(position, turned, scale)
@@ -117,6 +124,92 @@ function blanketNormal(binding) {
   const world = worldMatrix(byName.get(binding.node))
   const normal = BLANKET_NORMAL.clone().transformDirection(world)
   return normal.normalize()
+}
+
+// --------------------------------------------------- part one: geometry alone
+//
+// Nothing below this heading touches the Sun, the clock or the stream. It re-derives from the
+// model the constants the bindings declare, so those constants can be checked rather than
+// believed. A change to the model, or a typo in the table, fails here.
+
+let failures = 0
+const fail = (message) => {
+  console.log(`  FAIL  ${message}`)
+  failures += 1
+}
+
+console.log('Geometry (model only, no Sun, no telemetry)\n')
+
+// Rest orientations must be unit quaternions. They are not automatically: `Truss_S6` carries a
+// uniform scale of 63.33 and the joints under it 0.016, and reading a rotation off those matrices
+// with `setFromRotationMatrix` returns something that is not a rotation at all. That mistake is
+// what once made the S6 wings look 71° out, so it is checked rather than remembered.
+const notUnit = JOINT_BINDINGS.filter(
+  (binding) => Math.abs(byName.get(binding.node).rest.length() - 1) > 1e-6,
+)
+if (notUnit.length) fail(`rest orientation is not a unit quaternion: ${notUnit.map((b) => b.node).join(', ')}`)
+else console.log(`  ok    all ${JOINT_BINDINGS.length} rest orientations are unit quaternions`)
+
+// The alpha joints turn about the truss. Everything else here is measured against that axis, so
+// if this is wrong the rest of the section means nothing.
+for (const binding of JOINT_BINDINGS) setJoint(binding, 0)
+const trussAxis = new Vector3(0, 0, 1)
+  .transformDirection(worldMatrix(byName.get('PORT_ALPHA_ROT')))
+  .normalize()
+
+for (const name of ['PORT_ALPHA_ROT', 'STBD_ALPHA_ROT']) {
+  const axis = new Vector3(0, 0, 1).transformDirection(worldMatrix(byName.get(name))).normalize()
+  const off = (Math.acos(Math.min(1, Math.abs(axis.dot(trussAxis)))) * 180) / Math.PI
+  if (off > 0.5) fail(`${name} turns about an axis ${off.toFixed(1)}° off the truss`)
+}
+// In the scene frame the truss lies along X — starboard. A different answer means the model
+// rotation in IssGltf no longer matches this script, and every angle below would be measured in
+// the wrong frame while still looking plausible.
+if (Math.abs(Math.abs(trussAxis.x) - 1) > 0.01) {
+  fail(`the truss axis is [${trussAxis.x.toFixed(2)}, ${trussAxis.y.toFixed(2)}, ${trussAxis.z.toFixed(2)}], not the scene's X`)
+} else {
+  console.log('  ok    both alpha joints turn about the truss, and the truss lies along scene X')
+}
+
+// The declared `zero` of each beta joint, re-derived: the rotation that lays the blanket in the
+// plane perpendicular to the truss, which is where the station measures its BGA angle from.
+console.log('\n  wing        declared   re-derived   residual')
+for (const binding of JOINT_BINDINGS.filter((b) => b.node.includes('BETA_ROT'))) {
+  const tiltAt = (angle) => {
+    // Bypass `sign` and `zero` here: this asks what the model does, not what the bindings claim.
+    const node = byName.get(binding.node)
+    const position = new Vector3()
+    const scale = new Vector3()
+    node.local.decompose(position, new Quaternion(), scale)
+    node.applied = new Matrix4().compose(
+      position,
+      node.rest.clone().multiply(
+        new Quaternion().setFromAxisAngle(AXES[binding.axis], (angle * Math.PI) / 180),
+      ),
+      scale,
+    )
+    const normal = BLANKET_NORMAL.clone()
+      .transformDirection(worldMatrix(node))
+      .normalize()
+    return (Math.asin(Math.min(1, Math.abs(normal.dot(trussAxis)))) * 180) / Math.PI
+  }
+
+  let best = { angle: 0, tilt: Infinity }
+  for (let angle = 0; angle < 360; angle += 0.05) {
+    const tilt = tiltAt(angle)
+    if (tilt < best.tilt) best = { angle, tilt }
+  }
+  setJoint(binding, 0)
+
+  const declared = binding.zero ?? 0
+  // A half turn about the mast puts the blanket back in the same plane, so the two agree modulo 180.
+  const gap = Math.abs((((best.angle - declared) % 180) + 270) % 180 - 90)
+  const name = binding.node.replace('_BETA_ROT', '').replace('PORT_', 'P ').replace('STBD_', 'S ')
+  console.log(
+    `  ${name.padEnd(10)} ${String(declared).padStart(8)}°   ${best.angle.toFixed(2).padStart(8)}°   ` +
+      `${best.tilt.toFixed(3).padStart(7)}°  ${gap < 0.5 ? 'ok' : 'MISMATCH'}`,
+  )
+  if (gap >= 0.5) failures += 1
 }
 
 // ------------------------------------------------------------- the telemetry
@@ -180,7 +273,12 @@ async function readTelemetry(seconds = 12) {
   return values
 }
 
-// ------------------------------------------------------------------ the Sun
+// ------------------------------------- part two: against the Sun, live
+//
+// The geometry above fixes the constants without ever asking where the Sun is. This part asks,
+// which is what makes it a check rather than a restatement.
+
+console.log('\nPointing (live telemetry against the propagated solar vector)\n')
 
 const tle = await (await fetch(CELESTRAK)).text()
 const [, line1, line2] = tle.trim().split('\n').map((line) => line.trim())
@@ -247,3 +345,30 @@ const mean = offsets.reduce((sum, value) => sum + value, 0) / offsets.length
 const spread = Math.max(...offsets) - Math.min(...offsets)
 console.log(`\nrequired offset: mean ${mean.toFixed(1)}°, spread across the eight wings ${spread.toFixed(1)}°`)
 console.log(`|beta| is ${Math.abs(beta).toFixed(1)}° — ideal Sun-pointing needs |BGA| to equal it.`)
+
+// The station's own tracking is not perfect and neither is a TLE a few hours old, so this is not
+// asking for zero. It is asking that no wing be somewhere else entirely, which is the failure the
+// last three rounds of this work kept producing.
+const TOLERANCE = 15
+for (const binding of wings) {
+  const published = telemetry.get(binding.pui)
+  if (published === undefined) continue
+  const off = offSun(blanketNormal(binding))
+  if (off > TOLERANCE) fail(`${binding.node} is ${off.toFixed(1)}° off the Sun, over the ${TOLERANCE}° tolerance`)
+}
+
+// Both wings of a module publish mirrored angles, and so must end up pointing the same way. This
+// catches a swapped pair, which the off-Sun test alone would miss when both are wrong together.
+const spreadAcrossWings =
+  Math.max(...wings.map((b) => offSun(blanketNormal(b)))) -
+  Math.min(...wings.map((b) => offSun(blanketNormal(b))))
+if (spreadAcrossWings > 10) {
+  fail(`the eight wings disagree by ${spreadAcrossWings.toFixed(1)}° about where the Sun is`)
+}
+
+console.log(
+  failures === 0
+    ? '\nAll checks pass.'
+    : `\n${failures} check${failures === 1 ? '' : 's'} failed.`,
+)
+process.exit(failures === 0 ? 0 : 1)

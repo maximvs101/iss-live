@@ -25,7 +25,7 @@ import {
 import { readNumber } from '../../telemetry/store'
 import { useSelectionStore } from '../../ui/selection'
 import type { PartId } from '../parts'
-import { JOINT_BINDINGS, partOfNode } from './nodeMapping'
+import { JOINT_BINDINGS, jointAngle, partOfNode, type JointBinding } from './nodeMapping'
 
 /**
  * Real span of the station across the truss, in metres — the model's longest axis.
@@ -72,10 +72,8 @@ interface Joint {
   rest: Quaternion
   axis: Vector3
   pui: string
-  /** Degrees between the rest pose and the joint's published zero; see JOINT_BINDINGS. */
-  zero: number
-  /** Direction the published angle turns this joint; see JOINT_BINDINGS. */
-  sign: number
+  /** The binding this joint came from, which carries its zero and its direction of travel. */
+  binding: JointBinding
 }
 
 interface IssGltfProps {
@@ -153,8 +151,7 @@ export function IssGltf({ scene, rotation = [0, -Math.PI / 2, 0] }: IssGltfProps
         rest: node.quaternion.clone(),
         axis: AXES[binding.axis],
         pui: binding.pui,
-        zero: binding.zero ?? 0,
-        sign: binding.sign ?? 1,
+        binding,
       })
     }
     return found
@@ -241,7 +238,7 @@ export function IssGltf({ scene, rotation = [0, -Math.PI / 2, 0] }: IssGltfProps
         .multiply(
           new Quaternion().setFromAxisAngle(
             joint.axis,
-            MathUtils.degToRad(joint.sign * angle + joint.zero),
+            MathUtils.degToRad(jointAngle(joint.binding, angle)),
           ),
         )
     }

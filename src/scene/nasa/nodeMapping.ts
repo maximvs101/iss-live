@@ -34,9 +34,11 @@ export interface JointBinding {
    * was built with the blanket's normal lying *along* the truss, a quarter turn away.
    *
    * The figure is not fitted to make the picture look right. `npm run verify:arrays` sweeps each
-   * joint for the rotation that puts its blanket perpendicular to the truss and finds **90.00°,
-   * residual 0.00°, on all eight wings** — from the geometry alone, with no reference to where the
-   * Sun is. The Sun then serves as the check rather than as the input.
+   * joint for the rotation that puts its blanket perpendicular to the truss, from the geometry
+   * alone with no reference to where the Sun is, and returns **residual 0.000° on all eight** — at
+   * 90.00° on six of them and 270.00° on 1A and 1B, which is the same plane reached the other way
+   * round. The check therefore compares modulo 180°. The Sun serves as the check rather than as
+   * the input.
    */
   zero?: number
   /**
@@ -58,17 +60,29 @@ export interface JointBinding {
 }
 
 /**
+ * Angle to give a joint, in degrees, for a published telemetry value.
+ *
+ * One function, used by the scene and by `npm run verify:arrays` alike. That matters more than it
+ * looks: the two carried their own copy of this arithmetic for a while, and both times the rule
+ * changed, one of them was left behind — so the check and the thing being checked disagreed while
+ * both looked right.
+ */
+export function jointAngle(binding: JointBinding, published: number): number {
+  return (binding.sign ?? 1) * published + (binding.zero ?? 0)
+}
+
+/**
  * The twelve drivable joints.
  *
- * **The published angles are applied as they come — no sign flips.** This is worth stating,
- * because the telemetry invites the opposite conclusion: the alpha joints publish 137° (port)
- * alongside 222° (starboard), and each module's two wings publish mirrored values summing to 360°,
- * which looks like two opposite conventions that need reconciling.
+ * Both mirrorings the telemetry shows are real and are already in the model: the alpha joints
+ * publish angles summing to 360°, and so do each module's two wings, because the two sides and the
+ * two wings of a module count their angles in opposite directions. The model's rest orientations
+ * carry the same mirroring, so those cancel and need no correction here.
  *
- * They do not. The mirroring is already baked into the rest orientations of the model's nodes,
- * whose two wings face opposite ways. Measuring the angle between the eight wing planes settles
- * it: applying the angles unchanged leaves them **5.1°** apart — as parallel as eight independently
- * commanded joints ever are — while "correcting" the mirrored ones drives that to **68.2°**.
+ * What did need correcting is in `zero` and `sign` above — a quarter turn on every beta joint, and
+ * the direction of travel on both alpha joints. Neither is visible in a single frame, which is why
+ * both survived so long: the eight wing planes came out 5° apart either way, parallel to each
+ * other and collectively pointing somewhere the Sun was not.
  */
 export const JOINT_BINDINGS: JointBinding[] = [
   // Alpha joints: the whole outboard truss tracks the Sun, one turn per orbit. Both run opposite

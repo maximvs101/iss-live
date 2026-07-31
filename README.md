@@ -320,58 +320,40 @@ the disc itself at the frame's edge.
 
 ### Do the solar arrays actually point at the Sun?
 
-The strongest check available on the 3D scene, because three independent things have to agree for
-it to pass: the SARJ and BGA angles come from NASA's telemetry, the solar vector from SGP4 and a
-solar ephemeris, and the joint axes from the GLB's own node hierarchy. Measured in the live scene
-by taking each wing's panel normal — the thinnest axis of its geometry in the joint's frame, local
-X on all eight, with the 1391:448 extents matching the real 34 × 12 m — and comparing it to the
-light's direction.
+Yes. Run five times across a quarter of an orbit, through the boundary out of eclipse:
 
-**The wings came out 50.2° off the Sun.** All eight, within half a degree of each other, which is
-the signature of something systematic rather than noise.
-
-Ruling things out, in order. It is not a mirrored frame: sweeping all eight sign combinations of
-the solar vector, the best any of them managed was 44.7°, where a sign error would have produced a
-near-zero candidate. It is not the joint axes: sweeping the starboard SARJ and its BGA over the
-full 360° × 360° found a reachable pointing of **1.6°**, so the rig can do it. And it is not the
-model's orientation, which three physical facts confirm — the Cupola sits at y = −8 (nadir is −Y),
-Zvezda at z = +25 and Harmony at z = −12 (aft is +Z).
-
-Part of the answer was in the header: **`Signal interrupted — last data 13 min 17 s ago`**. The Sun
-moves through the station's frame at 360° / 92.96 min = 3.87° a minute, and sampling every thirty
-seconds while the telemetry sat frozen, the correction needed drifted at exactly that rate — 12°
-over three minutes against 11.5° predicted. That much is independently confirmed: when the stream
-came back, the starboard SARJ resumed at **3.84 °/min** measured over 3.33 minutes against 3.87
-predicted.
-
-**But it was not the whole answer, and the first version of this section said it was.** Two mistakes
-led there. The probe selected the brightest `DirectionalLight` as the Sun — and during eclipse the
-Sun is dimmed to its 0.18 floor while earthshine is boosted, so the brighter light is earthshine,
-pointing at the nadir. A reading of `[0, -1, 0]` is what gave that away. And the arithmetic agreed
-too readily: 62.5° against 60.6° predicted looked like proof and was a measurement against the
-wrong vector.
-
-Re-measured with the Sun identified by role instead — it is the only light that casts shadows — and
-with the stream live, the discrepancy is still there and it decomposes cleanly:
-
-| | best reachable | telemetry | error |
+| pass | beta | state | off-Sun, eight wings |
 |---|---|---|---|
-| Starboard SARJ | 183° | 184.2° | **1.2°** |
-| BGA 1A | 110° | 154.8° | **44.8°** |
+| 1 | −23.09° | eclipse | 1.6° – 3.5° |
+| 2 | −23.12° | eclipse | 0.8° – 4.1° |
+| 3 | −23.15° | sunlit | 0.3° – 4.5° |
+| 4 | −23.17° | sunlit | 0.6° – 4.4° |
+| 5 | −23.18° | sunlit | 1.4° – 3.9° |
 
-The SARJ needs no correction at all, and that is the load-bearing result: it validates the solar
-vector, the model's frame and the joint axes in one measurement. What is left is the beta gimbal,
-and it is off by the same amount on every wing — **45.0° ± 0.6 across all eight**, with the sign
-alternating between the pairs, which is what mirrored geometry does to a shared angle. Correcting it
-brings all eight to within about 6° of the Sun.
+Forty measurements between **0.3° and 4.5°**, no failures, no geometry mismatches. The residual is
+the station's own tracking lag: `S0000005` publishes the angle the port SARJ was commanded to, and
+it sits a couple of tenths of a degree from where the joint actually is.
 
-### Retracted: the solar array measurements were taken from frozen frames
+Getting there took two corrections to the model and the retraction of three earlier answers. It is
+the strongest check available on the scene, because three independent things have to agree for it
+to pass: the SARJ and BGA angles come from NASA's telemetry, the solar vector from SGP4 and a solar
+ephemeris, and the joint geometry from the GLB's own node hierarchy. An error in one cannot be
+absorbed by another.
 
-Everything in the section below was measured inside the running scene, and **the scene was not
-running**. `useFrame` stops whenever the browser window is not the one in front, and the automation
-that drove those measurements left it behind another window. The joints kept whatever angles they
-were last given, and — the part that made the readings look plausible rather than absurd — the Sun
-kept three.js's default `(0, 1, 0)`. Every angle was measured against straight up.
+`npm run verify:arrays` runs it, in two parts. The first re-derives from the model the constants
+the joint table declares and checks the rest orientations are real rotations — no Sun, no clock, no
+stream, so a typo in the table or a change to the GLB fails there. The second applies live
+telemetry and asks where each blanket ends up. It exits non-zero, so it can be run without being
+read.
+
+### Retracted: the earlier measurements were taken from frozen frames
+
+Three times this section confidently reported a number — 50.2°, then 45.0°, then 47°–88° — and each
+time the measurement was made inside the running scene while **the scene was not running**.
+`useFrame` stops whenever the browser window is not the one in front, and the automation that drove
+those measurements left it behind another window. The joints kept whatever angles they were last
+given, and — the part that made the readings look plausible rather than absurd — the Sun kept
+three.js's default `(0, 1, 0)`. Every angle was measured against straight up.
 
 The check that catches it costs one line — `document.hidden`, which reads `true` in exactly this
 situation and is why `requestAnimationFrame` never fires. Read a quaternion, wait, read it again
@@ -380,9 +362,11 @@ itself moved out of the browser altogether, into `npm run verify:arrays`, which 
 geometry from the glTF file and the same solar vector from the same propagator, with nothing in it
 that can silently stop.
 
-What survives from the section below: the panel normal really is local X, and the SARJ really does
-turn at orbital rate. What does not: the 47°–88° figure, the 45° constant, and four of the seven
-"ruled out" rows, which ruled out nothing because the input was a constant.
+What survives from those attempts: the panel normal really is local X, confirmed later on the
+blanket mesh alone at 67 × 449 × 1385 units, and the SARJ really does turn at orbital rate,
+confirmed from raw telemetry with no model in the path. What does not survive: all three angle
+figures, the fitted 45° constant, and most of a table of seven "ruled out" hypotheses, which ruled
+out nothing because the input was a constant.
 
 ### The real defect: a quarter turn between the model and the joint's zero
 
@@ -427,8 +411,9 @@ moving:
 
 That last row is the control: the same data, the same fit, one assumption changed.
 
-**All eight wings now sit 2.1° to 6.4° off the Sun, with 0.5° to 1.2° reachable** — the gap is the
-station's own tracking lag, not the model's. `npm run verify:arrays` rebuilds the geometry from the
+With both corrections in, **six of the eight wings came down to 3.6°–7.5° off the Sun, with
+0.3°–0.5° reachable** — the remaining gap being the station's own tracking lag rather than the
+model's. The other two are the next section. `npm run verify:arrays` rebuilds the geometry from the
 glTF file and the solar vector from the propagator and prints the table, outside the browser, where
 nothing can quietly stop running.
 
@@ -453,8 +438,9 @@ twelve joints read back a rest quaternion of exactly 1.0. The bug was in the too
 the model, which is the more embarrassing place for it and the easier place to miss it: a wrong
 answer from a measuring instrument looks like a fact about the thing measured.
 
-Reading it with `decompose` instead, **all eight wings sit 2.1° to 6.4° off the Sun, with 0.5° to
-1.2° reachable.** The station's arrays track, and the twin now shows them doing it.
+Reading it with `decompose` instead, all eight wings came in together for the first time — 2.1° to
+6.4° off the Sun on that sample, and 0.3° to 4.5° over the five-pass run above. The station's
+arrays track, and the twin now shows them doing it.
 
 ### Seeing it, in a tab that will not draw
 
@@ -473,43 +459,25 @@ The picture that settles it is a pair. Put the camera where the Sun is: all eigh
 their full rectangle. Move it 90° away: all eight go to thin slivers, while the radiators — which
 track nothing — stay broadside. Arrays that were mispointed could not do both.
 
-### Superseded: the solar arrays do not point at the Sun
+### What this section used to say
 
-Measured again in **sunlight** — the earlier readings were all taken during eclipse, with the Sun
-behind the Earth, which is the wrong moment to judge a sun-tracking mechanism. The arrays sit
-**47° to 88° off the Sun**, and the figure moves with the geometry rather than staying put.
+Kept short, because the detail is worth less than the pattern. Three successive versions reported
+the arrays as 50.2°, then 45.0°, then 47°–88° off the Sun, each with a decomposition, a table of
+ruled-out hypotheses, and a plausible story. All three were measured against a Sun that was not
+where the scene had put it, because the scene had not drawn a frame.
 
-The measurement itself is now sound, which took two corrections. The Sun is identified by role —
-it is the only light that casts shadows — after the first probe picked the brightest light and got
-earthshine during eclipse. And the panel normal is the least-variance direction of the vertex cloud
-rather than the thinnest bounding box, because an axis-aligned box inflates on two axes when a
-plate sits at an angle. Principal components put the normal at local **X** on all eight wings,
-which is where the box had it, so that assumption survived being checked.
+Two of those versions concluded that the defect was real and should be recorded rather than
+patched, on the grounds that fitting a correction until the arrays looked right would be assuming
+the answer. That reasoning was sound and the restraint was right — the constants that eventually
+went in were derived from the model's geometry and from watching a fit hold still across 46° of
+travel, not from one good-looking frame. What was wrong was the input, and no amount of care
+downstream fixes that.
 
-Seven explanations have been tried and none holds:
+The one durable lesson is the cheap check that would have caught it at any point: read a value,
+wait, read it again. A measurement taken from a system that is not running looks exactly like a
+measurement.
 
-| Hypothesis | Test | Result |
-|---|---|---|
-| Wrong light | identify by `castShadow` | fixed, discrepancy remains |
-| Wrong panel normal | PCA over the vertex cloud | normal is local X, as assumed |
-| Mirrored frame | all 8 sign combinations of the solar vector | best 44.7° |
-| Joints cannot reach the Sun | 360° × 360° sweep | **1.3° reachable** |
-| Stale data | re-measured with the stream live | persists |
-| Wrong rotation axis | all 9 axis pairs for SARJ × BGA | declared `z`/`z` is the **best** |
-| Wrong angle sign | 4 sign conventions | best 47.6° |
-
-So the rig can point the arrays at the Sun, and the angles NASA publishes do not take it there. No
-constant offset accounts for it either: a 45° figure that looked convincing during eclipse fell
-apart in sunlight, where neither joint alone closes the gap.
-
-This is not a regression from the lighting work — it is a pre-existing property of the joint
-rigging that the lighting work made *measurable* for the first time. It is recorded here rather
-than patched: fitting a correction until the arrays look right would be assuming the answer, and
-the one honest reading left is that either a convention in the joint bindings is wrong in a way
-these tests do not reach, or the station is genuinely flying a non-tracking array attitude — which
-its own `AUTOTRACK` mode argues against.
-
-#### Checked against NASA's own descriptions of the mechanism
+### Checked against NASA's own descriptions of the mechanism
 
 The *Reference Guide to the International Space Station*, Utilization Edition (NP-2015-05-022-JSC,
 September 2015) is an infographic document: it names the parts and their jobs but publishes no
@@ -528,19 +496,21 @@ do: Boeing's ISS EPS overview and the NTRS SARJ anomaly paper (NASA/CP-2010-2162
 | Four 100 kg gyros at 6,600 rpm | *"Each CMG has 98-kilogram (220-pound) flywheel that spins at 6,600 revolutions per minute"* | **confirmed** |
 | "Eight wings generate up to 120 kW" | 2015 guide: *"up to 80 kilowatts"*; Boeing: *"about 84 kW at assembly complete"*; NASA's current facts page: *"75 to 90 kilowatts"* | **contradicted — corrected to 75–90 kW** |
 | 109 m of truss | Three NASA sources give 94–95 m | **contradicted — corrected to 94 m** |
-| The arrays should be within a few degrees of the Sun | *"These rotary joints … ensure full sun-tracking capability"* | **confirms the defect is ours** |
+| The arrays should be within a few degrees of the Sun | *"These rotary joints … ensure full sun-tracking capability"* | **confirmed** — and so the mispointing was ours, which is what sent the search back into the model |
 
 Nothing in any of them gives the BGA's zero reference or sign convention, which is exactly what the
-defect turns on. And the public catalogue offers no BGA mode and no BGA commanded angle — only the
-SARJ has those — so "the arrays are deliberately biased" cannot be tested from this stream.
+two defects turned on; both had to be measured out of the model instead. And the public catalogue
+offers no BGA mode and no BGA commanded angle — only the SARJ has those — so "the arrays are
+deliberately biased" cannot be tested from this stream at all.
 
-What the reading did produce is a **new measurement that the documents do not predict**. NASA says
-the BGA compensates *seasonal* motion, and beta moves about 4°/day; over a 13-minute sample beta
-moved 0.05° while every BGA moved **1.2° to 1.7°** — twenty-five times more — with the sign
-mirrored between paired wings, exactly as the mirrored telemetry convention would put it. So the
-beta gimbals carry an orbital-rate term that "seasonal correction" does not account for. Against
-that, the same sample shows the eight wings sitting ~29° from their references while |beta| was
-19.8°, where ideal two-axis pointing requires those two to be equal.
+One measurement from the reading does not fit what the documents describe. NASA has the BGA
+compensating *seasonal* motion, and beta moves about 4° a day; over a 13-minute sample beta moved
+0.05° while every BGA moved **1.2° to 1.7°**, twenty-five times more, with the sign mirrored
+between paired wings. So the beta gimbals carry a small orbital-rate term on top of the seasonal
+one. It is genuinely small: sampled at three different points in the orbit, |BGA| against |beta|
+came out 19.1° against 23.0°, 22.0° against 23.1°, and 19.2° against 22.9° — a couple of degrees of
+wobble around the equality that ideal two-axis pointing requires, not a departure from it. Whatever
+drives it is below the resolution of anything published here.
 
 Two things were also confirmed live, and they matter because they pin the defect on this project
 rather than on the station: both SARJs report mode 5, `AUTOTRACK`; and the port SARJ sits **0.18°

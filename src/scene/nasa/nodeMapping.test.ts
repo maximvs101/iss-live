@@ -7,8 +7,19 @@
  * it, and these tests hold that line.
  */
 import { describe, expect, it } from 'vitest'
-import { JOINT_BINDINGS, MAPPED_ELEMENT_NAMES, MAPPED_PARTS, partOfNode } from './nodeMapping'
+import {
+  JOINT_BINDINGS,
+  MAPPED_ELEMENT_NAMES,
+  MAPPED_PARTS,
+  jointAngle,
+  partOfNode,
+} from './nodeMapping'
 import { PART_IDS } from '../parts'
+import { getSymbol } from '../../data/catalog'
+
+const ALPHA = JOINT_BINDINGS.filter((joint) => joint.node.includes('ALPHA'))
+const BETA = JOINT_BINDINGS.filter((joint) => joint.node.includes('BETA_ROT'))
+const GAMMA = JOINT_BINDINGS.filter((joint) => joint.node.includes('GAMMA'))
 
 describe('partOfNode', () => {
   it('claims an assembly element by its exact node name', () => {
@@ -102,5 +113,83 @@ describe('joint bindings', () => {
     for (const joint of JOINT_BINDINGS) {
       expect(known.has(joint.part), `${joint.part} is in the inventory`).toBe(true)
     }
+  })
+
+  it('cites only symbols that exist in the catalogue', () => {
+    for (const joint of JOINT_BINDINGS) {
+      expect(getSymbol(joint.pui), `${joint.pui} is in the catalogue`).toBeDefined()
+    }
+  })
+
+  it('pairs each wing with the channel its symbol names', () => {
+    // S6000008 is the 1B gimbal, so it must drive the node named for 1B. Swapping a pair inside a
+    // module is the one mapping error the pointing check cannot catch: both wings of a module end
+    // up wrong together, and still agree with each other about where the Sun is.
+    for (const joint of BETA) {
+      const channel = joint.node.slice(-2)
+      expect(getSymbol(joint.pui)?.description, `${joint.pui} drives ${channel}`).toContain(
+        `- ${channel} -`,
+      )
+    }
+  })
+})
+
+/**
+ * The two corrections, and the arithmetic that applies them.
+ *
+ * Both were wrong for a long time — every beta joint a quarter turn out, both alpha joints turning
+ * the wrong way — and neither broke a test or looked wrong in a screenshot. These cannot judge
+ * whether the constants are *right*; `npm run verify:arrays` does that against the model and the
+ * Sun. They hold the table still, so that a typo in it is not silent.
+ */
+describe('joint corrections', () => {
+  it('turns every beta joint a quarter turn from its rest pose', () => {
+    // Measured, not chosen: the rotation that lays each blanket in the plane perpendicular to the
+    // truss, which is where the station measures its BGA angle from.
+    expect(BETA).toHaveLength(8)
+    for (const joint of BETA) expect(joint.zero, joint.node).toBe(90)
+  })
+
+  it('runs both alpha joints against the angle they publish', () => {
+    // The published port angle falls at 3.79°/min while the scene needs the joint to advance at
+    // the orbital rate. The two zeros are independent constants and are not expected to match.
+    expect(ALPHA).toHaveLength(2)
+    for (const joint of ALPHA) expect(joint.sign, joint.node).toBe(-1)
+    expect(ALPHA.map((joint) => joint.zero)).toEqual([171.2, 187.9])
+  })
+
+  it('claims nothing about the radiator joints', () => {
+    // Nothing has been measured about them, so nothing is asserted.
+    for (const joint of GAMMA) {
+      expect(joint.zero, joint.node).toBeUndefined()
+      expect(joint.sign, joint.node).toBeUndefined()
+    }
+  })
+})
+
+describe('jointAngle', () => {
+  it('adds the zero offset', () => {
+    expect(jointAngle({ node: '', pui: '', part: 'saw-1a', axis: 'z', zero: 90 }, 19)).toBe(109)
+  })
+
+  it('applies the direction of travel to the published angle, not to the sum', () => {
+    // −1 × 30 + 171.2 = 141.2, not −(30 + 171.2) = −201.2. The two differ by 342.4°, which is not
+    // subtle once measured and completely invisible in a still frame.
+    expect(
+      jointAngle({ node: '', pui: '', part: 'sarj-port', axis: 'z', sign: -1, zero: 171.2 }, 30),
+    ).toBeCloseTo(141.2, 6)
+  })
+
+  it('passes the angle through untouched when neither is declared', () => {
+    expect(jointAngle({ node: '', pui: '', part: 'trrj-port', axis: 'x' }, 217.5)).toBe(217.5)
+  })
+
+  it('keeps the two alpha joints turning together', () => {
+    // They publish angles summing to 360°, so as one rises the other falls. Whatever the sign and
+    // zero do, the pair must stay in step: the outboard trusses are one rotation, not two.
+    const [port, starboard] = ALPHA
+    const step = 40
+    const gap = (p: number, s: number) => jointAngle(port, p) - jointAngle(starboard, s)
+    expect(gap(100 + step, 260 - step) - gap(100, 260)).toBeCloseTo(-2 * step, 6)
   })
 })
