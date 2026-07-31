@@ -70,8 +70,20 @@ for (const node of nodes) for (const child of node.children) nodes[child].parent
 
 const byName = new Map(nodes.map((node) => [node.name, node]))
 
-/** Resting orientation of each joint, taken from the file before anything is applied. */
-for (const node of nodes) node.rest = new Quaternion().setFromRotationMatrix(node.local)
+/**
+ * Resting orientation of each joint, taken from the file before anything is applied.
+ *
+ * Via `decompose`, not `setFromRotationMatrix`. The latter assumes the upper 3×3 is orthonormal and
+ * says nothing when it is not: `Truss_S6` carries a uniform scale of 63.33 and the joints beneath it
+ * 0.016, which is how the model keeps that module in its own units. Reading a quaternion straight
+ * off those matrices returns a non-unit one, and every rotation composed with it comes out wrong —
+ * which is exactly, and only, what made the S6 wings look 71° out. The scene never had that
+ * problem: three.js's loader decomposes the transforms itself.
+ */
+for (const node of nodes) {
+  node.rest = new Quaternion()
+  node.local.decompose(new Vector3(), node.rest, new Vector3())
+}
 
 /** Rebuilds a node's world matrix, honouring whatever rotations have been set on the chain. */
 function worldMatrix(node) {

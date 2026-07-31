@@ -427,23 +427,34 @@ moving:
 
 That last row is the control: the same data, the same fit, one assumption changed.
 
-**Six of the eight wings now sit 3.6° to 7.5° off the Sun, with 0.3° to 0.5° reachable** — the gap
-is the station's own tracking lag, not the model's. `npm run verify:arrays` rebuilds the geometry
-from the glTF file and the solar vector from the propagator and prints the table, outside the
-browser, where nothing can quietly stop running.
+**All eight wings now sit 2.1° to 6.4° off the Sun, with 0.5° to 1.2° reachable** — the gap is the
+station's own tracking lag, not the model's. `npm run verify:arrays` rebuilds the geometry from the
+glTF file and the solar vector from the propagator and prints the table, outside the browser, where
+nothing can quietly stop running.
 
-### Still open: the S6 pair
+### The S6 roll was the measuring tool, not the model
 
-**1B and 3B sit at 71.3°, and 71.2° of that is unreachable** by their beta gimbal — their own BGA
-correction is only ±5.4°, so those joints are right. They share the starboard alpha joint with 1A
-and 3A, which are at 3.6°, so the alpha is right too. What is left is between them: the `Truss_S6`
-segment carries about 71° of roll about the truss axis relative to `Truss_S4` in the model.
+1B and 3B sat at 71.3° while the other six tracked, and none of the obvious explanations held: their
+own beta gimbals only wanted ±5.4°, they share a working alpha joint with 1A and 3A, swapping their
+two published angles made it worse, and their mounting measured identical to the rest. The story
+written here was that `Truss_S6` carried 71° of roll. It does not.
 
-That is invisible to the mounting check run earlier, which measured each wing's mast and normal
-*against the truss axis* — quantities a roll about that same axis leaves untouched. Swapping the
-two published angles makes it worse (75.3°), so it is not a channel mix-up. Correcting it means
-rotating a truss node rather than a joint, which is a different mechanism from the one the bindings
-offer, and it is left alone until it can be justified as well as the two above.
+Chasing where the masts actually pointed found them **89.1° from the others** — a quarter turn, not
+71°, and a relative angle that no rotation above them could produce, because both S4 and S6 hang
+off the same alpha joint. That left only the arithmetic. `Truss_S6` carries a uniform scale of
+**63.33**, and the joints beneath it **0.016**, which is how the model keeps that module in its own
+units. The verification script read each joint's resting orientation with
+`Quaternion.setFromRotationMatrix`, which assumes an orthonormal upper 3×3 and says nothing when it
+is not: on those two nodes it returned a non-unit quaternion, and every rotation composed with it
+came out wrong.
+
+The scene never had the problem — three.js's loader decomposes the transforms itself, and all
+twelve joints read back a rest quaternion of exactly 1.0. The bug was in the tool built to check
+the model, which is the more embarrassing place for it and the easier place to miss it: a wrong
+answer from a measuring instrument looks like a fact about the thing measured.
+
+Reading it with `decompose` instead, **all eight wings sit 2.1° to 6.4° off the Sun, with 0.5° to
+1.2° reachable.** The station's arrays track, and the twin now shows them doing it.
 
 ### Superseded: the solar arrays do not point at the Sun
 
