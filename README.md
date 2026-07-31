@@ -456,6 +456,23 @@ answer from a measuring instrument looks like a fact about the thing measured.
 Reading it with `decompose` instead, **all eight wings sit 2.1° to 6.4° off the Sun, with 0.5° to
 1.2° reachable.** The station's arrays track, and the twin now shows them doing it.
 
+### Seeing it, in a tab that will not draw
+
+A hidden tab does not just stop `requestAnimationFrame`. React Three Fiber measures its container
+before mounting the scene at all, and that measurement never arrives either — so the canvas sits at
+its default 300 × 150 with nothing in it, and `useThree` never runs. Dispatching one `resize` event
+unblocks the measurement; `advance` from `FrameHandle` then draws frames on demand, running the
+same `useFrame` callbacks as the scheduler would. Confirmed by the renderer's own counters: 2,182
+draw calls, 5.7 M triangles, ten of twelve joints moving.
+
+With frames, the scene agrees with the script — **1.5° to 4.4° off the Sun across the eight
+wings** — and the Sun's starboard component reads 0.392 against `sin(23.1°)` = 0.392 from the beta
+angle, which is the check `sun.test.ts` makes, arrived at through the renderer this time.
+
+The picture that settles it is a pair. Put the camera where the Sun is: all eight blankets show
+their full rectangle. Move it 90° away: all eight go to thin slivers, while the radiators — which
+track nothing — stay broadside. Arrays that were mispointed could not do both.
+
 ### Superseded: the solar arrays do not point at the Sun
 
 Measured again in **sunlight** — the earlier readings were all taken during eclipse, with the Sun

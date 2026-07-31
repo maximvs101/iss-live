@@ -8,8 +8,8 @@
  * simplified station, the view reports what it is doing and how far along it is: a placeholder
  * shape would be indistinguishable from the real thing at a glance, and worse than an honest wait.
  */
-import { useRef } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
+import { useEffect, useRef } from 'react'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Stars } from '@react-three/drei'
 import { AdditiveBlending, BackSide } from 'three'
 import type { DirectionalLight, Group } from 'three'
@@ -23,6 +23,36 @@ import { FrozenJoints } from './FrozenJoints'
 
 /** Distance to the Sun in the scene: far enough that its rays are parallel. */
 const SUN_DISTANCE = 600
+
+/**
+ * Development-only handle on the render loop.
+ *
+ * `requestAnimationFrame` does not run in a hidden tab, and a hidden tab is the normal state for a
+ * browser driven by automation rather than by a person. The scene then holds its last frame while
+ * every value it depends on goes stale — the joints keep old angles, the Sun sits at three.js's
+ * default straight up — and a screenshot of that looks like a rendering, not like a stopped clock.
+ * Measurements were taken from exactly that and reported as findings.
+ *
+ * `advance` runs one frame on demand: the same `useFrame` callbacks, the same draw. So the scene
+ * can be checked without waiting on a scheduler that has no reason to tick.
+ *
+ * Never in a build — `import.meta.env.DEV` is statically false in production and the whole
+ * component drops out.
+ */
+function FrameHandle() {
+  const state = useThree()
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    const handle = window as unknown as { __issScene?: unknown }
+    handle.__issScene = state
+    return () => {
+      delete handle.__issScene
+    }
+  }, [state])
+
+  return null
+}
 
 
 
@@ -234,6 +264,7 @@ export function StationView() {
         */}
         <ambientLight intensity={0.16} color="#9fb6d0" />
         <hemisphereLight args={['#24425e', '#05080e', 0.22]} />
+        <FrameHandle />
         <Sun />
         <EarthShine />
 
