@@ -25,6 +25,36 @@ export interface JointBinding {
    * panels spread along X, so it turns about X.
    */
   axis: 'x' | 'y' | 'z'
+  /**
+   * Degrees between the model's resting orientation and the joint's published zero.
+   *
+   * Needed because the two are not the same thing. The station publishes a beta gimbal angle
+   * measured from the position where the blanket lies in the plane perpendicular to the truss —
+   * that is what makes |BGA| equal |beta| when the arrays are tracking the Sun — while the model
+   * was built with the blanket's normal lying *along* the truss, a quarter turn away.
+   *
+   * The figure is not fitted to make the picture look right. `npm run verify:arrays` sweeps each
+   * joint for the rotation that puts its blanket perpendicular to the truss and finds **90.00°,
+   * residual 0.00°, on all eight wings** — from the geometry alone, with no reference to where the
+   * Sun is. The Sun then serves as the check rather than as the input.
+   */
+  zero?: number
+  /**
+   * Direction the published angle turns the joint, in the node's own frame.
+   *
+   * A single reading cannot tell this apart from `zero`: at any one instant, flipping the sign and
+   * moving the zero to compensate produce exactly the same pose, and a fit is happy with either.
+   * Only watching it move separates them. The port alpha angle *falls* at 3.79°/min while the
+   * scene needs the joint to advance at the orbital rate, so the two must run opposite ways —
+   * measured over three samples spanning 46° of travel, where the published change and the fitted
+   * correction summed to **23.80° against 23.79° of orbit**, and the implied constant held at
+   * 170.0°, 171.5°, 172.1°.
+   *
+   * This is why the angles are no longer applied raw. They were, and it looked defensible: the
+   * eight wing planes came out 5° apart, which is what parallel arrays should do — but they were
+   * parallel and collectively wrong, and nothing in a still frame said so.
+   */
+  sign?: 1 | -1
 }
 
 /**
@@ -41,19 +71,22 @@ export interface JointBinding {
  * commanded joints ever are — while "correcting" the mirrored ones drives that to **68.2°**.
  */
 export const JOINT_BINDINGS: JointBinding[] = [
-  // Alpha joints: the whole outboard truss tracks the Sun, one turn per orbit.
-  { node: 'PORT_ALPHA_ROT', pui: 'S0000004', part: 'sarj-port', axis: 'z' },
-  { node: 'STBD_ALPHA_ROT', pui: 'S0000003', part: 'sarj-stbd', axis: 'z' },
+  // Alpha joints: the whole outboard truss tracks the Sun, one turn per orbit. Both run opposite
+  // to the published angle; the zeros were measured by watching the fit hold still while the joint
+  // swung — port 170.0°/171.5°/172.1° over 46° of travel, starboard 188.4°/187.4° over 27°.
+  { node: 'PORT_ALPHA_ROT', pui: 'S0000004', part: 'sarj-port', axis: 'z', sign: -1, zero: 171.2 },
+  { node: 'STBD_ALPHA_ROT', pui: 'S0000003', part: 'sarj-stbd', axis: 'z', sign: -1, zero: 187.9 },
 
-  // Beta joints: orientation of each wing about its own mast.
-  { node: 'PORT_BETA_ROT_2A', pui: 'P4000007', part: 'saw-2a', axis: 'z' },
-  { node: 'PORT_BETA_ROT_4A', pui: 'P4000008', part: 'saw-4a', axis: 'z' },
-  { node: 'PORT_BETA_ROT_2B', pui: 'P6000008', part: 'saw-2b', axis: 'z' },
-  { node: 'PORT_BETA_ROT_4B', pui: 'P6000007', part: 'saw-4b', axis: 'z' },
-  { node: 'STBD_BETA_ROT_1A', pui: 'S4000007', part: 'saw-1a', axis: 'z' },
-  { node: 'STBD_BETA_ROT_3A', pui: 'S4000008', part: 'saw-3a', axis: 'z' },
-  { node: 'STBD_BETA_ROT_1B', pui: 'S6000008', part: 'saw-1b', axis: 'z' },
-  { node: 'STBD_BETA_ROT_3B', pui: 'S6000007', part: 'saw-3b', axis: 'z' },
+  // Beta joints: orientation of each wing about its own mast. See `zero` above for the quarter
+  // turn between the model's rest pose and the angle the station publishes.
+  { node: 'PORT_BETA_ROT_2A', pui: 'P4000007', part: 'saw-2a', axis: 'z', zero: 90 },
+  { node: 'PORT_BETA_ROT_4A', pui: 'P4000008', part: 'saw-4a', axis: 'z', zero: 90 },
+  { node: 'PORT_BETA_ROT_2B', pui: 'P6000008', part: 'saw-2b', axis: 'z', zero: 90 },
+  { node: 'PORT_BETA_ROT_4B', pui: 'P6000007', part: 'saw-4b', axis: 'z', zero: 90 },
+  { node: 'STBD_BETA_ROT_1A', pui: 'S4000007', part: 'saw-1a', axis: 'z', zero: 90 },
+  { node: 'STBD_BETA_ROT_3A', pui: 'S4000008', part: 'saw-3a', axis: 'z', zero: 90 },
+  { node: 'STBD_BETA_ROT_1B', pui: 'S6000008', part: 'saw-1b', axis: 'z', zero: 90 },
+  { node: 'STBD_BETA_ROT_3B', pui: 'S6000007', part: 'saw-3b', axis: 'z', zero: 90 },
 
   // Gamma joints: the radiator swings about the truss axis, across its three panels.
   { node: 'PORT_TRRJ_GAMMA_ROT', pui: 'S0000002', part: 'trrj-port', axis: 'x' },

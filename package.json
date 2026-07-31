@@ -20,6 +20,7 @@
     "verify:passes": "node scripts/verify-passes.mjs",
     "verify:telemetry": "node scripts/verify-telemetry.mjs",
     "verify:plottable": "node scripts/verify-plottable.mjs",
+    "verify:arrays": "node scripts/verify-array-pointing.mjs",
     "verify:media": "node scripts/verify-nasa-media.mjs",
     "inspect:glb": "node scripts/inspect-glb.mjs",
     "inspect:joints": "node scripts/inspect-joints.mjs"

@@ -72,6 +72,10 @@ interface Joint {
   rest: Quaternion
   axis: Vector3
   pui: string
+  /** Degrees between the rest pose and the joint's published zero; see JOINT_BINDINGS. */
+  zero: number
+  /** Direction the published angle turns this joint; see JOINT_BINDINGS. */
+  sign: number
 }
 
 interface IssGltfProps {
@@ -149,6 +153,8 @@ export function IssGltf({ scene, rotation = [0, -Math.PI / 2, 0] }: IssGltfProps
         rest: node.quaternion.clone(),
         axis: AXES[binding.axis],
         pui: binding.pui,
+        zero: binding.zero ?? 0,
+        sign: binding.sign ?? 1,
       })
     }
     return found
@@ -232,7 +238,12 @@ export function IssGltf({ scene, rotation = [0, -Math.PI / 2, 0] }: IssGltfProps
       if (angle === null) continue
       joint.node.quaternion
         .copy(joint.rest)
-        .multiply(new Quaternion().setFromAxisAngle(joint.axis, MathUtils.degToRad(angle)))
+        .multiply(
+          new Quaternion().setFromAxisAngle(
+            joint.axis,
+            MathUtils.degToRad(joint.sign * angle + joint.zero),
+          ),
+        )
     }
   })
 

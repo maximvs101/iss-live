@@ -365,7 +365,87 @@ and it is off by the same amount on every wing — **45.0° ± 0.6 across all ei
 alternating between the pairs, which is what mirrored geometry does to a shared angle. Correcting it
 brings all eight to within about 6° of the Sun.
 
-### Open: the solar arrays do not point at the Sun
+### Retracted: the solar array measurements were taken from frozen frames
+
+Everything in the section below was measured inside the running scene, and **the scene was not
+running**. `useFrame` stops whenever the browser window is not the one in front, and the automation
+that drove those measurements left it behind another window. The joints kept whatever angles they
+were last given, and — the part that made the readings look plausible rather than absurd — the Sun
+kept three.js's default `(0, 1, 0)`. Every angle was measured against straight up.
+
+The check that catches it costs one line — `document.hidden`, which reads `true` in exactly this
+situation and is why `requestAnimationFrame` never fires. Read a quaternion, wait, read it again
+for confirmation: nothing moves. Both checks now run before any measurement, and the measurement
+itself moved out of the browser altogether, into `npm run verify:arrays`, which rebuilds the same
+geometry from the glTF file and the same solar vector from the same propagator, with nothing in it
+that can silently stop.
+
+What survives from the section below: the panel normal really is local X, and the SARJ really does
+turn at orbital rate. What does not: the 47°–88° figure, the 45° constant, and four of the seven
+"ruled out" rows, which ruled out nothing because the input was a constant.
+
+### The real defect: a quarter turn between the model and the joint's zero
+
+The station publishes a beta gimbal angle measured from the position where the blanket lies in the
+plane perpendicular to the truss. That convention is what makes |BGA| equal |beta| when the arrays
+track the Sun, and the telemetry bears it out — with beta at −22.97°, all eight wings published
+19.0° to 19.3° from their own reference. The model was built with the blanket's normal lying
+*along* the truss instead: a quarter turn away.
+
+The correction is not fitted to the picture. Sweeping each joint for the rotation that puts its
+blanket perpendicular to the truss — geometry only, no Sun anywhere in it — returns **90.00°,
+residual 0.00°, on all eight wings**. That is now `zero` in the joint bindings, and the Sun serves
+as the check instead of as the input.
+
+Three things were confirmed along the way, each by a route that could have contradicted it:
+
+| | how | result |
+|---|---|---|
+| The scene frame is right | the port alpha joint's rotation axis, in scene coordinates | `[-1, 0, 0]` — the truss axis, where LVLH puts it |
+| The blanket's normal is local X | extents of the blanket mesh alone, in its own joint frame | 67 × 449 × 1385 units = 1.6 m × 11 m × 34 m |
+| The two SARJs publish mirrored conventions | their sum, across many samples | 359.90° to 359.94°, never the 90° out-of-phase case NASA also documents |
+
+### And the alpha joints run backwards
+
+With the quarter turn applied, a single alpha offset brought six wings to within about 4° of the
+Sun — and the offset would not hold still. Fitted twice while the joint swung through 88.5°, it
+moved 139.75°. A rigging constant cannot do that.
+
+What it can do is absorb a **sign**. At any one instant, flipping the sign and shifting the zero to
+match give the identical pose, so a fit is content with either and the wrong one drifts. Watching
+it move separates them in one measurement: the published port angle *falls* at 3.79°/min while the
+scene needs the joint to advance at the orbital rate, and across three samples spanning 46° of
+travel the published change and the fitted correction summed to **23.80° against 23.79° of orbit**.
+Both joints therefore turn opposite to the angle they publish, and with that fixed the zeros stop
+moving:
+
+| | fitted zero, sample by sample | spread |
+|---|---|---|
+| Port alpha | 170.0°, 171.5°, 172.1° over 46° of travel | 2.1° |
+| Starboard alpha | 188.4°, 187.4° over 27° of travel | 1.0° |
+| Starboard, with the sign left as it was | 39°, 344° | 55° |
+
+That last row is the control: the same data, the same fit, one assumption changed.
+
+**Six of the eight wings now sit 3.6° to 7.5° off the Sun, with 0.3° to 0.5° reachable** — the gap
+is the station's own tracking lag, not the model's. `npm run verify:arrays` rebuilds the geometry
+from the glTF file and the solar vector from the propagator and prints the table, outside the
+browser, where nothing can quietly stop running.
+
+### Still open: the S6 pair
+
+**1B and 3B sit at 71.3°, and 71.2° of that is unreachable** by their beta gimbal — their own BGA
+correction is only ±5.4°, so those joints are right. They share the starboard alpha joint with 1A
+and 3A, which are at 3.6°, so the alpha is right too. What is left is between them: the `Truss_S6`
+segment carries about 71° of roll about the truss axis relative to `Truss_S4` in the model.
+
+That is invisible to the mounting check run earlier, which measured each wing's mast and normal
+*against the truss axis* — quantities a roll about that same axis leaves untouched. Swapping the
+two published angles makes it worse (75.3°), so it is not a channel mix-up. Correcting it means
+rotating a truss node rather than a joint, which is a different mechanism from the one the bindings
+offer, and it is left alone until it can be justified as well as the two above.
+
+### Superseded: the solar arrays do not point at the Sun
 
 Measured again in **sunlight** — the earlier readings were all taken during eclipse, with the Sun
 behind the Earth, which is the wrong moment to judge a sun-tracking mechanism. The arrays sit
