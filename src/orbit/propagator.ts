@@ -201,6 +201,50 @@ function scale(v: EciVec3<number>, factor: number): EciVec3<number> {
   return { x: v.x * factor, y: v.y * factor, z: v.z * factor }
 }
 
+/**
+ * Which way round the planet is, as seen from the station: a rotation taking a direction in the
+ * scene to the same direction in the Earth-fixed frame. Column-major, for `Matrix3.fromArray`.
+ *
+ * It lives here rather than in the scene because the honest construction needs the two things this
+ * module already has — the ECI basis the LVLH frame is built from, and Greenwich sidereal time —
+ * and because the version that did not have them was wrong by two and a half degrees.
+ *
+ * That earlier version worked from latitude, longitude and the *ground track's* heading, propagated
+ * a minute ahead. The mistake is subtle and worth keeping: a ground-track bearing is measured over
+ * a surface that is itself turning, while the LVLH frame is inertial. The gap between them is the
+ * Earth's rotation — 0.46 km/s at the equator against the station's 7.66 — which is a couple of
+ * degrees of bearing, and it showed up as exactly that when the frame was checked against the Sun.
+ *
+ * Composing the two bases directly has no such gap, and needs no heading and no second propagation:
+ *
+ *   the scene's axes, in ECI      starboard, zenith, aft — the same three `sunDirectionLvlh` uses
+ *   the Earth's axes, in ECI      the pole, and the meridians through 0° and 90° west, turned by
+ *                                 sidereal time
+ *
+ * and the rotation between two orthonormal bases is their table of dot products.
+ */
+export function earthOrientationLvlh(state: OrbitState, date: Date): number[] {
+  // The scene's basis, exactly as sunDirectionLvlh builds it.
+  const up = normalize(state.eci)
+  const alongTrack = normalize(subtract(state.velocity, scale(up, dot(state.velocity, up))))
+  const aft = scale(alongTrack, -1)
+  const starboard = cross(up, aft)
+  const scene = [starboard, up, aft]
+
+  // The Earth-fixed basis of `geocentric`: +Y through the north pole, +X out of (0°, 0°), +Z out of
+  // (0°, 90° west). Right-handed, which is the whole point — see geocentric for what the other way
+  // round costs.
+  const g = gstime(date)
+  const earth = [
+    { x: Math.cos(g), y: Math.sin(g), z: 0 },
+    { x: 0, y: 0, z: 1 },
+    { x: Math.sin(g), y: -Math.cos(g), z: 0 },
+  ]
+
+  // Column j is where scene axis j lands, which is what a mat3 uniform multiplies by.
+  return scene.flatMap((axis) => earth.map((basis) => dot(basis, axis)))
+}
+
 /** Subsolar point: latitude and longitude of the place where the Sun is at the zenith. */
 export function subsolarPoint(date: Date): { latitude: number; longitude: number } {
   const sun = sunDirectionEci(date)

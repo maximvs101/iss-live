@@ -17,11 +17,10 @@ import { useOrbitStore } from '../orbit/useOrbit'
 import { sunDirectionLvlh } from '../orbit/propagator'
 import { IssGltf } from './nasa/IssGltf'
 import { useIssModel } from './nasa/useIssModel'
-import { EARTH_CENTRE, EARTH_RADIUS } from './earthLimb'
 import { Atmosphere } from './Atmosphere'
+import { EarthSurface } from './EarthSurface'
 import { clampTarget, farPlane, maxPolarAngle } from './cameraFloor'
 import { NightLights } from './NightLights'
-import { OCEAN_ROUGHNESS } from './oceanGlint'
 import { SunPointer } from './SunPointer'
 import { FrozenJoints } from './FrozenJoints'
 
@@ -203,38 +202,6 @@ function Sun() {
 }
 
 /**
- * The planet the station is falling around.
- *
- * Deliberately unmarked — no coastlines, no cloud. This is a horizon, not a globe: the map view
- * already answers *where*, and a low-resolution texture stretched over a sphere this size would
- * invite a reading of the geography it cannot support. What it gives is the one thing the scene
- * lacked: somewhere for the station to be, and a terminator on the ground that agrees with the
- * terminator on the station, because both come from the same light.
- *
- * The air above it is a separate component, because it is a different kind of object: this sphere
- * is a surface and is shaded like one, while the limb is a length of nothing that happens to be
- * lit. See Atmosphere.
- *
- * Unmarked also settles what it is made of. There are no continents on it, so it is all sea, and it
- * is now shaded as sea: see OCEAN_ROUGHNESS for the glint.
- */
-function Earth() {
-  return (
-    <group position={[0, -EARTH_CENTRE, 0]}>
-      {/* Neither casting nor receiving: it sits far outside the shadow camera's frustum, which is
-          sized to the station, and asking for either would only spend resolution on nothing. */}
-      <mesh castShadow={false} receiveShadow={false}>
-        <sphereGeometry args={[EARTH_RADIUS, 64, 48]} />
-        {/* Dielectric, so metalness stays 0: water reflects about 2 % head-on and everything at a
-            grazing angle, which is what the standard material's Fresnel already does. */}
-        <meshStandardMaterial color="#1b4f7a" roughness={OCEAN_ROUGHNESS} metalness={0} />
-      </mesh>
-
-    </group>
-  )
-}
-
-/**
  * Earthshine: the planet below throwing sunlight back onto the station's belly.
  *
  * Real, and strong — the Earth reflects about a third of what hits it, and fills a third of the
@@ -301,7 +268,7 @@ export function StationView() {
         <Sun />
         <EarthShine />
 
-        <Earth />
+        <EarthSurface />
         <NightLights />
         <Atmosphere />
         <SunPointer target={sunMarker} />

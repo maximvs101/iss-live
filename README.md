@@ -483,30 +483,52 @@ city, and nothing invites the attempt.
 
 What the bare sphere never needed was an **orientation**. Any rotation of an unmarked ball looks the
 same. Paint anything on it and the question turns sharp, because lights in the wrong place are a
-claim about geography and a false one. Three facts pin it down — the ground below the station is at
-the reported latitude and longitude, up there is +Y here, and north there runs along the ground
-track's heading — and the rotation is built from two orthonormal triads rather than from angles,
-because angles need a convention and a convention needs remembering.
+claim about geography and a false one.
 
-Verified in four steps, because each could pass while the next failed:
+The first construction pinned it with three facts — the ground below the station is at the reported
+latitude and longitude, up there is +Y here, and north there runs along the **ground track's
+heading**. Two of those are right. The third is not, and the error is worth keeping: a ground-track
+bearing is measured over a surface that is itself turning, while the frame the station flies in is
+inertial. The gap between them is the Earth's rotation, 0.46 km/s at the equator against the
+station's 7.66, and it showed up as a steady **2.5°** — a hundred kilometres at the edge of what the
+station can see. What replaced it composes the two bases directly: the scene's axes in ECI, the
+Earth's axes in ECI turned by sidereal time, and the rotation between two orthonormal bases is their
+table of dot products. No heading, no second propagation, and no gap. It measures **0.0000°** now.
+
+That fixed the smaller of the two faults. The frame itself put +Z through 90° **east**, which reads
+more naturally and quietly makes it **left-handed**, because with the pole on +Y an eastward
+longitude turns about −Y. The matrix was a reflection, determinant −1, and the entire map was
+mirrored east for west.
+
+Eighteen tests passed while that was true. Orthonormal triads, the sub-satellite point under the
+station, north along the ground track — every one of them asked the matrix a question and then
+graded the answer with the same matrix. **So did the check this section used to end on**, the one
+described as closing the loop through every stage at once: read back the framebuffer, ray-cast each
+pixel to a latitude and longitude, compare against the texture there. It reported Perth to a third
+of a degree. It was circular — the ray-cast and the texture lookup both went through the orientation
+being tested, so a mirrored world agrees with a mirrored reading of it. A loop that contains the
+error twice will always agree with itself, however many stages it spans.
+
+Two kinds of check are immune, and both are now in the suite. One is algebraic and needs no scene:
+a **determinant**. The other asks something that has never heard of this frame — the **Sun** —
+where it is, and compares: place the subsolar point on the globe with this rotation, and it must
+land where the solar vector independently says the Sun is.
 
 | | how | result |
 |---|---|---|
-| The rotation is a rotation | orthonormality, five geometries | to 1e-9 |
-| It puts the right ground below the station | invert it and read the latitude and longitude back | to 1e-6, and 0.8° against the live store, which is 11 seconds of orbit |
-| The shader's `uv` matches the image | sample the texture at known places | Nile 254, Tokyo 253, Netherlands 241 against mid-Pacific 8, South Atlantic 8 |
-| Screen pixels match the map | read back the framebuffer, ray-cast each pixel to a latitude and longitude, compare with the texture there | the brightest lit pixel on the globe fell at **32.2° S, 115.8° E** — Perth is at 31.95° S, 115.86° E |
-
-The last one is the one worth keeping. It closes the loop through every stage at once: rendered
-pixel, camera ray, orientation matrix, texture lookup. Nothing else would have caught a rotation
-that was subtly wrong rather than obviously so.
+| It is a rotation, not a reflection | determinant, 16 geometries round one orbit | 1 to 1e-9; fails outright on the old frame |
+| It agrees with an outside witness | subsolar point through the matrix against `sunDirectionLvlh` | **0.0000°**, where the ground-track version read 2.5° |
+| It puts the right ground below the station | invert it and read latitude and longitude back | within the 0.19° geodetic-to-geocentric flattening |
+| The pole is where the latitude says | angle from zenith to the pole must be 90° − latitude | to 0.2°, and it pins the one roll the sub-satellite point leaves free |
 
 ### The sea reads as sea
 
 The planet was `roughness: 0.95` — near-matte, which is paint. The one thing every daylight
 photograph over an ocean has and this scene did not is the **glint**: the smeared bright patch where
 the Sun reflects off the water, and the thing that tells the eye the blue is liquid. Unmarked also
-settles what the sphere is made of: there are no continents on it, so it is all sea.
+settled what the sphere was made of: there were no continents on it, so it was all sea. The next
+section puts continents on it, and the figure below stops applying uniformly — it becomes what the
+roughness map carries over water, with land near-matte.
 
 The number is derived, because the interesting property of a glint is its *size*, and size comes
 from the slope of the waves. Cox and Munk measured that from aerial photographs in 1954 and the fit
@@ -535,6 +557,61 @@ It rises and falls, so it is a lobe rather than a gradient. And with everything 
 hidden, the brightest pixel landed 0.055 in NDC from the predicted specular peak — displaced
 *away* from the nadir, which is where Fresnel puts it and where a prediction using only `N·H`
 would not.
+
+### Half the planet had geography and half was paint
+
+This reverses a decision, so it is worth naming which one. The sphere was deliberately unmarked, on
+the argument that a texture at this scale invites reading a geography it cannot support and that the
+map view already answers *where*. That argument was sound while the sphere was bare **on both
+sides**. It stopped being sound the moment city lights went on the night side: half the planet then
+carried real geography and half was flat blue, and the seam between them at the terminator was the
+least defensible thing in the scene.
+
+So the day side gets **Blue Marble**, chosen for the same property that makes Black Marble work at
+night — **no lighting is baked into it**. The scene has its own Sun, from the same vector that lights
+the station, and a texture carrying someone else's would fight it. That is also the whole answer to
+why live weather imagery is the wrong tool here and these two are the right one: a satellite mosaic
+arrives already lit, already shadowed, and already an hour old.
+
+Three files, built by `npm run build:earth` rather than downloaded by hand, because a texture nobody
+can regenerate is a texture nobody can check:
+
+| | source | on disk |
+|---|---|---|
+| day | Blue Marble Next Generation, 5400 × 2700 | 1380 kB |
+| roughness | derived from the day image | 145 kB |
+| clouds | BMNG cloud composite, 2048 × 1024 | 409 kB |
+
+The **roughness map is derived, not downloaded**, because the glint from the previous section is now
+wrong everywhere there is land — 0.528 is a figure for water, and painting it over the Sahara makes
+the desert shine like a lake. There is no roughness product to fetch, but the colour image already
+knows where the water is: sea is blue and dark, and nothing else on Earth is both. `waterFraction`
+is the product of a blueness ramp and a darkness ramp, so snow is rejected by brightness and desert
+by hue, and it grades rather than thresholds so coastlines do not alias into a stencil. It comes out
+at **66.8 %** water against the true 71 %, and the missing 4 % is sea ice, which is correctly not
+behaving like open water. Sea reads 0.528, land 0.92.
+
+The first thresholds were tighter and gave 59.3 %, which is the kind of number that looks close
+enough to accept. It is not: 12 % of the planet is a continent's worth of misclassified surface.
+The script self-verifies against twelve named places — Sahara, Amazon, Greenland, mid-Pacific — and
+prints the coverage, so tightening a ramp cannot quietly cost a sea.
+
+**The clouds are a cloud field, not today's weather**, and the app never claims otherwise. Blue
+Marble's cloud layer is a month of observations averaged into something that looks like a sky. Since
+nothing else in this app invents data, saying so plainly matters more than usual.
+
+Verified three ways, none of which shares a path with the others:
+
+| | how | result |
+|---|---|---|
+| The mesh's own UVs land where they should | ray-cast the surface and read the `uv` **three.js** computes, against satellite.js for the sub-satellite point and the ephemeris for the subsolar point | nadir within the 0.19° flattening, subsolar **0.004°** |
+| Day map and night lights are registered | the shader's `M·up` against the mesh's UVs, 408 directions covering the globe | worst disagreement **0.019°**, about 2 km |
+| A human can read the geography | fly the clock forward to a daylit pass and look | over Sonora at 31.7° N, 112.9° W: Pacific on the **left**, Baja and the Gulf of California below, Rockies centre — a mirrored world puts the Pacific on the right |
+
+The last row is not decoration. It is the only check in the table that a mirrored, self-consistent
+frame cannot pass, and the reflection described earlier survived everything that was not of that
+kind. The night side gives the same test for free and sharper: over Brazil the lights stop dead
+along a diagonal with black beyond it, which is the Atlantic coast drawn by where people are not.
 
 ### The camera could fall through the sky
 
@@ -731,12 +808,13 @@ at 80° both look like a horizon. **The same two numbers also produce a plausibl
 it first. A test now pins the angle at 69.7° and separately asserts the result is *not* the
 footprint figure.
 
-It is deliberately unmarked: no coastlines, no cloud. This is a horizon, not a globe — the map view
-already answers *where*, and a low-resolution texture over a sphere this size would invite a
-reading of geography it cannot support. What it adds is somewhere for the station to be, a
-terminator on the ground that agrees with the one on the station because both come from the same
-light, and a thin atmosphere shell rendered from the inside so the limb glows where a 40 km layer
-is finally thick enough to see.
+It began deliberately unmarked — no coastlines, no cloud — on the argument that this is a horizon
+rather than a globe, and the map view already answers *where*. That held until the night side got
+city lights, at which point the argument had to be settled one way or the other; it is settled
+above, under *Half the planet had geography and half was paint*. What the sphere added from the
+start, and still adds, is somewhere for the station to be, a terminator on the ground that agrees
+with the one on the station because both come from the same light, and a thin atmosphere shell
+rendered from the inside so the limb glows where a 100 km layer is finally thick enough to see.
 
 ### The map said nothing to a screen reader
 

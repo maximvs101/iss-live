@@ -20,15 +20,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { AdditiveBlending, Matrix3, SRGBColorSpace, TextureLoader, type Texture, Vector3 } from 'three'
 import { useOrbitStore } from '../orbit/useOrbit'
-import { propagateIss, sunDirectionLvlh } from '../orbit/propagator'
+import { earthOrientationLvlh, sunDirectionLvlh } from '../orbit/propagator'
 import { EARTH_CENTRE, EARTH_RADIUS } from './earthLimb'
-import { earthOrientation, groundHeading } from './earthOrientation'
 
 /** NASA's Black Marble, 2016. Loaded once the station view is open, never before. */
 const TEXTURE = `${import.meta.env.BASE_URL}textures/earth-night.jpg`
-
-/** How far ahead to look to find which way the ground track is running. */
-const HEADING_LOOKAHEAD_S = 60
 
 const vertexShader = /* glsl */ `
   varying vec3 vLocalPosition;
@@ -63,7 +59,9 @@ const fragmentShader = /* glsl */ `
     // down rather than assumed.
     vec3 earth = uOrientation * up;
     float latitude = asin(clamp(earth.y, -1.0, 1.0));
-    float longitude = atan(earth.z, earth.x);
+    // Negated, because +Z runs through 90° *west*. See geocentric in earthOrientation for why the
+    // frame is built that way, and what a left-handed one silently does to the map.
+    float longitude = atan(-earth.z, earth.x);
     vec2 uv = vec2(longitude / (2.0 * PI) + 0.5, latitude / PI + 0.5);
 
     vec3 lights = texture2D(uLights, uv).rgb;
@@ -109,20 +107,12 @@ export function NightLights() {
   )
 
   useFrame(() => {
-    const { state, elements } = useOrbitStore.getState()
+    const { state } = useOrbitStore.getState()
     if (!state) return
 
-    sun.set(...sunDirectionLvlh(state, new Date()))
-
-    // The heading needs a second point. Without elements there is no propagator to ask, so the
-    // planet keeps its last orientation rather than snapping to an invented one.
-    if (!elements) return
-    const ahead = propagateIss(elements.satrec, new Date(Date.now() + HEADING_LOOKAHEAD_S * 1000))
-    if (!ahead) return
-
-    orientation.current.fromArray(
-      earthOrientation(state.latitude, state.longitude, groundHeading(state, ahead)),
-    )
+    const now = new Date()
+    sun.set(...sunDirectionLvlh(state, now))
+    orientation.current.fromArray(earthOrientationLvlh(state, now))
   })
 
   if (!texture) return null
