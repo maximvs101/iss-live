@@ -449,6 +449,50 @@ Reading it with `decompose` instead, all eight wings came in together for the fi
 6.4° off the Sun on that sample, and 0.3° to 4.5° over the five-pass run above. The station's
 arrays track, and the twin now shows them doing it.
 
+### Making the Earth look like the Earth
+
+Two changes, and the second only became possible because of a decision the first one forced.
+
+**The limb is shaded from the ray, not from the shell.** It was a sphere of flat blue at 1.025× the
+radius, evenly bright the whole way round, which reads as a rim light on a ball. Three things
+separate that from air in a photograph, and all three fall out of one quantity — how far the ray
+travels through atmosphere. So the shader takes the line from the camera through each pixel, finds
+how close it passes to the planet's centre, and the rest is closed form: the band is brightest
+exactly at the ground and collapses upward, it reddens where the Sun is low for the same reason a
+sunset does, and it stops dead at the terminator because unlit air is not a light source.
+
+The band's height stopped being a guess: 100 km scaled with the planet, 1.6 % of the radius, where
+the old shell used 2.5 % while its own comment claimed 40 km. And the number the shader normalises
+against is derived — a grazing ray crosses **640 units of a band only 28 units deep**, twenty-two
+times further, which is the whole reason a limb glows.
+
+**Then city lights on the night side.** The Earth here is deliberately unmarked and the reason still
+holds, so it is worth saying why this is not a reversal. Lights are point sources, so softness reads
+as bloom rather than blur — which is what a long exposure from the cupola looks like anyway. The
+texture is NASA's Black Marble at 0.1° per pixel, about 11 km, roughly 200 pixels across the ground
+the station can see at once: enough to show that a coastline is inhabited, not enough to find a
+city, and nothing invites the attempt.
+
+What the bare sphere never needed was an **orientation**. Any rotation of an unmarked ball looks the
+same. Paint anything on it and the question turns sharp, because lights in the wrong place are a
+claim about geography and a false one. Three facts pin it down — the ground below the station is at
+the reported latitude and longitude, up there is +Y here, and north there runs along the ground
+track's heading — and the rotation is built from two orthonormal triads rather than from angles,
+because angles need a convention and a convention needs remembering.
+
+Verified in four steps, because each could pass while the next failed:
+
+| | how | result |
+|---|---|---|
+| The rotation is a rotation | orthonormality, five geometries | to 1e-9 |
+| It puts the right ground below the station | invert it and read the latitude and longitude back | to 1e-6, and 0.8° against the live store, which is 11 seconds of orbit |
+| The shader's `uv` matches the image | sample the texture at known places | Nile 254, Tokyo 253, Netherlands 241 against mid-Pacific 8, South Atlantic 8 |
+| Screen pixels match the map | read back the framebuffer, ray-cast each pixel to a latitude and longitude, compare with the texture there | the brightest lit pixel on the globe fell at **32.2° S, 115.8° E** — Perth is at 31.95° S, 115.86° E |
+
+The last one is the one worth keeping. It closes the loop through every stage at once: rendered
+pixel, camera ray, orientation matrix, texture lookup. Nothing else would have caught a rotation
+that was subtly wrong rather than obviously so.
+
 ### Seeing it, in a tab that will not draw
 
 A hidden tab does not just stop `requestAnimationFrame`. React Three Fiber measures its container

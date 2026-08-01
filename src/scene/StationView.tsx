@@ -19,6 +19,7 @@ import { IssGltf } from './nasa/IssGltf'
 import { useIssModel } from './nasa/useIssModel'
 import { EARTH_CENTRE, EARTH_RADIUS } from './earthLimb'
 import { Atmosphere } from './Atmosphere'
+import { NightLights } from './NightLights'
 import { SunPointer } from './SunPointer'
 import { FrozenJoints } from './FrozenJoints'
 
@@ -260,6 +261,7 @@ export function StationView() {
         <EarthShine />
 
         <Earth />
+        <NightLights />
         <Atmosphere />
         <SunPointer target={sunMarker} />
 
