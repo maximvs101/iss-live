@@ -6,24 +6,13 @@
  * (USLAB000040) is shown next to the computed one as soon as the stream publishes it, giving a
  * direct comparison between model and measurement.
  */
-import { useMemo } from 'react'
 import { useOrbitStore } from '../orbit/useOrbit'
-import { overflightAt } from '../orbit/overflight'
 import { TelemetryValue } from './TelemetryValue'
 
 export function OrbitPanel() {
   const state = useOrbitStore((store) => store.state)
   const beta = useOrbitStore((store) => store.beta)
   const elements = useOrbitStore((store) => store.elements)
-
-  // Rounded to a tenth of a degree before the lookup — about 11 km, far finer than the 110 m
-  // country outlines resolve, and enough that the answer only changes when it means something.
-  const latitudeKey = state ? Math.round(state.latitude * 10) : null
-  const longitudeKey = state ? Math.round(state.longitude * 10) : null
-  const overflight = useMemo(
-    () => (latitudeKey === null || longitudeKey === null ? null : overflightAt(latitudeKey / 10, longitudeKey / 10)),
-    [latitudeKey, longitudeKey],
-  )
 
   if (!state) {
     return (
@@ -39,22 +28,6 @@ export function OrbitPanel() {
   return (
     <section className="panel">
       <h2 className="panel__title">Orbit</h2>
-
-      {overflight && (
-        <p className="orbit-overflight">
-          Now over{' '}
-          <strong>{overflight.name}</strong>
-          {overflight.kind === 'ocean' && (
-            <span
-              className="orbit-overflight__note"
-              title="Sea areas are named by region rather than looked up from geometry, so this is approximate"
-            >
-              {' '}
-              (approximate)
-            </span>
-          )}
-        </p>
-      )}
 
       <div className="metric-grid">
         <Metric label="Latitude" value={formatLatitude(state.latitude)} />

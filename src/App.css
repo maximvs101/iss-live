@@ -27,6 +27,40 @@
   font-size: 13px;
 }
 
+/*
+ * What the station is passing over, in the header.
+ *
+ * No box and no background: it sits between a title and a set of controls, and a bordered card
+ * there would read as a third control.
+ *
+ * `0 0 auto` rather than growing: the status bar beside it is the flexible one and takes 775 px of
+ * a 1280 px header, so anything here that offered to shrink was the thing that shrank. It came out
+ * clipped to "Now over Austra…" at full desktop width.
+ */
+.now-over {
+  flex: 0 0 auto;
+  margin: 0;
+  text-align: center;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.now-over__label {
+  color: var(--text-dim);
+}
+
+.now-over strong {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.now-over__note {
+  color: var(--text-dim);
+  cursor: help;
+}
+
 .app__controls {
   display: flex;
   gap: 10px;
@@ -106,26 +140,6 @@
   background: #04060b;
 }
 
-/* What the station is passing over, above the numbers it belongs with. */
-.orbit-overflight {
-  margin: 0 0 10px;
-  padding: 8px 10px;
-  border: 1px solid var(--border-strong);
-  border-radius: 6px;
-  background: rgba(255, 176, 58, 0.06);
-  font-size: 13px;
-  color: var(--text-dim);
-}
-
-.orbit-overflight strong {
-  color: var(--accent);
-  font-weight: 600;
-}
-
-.orbit-overflight__note {
-  font-size: 11px;
-  opacity: 0.65;
-}
 
 /* Flat map. The SVG keeps its 2:1 aspect and sits centred in whatever space it is given. */
 /* No `height: 100%`: the row is sized from this box now, not the other way round. */

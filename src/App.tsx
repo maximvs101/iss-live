@@ -9,6 +9,9 @@
  */
 import { Suspense, lazy, useEffect, useState } from 'react'
 import { connectTelemetry, disconnectTelemetry } from './telemetry/client'
+import { useTelemetryStore } from './telemetry/store'
+import { LIVE_THRESHOLD_MS, reconnectDecision } from './telemetry/reconnect'
+import { NowOver } from './ui/NowOver'
 import { SUBSCRIBED_PUIS } from './telemetry/subsystems'
 import { useOrbitEngine } from './orbit/useOrbit'
 import { MapView } from './scene/map/MapView'
@@ -81,9 +84,66 @@ export default function App() {
     }
   }, [selected, view])
 
+  /*
+   * The stream, and the watchdog that keeps it.
+   *
+   * Connecting once and trusting the SDK is what left a tab stranded: reported from use, the
+   * telemetry never came back green without a reload, and a reload does the one thing the running
+   * page did not — open a fresh session. The policy that decides when to do that lives in
+   * telemetry/reconnect, where its two interesting cases can be tested without a network.
+   */
   useEffect(() => {
-    connectTelemetry({ items: SUBSCRIBED_PUIS, maxFrequency: 1 })
-    return () => disconnectTelemetry()
+    const open = () => connectTelemetry({ items: SUBSCRIBED_PUIS, maxFrequency: 1 })
+    open()
+
+    let attempts = 0
+    let lastAttemptAt: number | null = null
+    let woke = false
+
+    const evaluate = () => {
+      const { connection, lastUpdateAt } = useTelemetryStore.getState()
+      const now = Date.now()
+      const ageMs = lastUpdateAt === null ? null : now - lastUpdateAt
+
+      // A stream that is delivering again clears the backoff, so the next outage starts from the
+      // short step rather than from wherever the last one left off.
+      if (ageMs !== null && ageMs <= LIVE_THRESHOLD_MS) {
+        attempts = 0
+        lastAttemptAt = null
+      }
+
+      const { reconnect, reason } = reconnectDecision({
+        connection,
+        ageMs,
+        sinceAttemptMs: lastAttemptAt === null ? null : now - lastAttemptAt,
+        attempts,
+        online: navigator.onLine,
+        visible: document.visibilityState === 'visible',
+        woke,
+      })
+      woke = false
+      if (!reconnect) return
+
+      console.info(`[telemetry] re-establishing: ${reason}`)
+      attempts += 1
+      lastAttemptAt = now
+      open()
+    }
+
+    const timer = setInterval(evaluate, 5_000)
+    const onWake = () => {
+      woke = true
+      evaluate()
+    }
+    window.addEventListener('online', onWake)
+    document.addEventListener('visibilitychange', onWake)
+
+    return () => {
+      clearInterval(timer)
+      window.removeEventListener('online', onWake)
+      document.removeEventListener('visibilitychange', onWake)
+      disconnectTelemetry()
+    }
   }, [])
 
   return (
@@ -93,6 +153,10 @@ export default function App() {
           <h1>ISS Live</h1>
           <p>Digital twin of the International Space Station</p>
         </div>
+
+        {/* Moved up from the orbital panel: it is the one line on the page that reads without any
+            other context, and the panel it used to live in is only on screen in one of the views. */}
+        <NowOver />
 
         {/* Stream health sits in the header rather than at the top of the side panel: it applies
             to everything on screen, and it is the first thing worth knowing. */}

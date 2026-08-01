@@ -28,8 +28,14 @@ export const LS_SCHEMA = [
 
 /** How often the buffer is flushed into the store, in milliseconds. */
 const FLUSH_INTERVAL_MS = 250
-/** How often samples are archived into local history: far slower than the display. */
-const HISTORY_INTERVAL_MS = 5000
+/**
+ * How often samples are archived into local history: far slower than the display.
+ *
+ * Exported because the charts read from that history, and a chart that re-reads faster than this
+ * writes is re-reading the same points. It was doing exactly that — up to four times a second for
+ * one new point every five.
+ */
+export const HISTORY_INTERVAL_MS = 5000
 
 let client: LightstreamerClient | null = null
 let subscription: Subscription | null = null

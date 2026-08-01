@@ -9,6 +9,7 @@ import { getSymbol } from '../../data/catalog'
 import { getChannel } from '../../telemetry/subsystems'
 import { resolveUnit } from '../../telemetry/units'
 import { readHistory } from '../../history/indexeddb'
+import { HISTORY_INTERVAL_MS } from '../../telemetry/client'
 import { useTelemetryStore } from '../../telemetry/store'
 import { LineChart, type Point } from './LineChart'
 import { useElementWidth } from '../useElementWidth'
@@ -32,8 +33,18 @@ export function TelemetryChart({ pui, windowMinutes = 60, height }: TelemetryCha
   const width = Math.max(measured, 340)
 
   const [points, setPoints] = useState<Point[]>([])
-  // The update counter acts as the signal: no need to re-read the database when nothing arrives.
-  const updateCount = useTelemetryStore((store) => store.updateCount)
+  /*
+   * The signal to re-read, and it is deliberately not the update counter.
+   *
+   * That counter moves on every flush — four times a second while the stream is running — but the
+   * history it would send us back to only gains a point every five, so nineteen reads in twenty
+   * returned exactly what the chart already had. Bucketing the newest arrival by the archive
+   * interval gives a value that changes once per point written and not at all while the stream is
+   * silent, which is the same thing the counter was there to express, correctly.
+   */
+  const historyBucket = useTelemetryStore((store) =>
+    store.lastUpdateAt === null ? 0 : Math.floor(store.lastUpdateAt / HISTORY_INTERVAL_MS),
+  )
 
   const symbol = getSymbol(pui)
   const channel = getChannel(pui)
@@ -54,7 +65,7 @@ export function TelemetryChart({ pui, windowMinutes = 60, height }: TelemetryCha
     return () => {
       cancelled = true
     }
-  }, [pui, windowMinutes, updateCount])
+  }, [pui, windowMinutes, historyBucket])
 
   if (!symbol) return null
 
