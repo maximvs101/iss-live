@@ -17,7 +17,11 @@
  * thing on its own: from a few metres away you may go directly beneath, from four hundred you may
  * not, because from there "beneath" is a different continent.
  */
-import { EARTH_CENTRE, ATMOSPHERE_RADIUS } from './earthLimb'
+// The extension is spelled out, unlike everywhere else in src, so that `npm run verify:camera` can
+// import this file directly. Node's TypeScript support resolves nothing for a bare relative path;
+// the other verify scripts get away with it only because their transitive imports are type-only,
+// and those vanish before Node ever sees them. Vite and tsc both accept the extension.
+import { ATMOSPHERE_RADIUS, EARTH_CENTRE, EARTH_RADIUS } from './earthLimb.ts'
 
 /**
  * Clearance kept between the camera and the top of the air.
@@ -32,23 +36,40 @@ const CLEARANCE = 25
 /**
  * Largest polar angle — measured from straight up — that keeps the camera clear of the atmosphere.
  *
- * Exact rather than approximate: the camera swinging out sideways also carries it further from the
- * planet's centre, and a limit that ignored that would be needlessly strict at wide angles. With
- * `d` the orbit radius, `R` the distance from the planet's centre to what the camera is orbiting,
- * and `A` the radius to stay outside, the law of cosines gives the constraint directly.
+ * The first version of this took only the target's height, on the reasoning that the polar axis
+ * points away from the planet and swinging out sideways can only carry the camera further from its
+ * centre. That holds while the target sits directly above the centre, and stops holding the moment
+ * it is panned: then straight up is no longer radial, and at the azimuth opposite the pan the
+ * camera leans back towards the planet instead of away from it. The sweep found 648 positions
+ * dipping 0.3 to 0.5 units into the air that way — small, but the whole point of a floor is that it
+ * is not a matter of degree.
+ *
+ * So the limit is taken over the worst azimuth. With **T** from the planet's centre to the target,
+ * `d` the orbit radius and `A` the radius to stay outside:
+ *
+ *     |camera − centre|² = |T|² + 2·d·(T·û) + d² ≥ A²
+ *
+ * and `T·û` is smallest, over the azimuths, at `|T|·cos(θ + δ)` where `δ` is how far the target has
+ * been panned off the vertical. Which leaves a closed form again, and reduces to the old one when
+ * nothing has been panned.
  *
  * Returns π when the whole sphere is safe, which is the honest answer close in.
  */
-export function maxPolarAngle(distance: number, targetY = 0): number {
-  const R = EARTH_CENTRE + targetY
+export function maxPolarAngle(distance: number, target: [number, number, number]): number {
+  const [x, y, z] = target
+  const height = EARTH_CENTRE + y
+  const sideways = Math.hypot(x, z)
+  const reach = Math.hypot(height, sideways)
   const A = ATMOSPHERE_RADIUS + CLEARANCE
-  if (distance <= 0 || R <= 0) return Math.PI
+  if (distance <= 0 || reach <= 0) return Math.PI
 
-  // |camera − centre|² = R² + 2·R·d·cos θ + d² ≥ A²
-  const cosine = (A * A - R * R - distance * distance) / (2 * R * distance)
+  const cosine = (A * A - reach * reach - distance * distance) / (2 * distance * reach)
   if (cosine <= -1) return Math.PI
   if (cosine >= 1) return 0
-  return Math.acos(cosine)
+
+  // The tilt the pan introduced, subtracted because the worst azimuth leans that much further in.
+  const tilt = Math.atan2(sideways, height)
+  return Math.max(0, Math.acos(cosine) - tilt)
 }
 
 /** Where the top of the air sits below the station, in scene units. Exported for the tests. */
@@ -105,4 +126,67 @@ export function clampTarget(x: number, y: number, z: number): [number, number, n
 export function farPlane(maxCameraDistance: number): number {
   const furthest = EARTH_CENTRE + PAN_LIMIT + maxCameraDistance
   return Math.ceil((furthest + ATMOSPHERE_RADIUS + 100) / 100) * 100
+}
+
+/** What the orbit controls are configured with, so a sweep can ask about the real reach. */
+export interface CameraBounds {
+  minDistance: number
+  maxDistance: number
+}
+
+/**
+ * Where the camera actually ends up for a requested orbit, once both clamps have had their say.
+ *
+ * This exists because the two rules were each correct and their *composition* was not. The angle
+ * limit was written, tested and shipped while panning walked straight past it, and no test of
+ * either rule alone could have noticed: the failure lives in the order they are applied and in what
+ * each one is allowed to assume the other has already done.
+ *
+ * The order is the scene's: the target is clamped first, then the angle limit is computed from the
+ * clamped target, then the controls place the camera. One caveat worth stating — the running scene
+ * computes the angle limit from the camera's *current* distance, one frame behind a zoom, whereas
+ * this uses the requested one. The limit tightens with distance, so the stale value can only ever
+ * be looser, and for one frame.
+ */
+export function reachableCamera(
+  request: {
+    distance: number
+    polar: number
+    azimuth: number
+    target: [number, number, number]
+  },
+  bounds: CameraBounds,
+): { camera: [number, number, number]; target: [number, number, number] } {
+  const target = clampTarget(...request.target)
+  const distance = Math.min(Math.max(request.distance, bounds.minDistance), bounds.maxDistance)
+  const polar = Math.min(Math.max(request.polar, 0), maxPolarAngle(distance, target))
+
+  return {
+    target,
+    camera: [
+      target[0] + distance * Math.sin(polar) * Math.cos(request.azimuth),
+      target[1] + distance * Math.cos(polar),
+      target[2] + distance * Math.sin(polar) * Math.sin(request.azimuth),
+    ],
+  }
+}
+
+/**
+ * How much room a camera position has, in scene units, against each thing it must not be inside.
+ *
+ * Negative anywhere is a defect. Reported as three numbers rather than a boolean so a sweep can say
+ * how close the worst case came, which is the difference between "no failures" and "no failures,
+ * and the nearest miss was 25 units".
+ */
+export function clearances(camera: [number, number, number], far: number) {
+  const fromCentre = Math.hypot(camera[0], camera[1] + EARTH_CENTRE, camera[2])
+  return {
+    fromCentre,
+    /** Above the top of the air. */
+    air: fromCentre - ATMOSPHERE_RADIUS,
+    /** Above the ground, which is the same thing with more margin — kept apart to name the failure. */
+    ground: fromCentre - EARTH_RADIUS,
+    /** Between the far side of the atmosphere shell and the far clipping plane. */
+    farPlane: far - (fromCentre + ATMOSPHERE_RADIUS),
+  }
 }

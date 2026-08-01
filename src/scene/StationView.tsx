@@ -55,7 +55,7 @@ function CameraFloor() {
     target.set(x, y, z)
 
     const distance = controls.object.position.distanceTo(target)
-    controls.maxPolarAngle = maxPolarAngle(distance, target.y)
+    controls.maxPolarAngle = maxPolarAngle(distance, [target.x, target.y, target.z])
   }, -2)
 
   return null

@@ -15,8 +15,10 @@ import {
   PAN_LIMIT,
   TARGET_FLOOR,
   clampTarget,
+  clearances,
   farPlane,
   maxPolarAngle,
+  reachableCamera,
 } from './cameraFloor'
 import { ATMOSPHERE_RADIUS, EARTH_CENTRE } from './earthLimb'
 
@@ -40,7 +42,7 @@ describe('the camera floor', () => {
 
   it('keeps the camera out of the air at every distance the controls allow', () => {
     for (let distance = MIN_DISTANCE; distance <= MAX_DISTANCE; distance += 5) {
-      const polar = maxPolarAngle(distance, -3)
+      const polar = maxPolarAngle(distance, [0, -3, 0])
       const reached = distanceFromCentre(distance, polar)
       expect(reached, `at ${distance} units`).toBeGreaterThanOrEqual(ATMOSPHERE_RADIUS)
     }
@@ -48,15 +50,15 @@ describe('the camera floor', () => {
 
   it('lets the camera go right under the station when it is close', () => {
     // The underside is worth looking at, and from a few metres away there is nothing to hit.
-    expect(maxPolarAngle(MIN_DISTANCE, -3)).toBeCloseTo(Math.PI, 6)
-    expect(maxPolarAngle(40, -3)).toBeCloseTo(Math.PI, 6)
+    expect(maxPolarAngle(MIN_DISTANCE, [0, -3, 0])).toBeCloseTo(Math.PI, 6)
+    expect(maxPolarAngle(40, [0, -3, 0])).toBeCloseTo(Math.PI, 6)
   })
 
   it('tightens as the camera backs off', () => {
     // Monotone, so dragging out never suddenly frees up an angle that was refused a moment before.
     let previous = Math.PI
     for (let distance = 40; distance <= MAX_DISTANCE; distance += 10) {
-      const polar = maxPolarAngle(distance, -3)
+      const polar = maxPolarAngle(distance, [0, -3, 0])
       expect(polar).toBeLessThanOrEqual(previous + 1e-12)
       previous = polar
     }
@@ -65,21 +67,91 @@ describe('the camera floor', () => {
   it('still allows a view from below the horizontal at the default distance', () => {
     // A floor that only permitted looking down at the station would be a worse bug than the one
     // being fixed. 105 units is where the view opens.
-    const degrees = (maxPolarAngle(105, -3) * 180) / Math.PI
+    const degrees = (maxPolarAngle(105, [0, -3, 0]) * 180) / Math.PI
     expect(degrees).toBeGreaterThan(115)
     expect(degrees).toBeLessThan(180)
   })
 
   it('is far more careful at the far end, where a unit buys more sky', () => {
-    const near = (maxPolarAngle(60, -3) * 180) / Math.PI
-    const far = (maxPolarAngle(MAX_DISTANCE, -3) * 180) / Math.PI
+    const near = (maxPolarAngle(60, [0, -3, 0]) * 180) / Math.PI
+    const far = (maxPolarAngle(MAX_DISTANCE, [0, -3, 0]) * 180) / Math.PI
     expect(near).toBeGreaterThan(150)
     expect(far).toBeLessThan(115)
   })
 
   it('answers something sane for degenerate input', () => {
-    expect(maxPolarAngle(0, -3)).toBe(Math.PI)
-    expect(maxPolarAngle(-10, -3)).toBe(Math.PI)
+    expect(maxPolarAngle(0, [0, -3, 0])).toBe(Math.PI)
+    expect(maxPolarAngle(-10, [0, -3, 0])).toBe(Math.PI)
+  })
+
+  it('tightens when the target is panned off the vertical', () => {
+    // The defect the sweep found. With the target above the planet's centre, straight up is
+    // radial and swinging out can only help. Pan it sideways and that stops being true: at the
+    // azimuth opposite the pan the camera leans back towards the planet, and the old limit — which
+    // read only the target's height — let it 0.5 units into the air.
+    const centred = maxPolarAngle(400, [0, 0, 0])
+    const panned = maxPolarAngle(400, [PAN_LIMIT, 0, 0])
+    expect(panned).toBeLessThan(centred)
+    expect(((centred - panned) * 180) / Math.PI).toBeGreaterThan(3)
+  })
+
+  it('does not care which way the pan went', () => {
+    const east = maxPolarAngle(400, [PAN_LIMIT, 0, 0])
+    for (const target of [
+      [-PAN_LIMIT, 0, 0],
+      [0, 0, PAN_LIMIT],
+      [PAN_LIMIT / Math.SQRT2, 0, PAN_LIMIT / Math.SQRT2],
+    ] as [number, number, number][]) {
+      expect(maxPolarAngle(400, target)).toBeCloseTo(east, 9)
+    }
+  })
+})
+
+/**
+ * The sweep, coarsened enough to run in CI.
+ *
+ * `npm run verify:camera` walks 293,040 positions and prints the nearest miss; this walks a tenth
+ * of that and only asserts. It is here rather than only in the script because the script is manual
+ * and this defect class is silent: every one of the four found so far looked like a working scene
+ * until the camera crossed a boundary nothing marks.
+ */
+describe('every reachable camera position', () => {
+  const BOUNDS = { minDistance: MIN_DISTANCE, maxDistance: MAX_DISTANCE }
+  const FAR = farPlane(MAX_DISTANCE)
+
+  it('can be drawn from', () => {
+    let worst = { air: Infinity, ground: Infinity, farPlane: Infinity, at: '' }
+    let samples = 0
+
+    for (const height of [0, -3, -80, -400, -5000, 200, 3000]) {
+      for (const sideways of [0, 40, 150, 5000]) {
+        for (const distance of [1, 15, 105, 250, 400, 800]) {
+          for (let polarDeg = 0; polarDeg <= 180; polarDeg += 10) {
+            for (let azimuthDeg = 0; azimuthDeg < 360; azimuthDeg += 45) {
+              const { camera } = reachableCamera(
+                {
+                  distance,
+                  polar: (polarDeg * Math.PI) / 180,
+                  azimuth: (azimuthDeg * Math.PI) / 180,
+                  target: [sideways, height, 0],
+                },
+                BOUNDS,
+              )
+              const room = clearances(camera, FAR)
+              samples += 1
+              if (room.air < worst.air) {
+                worst = { ...room, at: `pan (${sideways}, ${height}) orbit ${distance} polar ${polarDeg}° azimuth ${azimuthDeg}°` }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    expect(samples).toBeGreaterThan(20000)
+    expect(worst.air, `nearest miss at ${worst.at}`).toBeGreaterThan(0)
+    expect(worst.ground).toBeGreaterThan(0)
+    expect(worst.farPlane).toBeGreaterThan(0)
   })
 })
 

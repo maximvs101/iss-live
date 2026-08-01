@@ -112,14 +112,22 @@ npm run dev
 | `npm run verify:telemetry` | every subscribed channel against ranges, internal consistency and SGP4 |
 | `npm run verify:plottable` | whether every channel offered for plotting is still being measured |
 | `npm run verify:media` | whether each curated image search still finds its own hardware |
-
-`npm run lint`, `npx tsc -b`, `npm test` and `npm run build` run on every push through GitHub
-Actions. The `verify:*` scripts deliberately do not: they open a real Lightstreamer session, query
-Celestrak, DONKI and the image catalogue, and judge live data — which makes them invaluable at a
-keyboard and useless in CI, where a quiet stream or a re-indexed catalogue would fail a build that
-has nothing wrong with it.
+| `npm run verify:arrays` | where the solar arrays point, against where the Sun is |
+| `npm run verify:camera` | every camera position the controls can reach, against the geometry |
 | `npm run inspect:glb` | structure of a GLB file (nodes, triangles, textures) |
 | `npm run inspect:joints` | which local axis each joint actually turns about |
+
+`npm run lint`, `npx tsc -b`, `npm test` and `npm run build` run on every push through GitHub
+Actions. Most of the `verify:*` scripts deliberately do not: they open a real Lightstreamer session,
+query Celestrak, DONKI and the image catalogue, and judge live data — which makes them invaluable at
+a keyboard and useless in CI, where a quiet stream or a re-indexed catalogue would fail a build that
+has nothing wrong with it.
+
+`verify:camera` is the exception, and is worth separating out. It needs no network and no telemetry
+— it is pure geometry — so a coarsened version of the same sweep runs in the test suite, where CI
+picks it up. The script exists alongside it because a report is not an assertion: it prints the
+nearest miss at every boundary, which is the difference between "no failures" and "no failures, and
+the closest anything came was 25 units".
 
 ## Architecture
 
