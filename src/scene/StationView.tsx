@@ -11,13 +11,14 @@
 import { useEffect, useRef } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Stars } from '@react-three/drei'
-import { AdditiveBlending, BackSide } from 'three'
+import { AdditiveBlending } from 'three'
 import type { DirectionalLight, Group } from 'three'
 import { useOrbitStore } from '../orbit/useOrbit'
 import { sunDirectionLvlh } from '../orbit/propagator'
 import { IssGltf } from './nasa/IssGltf'
 import { useIssModel } from './nasa/useIssModel'
 import { EARTH_CENTRE, EARTH_RADIUS } from './earthLimb'
+import { Atmosphere } from './Atmosphere'
 import { SunPointer } from './SunPointer'
 import { FrozenJoints } from './FrozenJoints'
 
@@ -172,6 +173,10 @@ function Sun() {
  * invite a reading of the geography it cannot support. What it gives is the one thing the scene
  * lacked: somewhere for the station to be, and a terminator on the ground that agrees with the
  * terminator on the station, because both come from the same light.
+ *
+ * The air above it is a separate component, because it is a different kind of object: this sphere
+ * is a surface and is shaded like one, while the limb is a length of nothing that happens to be
+ * lit. See Atmosphere.
  */
 function Earth() {
   return (
@@ -183,20 +188,6 @@ function Earth() {
         <meshStandardMaterial color="#1b4f7a" roughness={0.95} metalness={0} />
       </mesh>
 
-      {/* Atmosphere: a slightly larger shell seen from inside, glowing where it is edge-on. The
-          limb is the only place a 40 km layer is thick enough to see, and this is what puts it
-          there. */}
-      <mesh>
-        <sphereGeometry args={[EARTH_RADIUS * 1.025, 64, 48]} />
-        <meshBasicMaterial
-          color="#5aa9e6"
-          transparent
-          opacity={0.18}
-          side={BackSide}
-          blending={AdditiveBlending}
-          depthWrite={false}
-        />
-      </mesh>
     </group>
   )
 }
@@ -269,6 +260,7 @@ export function StationView() {
         <EarthShine />
 
         <Earth />
+        <Atmosphere />
         <SunPointer target={sunMarker} />
 
         {scene && <IssGltf scene={scene} />}

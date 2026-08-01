@@ -7,7 +7,7 @@
  * wrong by a factor of `sin` and never notice: a horizon at 60° or at 80° both look like a horizon.
  */
 import { describe, expect, it } from 'vitest'
-import { EARTH_CENTRE, EARTH_RADIUS } from './earthLimb'
+import { ATMOSPHERE_RADIUS, EARTH_CENTRE, EARTH_RADIUS, LIMB_CHORD } from './earthLimb'
 
 /** Mean radius and the station's nominal altitude, in kilometres. */
 const R = 6371
@@ -39,5 +39,35 @@ describe('the Earth limb', () => {
   it('fits inside the camera’s far plane', () => {
     // 4000 in StationView. Beyond it the far side would be clipped and the limb would open up.
     expect(EARTH_CENTRE + EARTH_RADIUS).toBeLessThan(4000)
+  })
+})
+
+/**
+ * The band of air, and the one quantity the limb shader normalises against.
+ *
+ * Both are scaled with the planet rather than chosen, so changing EARTH_RADIUS keeps them honest.
+ */
+describe('the atmosphere band', () => {
+  it('stands 100 km above the surface, at the planet’s own scale', () => {
+    const km = ((ATMOSPHERE_RADIUS - EARTH_RADIUS) / EARTH_RADIUS) * R
+    expect(km).toBeCloseTo(100, 6)
+  })
+
+  it('is thin — under 2 % of the radius', () => {
+    // The previous shell was 2.5 %, four times the height its own comment claimed. Air is thinner
+    // than it looks in a render, and a shell that reads as thick reads as a rim light.
+    expect((ATMOSPHERE_RADIUS - EARTH_RADIUS) / EARTH_RADIUS).toBeLessThan(0.02)
+  })
+
+  it('gives a grazing ray a path twenty times the band’s depth', () => {
+    // The whole reason a limb is bright: 28 units of air, but 640 units along it. Get this wrong
+    // and the arc either vanishes or turns into a halo.
+    const thickness = ATMOSPHERE_RADIUS - EARTH_RADIUS
+    expect(LIMB_CHORD / thickness).toBeGreaterThan(20)
+    expect(LIMB_CHORD).toBeCloseTo(2 * Math.sqrt(ATMOSPHERE_RADIUS ** 2 - EARTH_RADIUS ** 2), 9)
+  })
+
+  it('stays inside the far plane along with everything else', () => {
+    expect(EARTH_CENTRE + ATMOSPHERE_RADIUS).toBeLessThan(4000)
   })
 })
