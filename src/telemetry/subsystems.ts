@@ -440,7 +440,7 @@ export const SUBSYSTEMS: Subsystem[] = [
     id: 'comms',
     label: 'Communications',
     tagline:
-      'The station does not talk to the ground directly: it aims at TDRS relay satellites 36,000 km up. Between two relays, contact drops for a few minutes.',
+      'The station does not talk to the ground directly: it aims at TDRS relay satellites 35,800 km up. Between two relays, contact drops for a few minutes.',
     disciplines: ['CATO', 'CATO/VVO'],
     sections: [
       {
