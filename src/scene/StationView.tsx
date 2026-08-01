@@ -19,13 +19,16 @@ import { IssGltf } from './nasa/IssGltf'
 import { useIssModel } from './nasa/useIssModel'
 import { EARTH_CENTRE, EARTH_RADIUS } from './earthLimb'
 import { Atmosphere } from './Atmosphere'
-import { maxPolarAngle } from './cameraFloor'
+import { clampTarget, farPlane, maxPolarAngle } from './cameraFloor'
 import { NightLights } from './NightLights'
 import { SunPointer } from './SunPointer'
 import { FrozenJoints } from './FrozenJoints'
 
 /** Distance to the Sun in the scene: far enough that its rays are parallel. */
 const SUN_DISTANCE = 600
+
+/** Furthest the camera may orbit the station. The far plane is derived from it. */
+const MAX_CAMERA_DISTANCE = 400
 
 /**
  * Stops the camera dropping through the sky.
@@ -45,8 +48,14 @@ function CameraFloor() {
   // outward and one frame is drawn from a place the limit was about to forbid.
   useFrame(() => {
     if (!controls) return
-    const distance = controls.object.position.distanceTo(controls.target)
-    controls.maxPolarAngle = maxPolarAngle(distance, controls.target.y)
+    // The target first: panning carries the camera with it, so a target below the air puts the
+    // camera there too however the angle is limited.
+    const { target } = controls
+    const [x, y, z] = clampTarget(target.x, target.y, target.z)
+    target.set(x, y, z)
+
+    const distance = controls.object.position.distanceTo(target)
+    controls.maxPolarAngle = maxPolarAngle(distance, target.y)
   }, -2)
 
   return null
@@ -263,7 +272,7 @@ export function StationView() {
       <Canvas
         shadows="soft"
         gl={{ toneMappingExposure: 1.15 }}
-        camera={{ position: [60, 34, 78], fov: 42, near: 0.5, far: 4000 }}
+        camera={{ position: [60, 34, 78], fov: 42, near: 0.5, far: farPlane(MAX_CAMERA_DISTANCE) }}
         dpr={[1, 2]}
       >
         <color attach="background" args={['#04060b']} />
@@ -298,7 +307,7 @@ export function StationView() {
         <OrbitControls
           enablePan
           minDistance={15}
-          maxDistance={400}
+          maxDistance={MAX_CAMERA_DISTANCE}
           target={[0, -3, 0]}
           makeDefault
         />

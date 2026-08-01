@@ -528,6 +528,24 @@ The shader carries a guard as well — if the camera is ever inside the shell it
 air rather than filling the screen. The controls should make that unreachable; a wall of blue is
 too loud a failure to leave to *should*.
 
+**And the angle limit was not enough**, which only came out of sweeping the rest of the extremes
+rather than stopping at the reported one. Panning does not swing the camera around what it is
+looking at — it carries both. Dragging the target down 400 units put the camera **1621 from the
+planet's centre, 179 below the ground**, while the angle limit sat at 0° and reported success. So
+the target has a floor of its own, set so that even a camera directly above it still clears the
+air, and a reach limit as well: without one the station can be panned clean off the screen, leaving
+a black frame and no obvious way back.
+
+The same sweep turned up a third thing, smaller. The atmosphere is drawn back-face-first, so its
+*far* side has to stay inside the frustum, and at full extension it overshot a 4,000-unit far plane
+by 143. Rendering the same views with the plane pushed back changed the picture by 0.2 % — noise,
+because a camera high enough to overshoot is looking down at the station with the limb well outside
+a 42° field. It is fixed anyway: the plane is now derived from the reach it has to cover, since a
+geometry that holds only while the field of view does not change is not a geometry worth keeping.
+
+Swept afterwards over **780 positions** — pan from −5,000 to +3,000 and 600 sideways, distance 15
+to 400, every 15° of polar angle: no camera inside the air, none inside the planet, nothing clipped.
+
 ### Seeing it, in a tab that will not draw
 
 A hidden tab does not just stop `requestAnimationFrame`. React Three Fiber measures its container

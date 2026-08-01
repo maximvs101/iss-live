@@ -53,3 +53,56 @@ export function maxPolarAngle(distance: number, targetY = 0): number {
 
 /** Where the top of the air sits below the station, in scene units. Exported for the tests. */
 export const AIR_BELOW_STATION = EARTH_CENTRE - ATMOSPHERE_RADIUS
+
+/**
+ * Lowest the point being orbited may sit.
+ *
+ * The angle limit above is not enough on its own, and this took a second look to see. Panning does
+ * not swing the camera around what it is looking at — it *carries both*, so a target dragged far
+ * enough below takes the camera with it whatever the angle says. Measured before this existed:
+ * panning down 400 units put the camera 1621 from the planet's centre, which is 179 units under the
+ * ground, with the angle limit dutifully reporting 0°.
+ *
+ * So the target gets a floor of its own, set so that even a camera directly above it — the closest
+ * a camera can be to the planet for a given target — still clears the air.
+ */
+export const TARGET_FLOOR = ATMOSPHERE_RADIUS + CLEARANCE - EARTH_CENTRE
+
+/**
+ * Furthest the pan may carry the target from the station.
+ *
+ * Not a safety limit — sideways is away from the planet's centre, so it is safe — but the same
+ * clamp is the natural place for it. Without one the station can be panned clean off the screen,
+ * leaving an empty black frame and no obvious way back. 150 units is a length and a half of the
+ * truss: enough to put any module in the middle of the view, not enough to lose it.
+ */
+export const PAN_LIMIT = 150
+
+/**
+ * The target, brought back inside what the scene can render.
+ *
+ * Numbers in and numbers out, so it can be tested without a renderer.
+ */
+export function clampTarget(x: number, y: number, z: number): [number, number, number] {
+  const height = Math.max(y, TARGET_FLOOR)
+  const radius = Math.hypot(x, height, z)
+  if (radius <= PAN_LIMIT) return [x, height, z]
+  const scale = PAN_LIMIT / radius
+  // Pulled back along the line to the station, then floored again: shrinking towards the origin
+  // can only raise a negative height, but it can lower a positive one.
+  return [x * scale, Math.max(height * scale, TARGET_FLOOR), z * scale]
+}
+
+/**
+ * Far clipping plane, derived rather than chosen.
+ *
+ * The atmosphere is drawn back-face-first, so its *far* side is the part that must stay inside the
+ * frustum. The worst case is the camera directly above a target panned as high as it may go, at the
+ * end of its reach. At 4000 the shell overshot by 143 units — invisible in practice, because a
+ * camera high enough to overshoot is looking down at the station with the limb well outside a 42°
+ * field, but a geometry that depends on the field of view not changing is not a geometry to keep.
+ */
+export function farPlane(maxCameraDistance: number): number {
+  const furthest = EARTH_CENTRE + PAN_LIMIT + maxCameraDistance
+  return Math.ceil((furthest + ATMOSPHERE_RADIUS + 100) / 100) * 100
+}
