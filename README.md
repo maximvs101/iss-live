@@ -57,6 +57,9 @@ The catalogue names the symbols but does not say how to interpret them. These do
 | [A Researcher's Guide to Space Environmental Effects](https://www.nasa.gov/wp-content/uploads/2020/10/researchers-guide-space-environment-effects_tagged.pdf) | the temperature range surfaces outside actually cycle through |
 | [NASA: water recovery milestone](https://www.nasa.gov/missions/station/iss-research/nasa-achieves-water-recovery-milestone-on-international-space-station/) (June 2023) | how much of the water is recycled, now rather than at first flight |
 | [Out-of-Band Diagnostics Architecture for the ISS](https://ntrs.nasa.gov/api/citations/20030001141/downloads/20030001141.pdf) | the three C&DH tiers and the hot / warm / cold redundancy of the top one |
+| [OCHMO-TB-003, Habitable Atmosphere](https://www.nasa.gov/wp-content/uploads/2023/12/ochmo-tb-003-habitable-atmosphere.pdf) | cabin pressure and the oxygen band, and why a spacewalk still needs a prebreathe |
+| [OCHMO-TB-004, Carbon Dioxide](https://www.nasa.gov/wp-content/uploads/2023/12/ochmo-tb-004-carbon-dioxide.pdf) | the CO₂ limit, which is far lower than the app was claiming |
+| [NASA Spectrum Usage](https://www.nasa.gov/directorates/somd/space-communications-navigation-program/nasa-spectrum-usage/) | the frequencies NASA actually holds, rather than the textbook band edges |
 
 The Mimic deck is the useful one, because it is candid about its own gaps. It labels the
 electrical current readout "not working" and the total power usage "not working currently" —

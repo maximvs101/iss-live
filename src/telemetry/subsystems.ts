@@ -149,21 +149,21 @@ export const SUBSYSTEMS: Subsystem[] = [
           {
             pui: 'USLAB000058',
             label: 'Cabin pressure',
-            hint: 'The station is held at sea-level pressure, around 14.7 psi, so the crew never needs a decompression schedule.',
+            hint: 'The station is held at sea-level pressure — 14.7 psi with 21 % oxygen, the same 760 mmHg you are breathing — so daily life needs no acclimatisation. Spacewalks still do: the suit runs at 4.3 psi, and that drop has to be paid for with a prebreathe protocol before the hatch opens.',
             part: 'destiny',
           },
           { pui: 'USLAB000059', label: 'Cabin temperature', part: 'destiny' },
           {
             pui: 'USLAB000053',
             label: 'Destiny ppO₂',
-            hint: 'Partial pressure of oxygen: this, not the percentage, decides whether air is breathable. About 160 mmHg at sea level. The atmosphere sensors report rarely — read the age beside the value before comparing two of them.',
+            hint: 'Partial pressure of oxygen: this, not the percentage, decides whether air is breathable — about 160 mmHg at sea level, and held between 146 and 178 aboard. The atmosphere sensors report rarely, so read the age beside the value before comparing two of them.',
             part: 'destiny',
           },
           { pui: 'USLAB000054', label: 'Destiny ppN₂', part: 'destiny' },
           {
             pui: 'USLAB000055',
             label: 'Destiny ppCO₂',
-            hint: 'Carbon dioxide builds up in a sealed volume. Above 5 mmHg, headaches and reduced alertness set in.',
+            hint: 'Carbon dioxide builds up in a sealed volume, and the threshold that matters is lower than most people expect. NASA-STD-3001 caps the 1-hour average at 3 mmHg, down from an earlier 3.8–7.5 mmHg range: crews reported headaches from 2.8 mmHg upward, and 19 of 49 astronauts studied had them. Below 2.5 mmHg the risk falls under 1 %.',
             part: 'destiny',
           },
           { pui: 'NODE3000001', label: 'Tranquility ppO₂', part: 'tranquility' },
@@ -460,7 +460,7 @@ export const SUBSYSTEMS: Subsystem[] = [
           {
             pui: 'S1000004',
             label: 'RFG 1 azimuth',
-            hint: 'S-band works around 2–4 GHz and carries voice, commands and telemetry. Two groups are kept, one per side, so the station stays in contact when its own structure blocks one of them.',
+            hint: 'S-band carries voice, commands and telemetry — NASA works 2,025–2,110 MHz up to the station and 2,200–2,300 MHz back down. Two groups are kept, one per side, so the station stays in contact when its own structure blocks one of them.',
             part: 'antenna-sasa-2',
           },
           { pui: 'S1000005', label: 'RFG 1 elevation', part: 'antenna-sasa-2' },
@@ -478,7 +478,7 @@ export const SUBSYSTEMS: Subsystem[] = [
           {
             pui: 'Z1000013',
             label: 'Ku-band transmit',
-            hint: 'Ku-band runs at 12–15 GHz and carries the heavy traffic: high-definition video, experiment data, file transfer. It aims at a relay satellite 35,800 km up rather than at the ground.',
+            hint: 'Ku-band carries the heavy traffic: high-definition video, experiment data, file transfer. NASA holds 13.4–14.3 GHz and 14.5–15.2 GHz for the relay satellites, and this dish aims at one of them 35,800 km up rather than at the ground.',
             part: 'antenna-ku',
           },
           {
