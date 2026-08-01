@@ -81,7 +81,7 @@ export const SUBSYSTEMS: Subsystem[] = [
           {
             pui: 'S4000007',
             label: 'BGA 1A',
-            hint: 'Angle of the wing about its own mast, over a full 360° of travel. Its job is to cancel the beta angle listed below, so compare the two: every wing should sit that same number of degrees from its own zero — 0° or 180°, depending on which way the wing faces. Above roughly 40° of beta they stop pointing straight at the Sun on purpose, angled off so the front wing does not shadow the one behind it, which NASA calls beta-backtracking.',
+            hint: 'Angle of the wing about its own mast, over a full 360° of travel. It cancels the beta angle below, so the two should match: each wing sits that many degrees from its own zero — 0° or 180°, depending which way it faces. Past about 40° of beta they off-point on purpose, so one wing does not shadow the next: beta-backtracking.',
             part: 'saw-1a',
           },
           { pui: 'S4000008', label: 'BGA 3A', part: 'saw-3a' },
