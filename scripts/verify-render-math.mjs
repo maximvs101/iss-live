@@ -52,6 +52,7 @@ import { PAN_LIMIT, STATION_RADIUS, clampTarget, clearances, farPlane } from '..
 import { OCEAN_ROUGHNESS, OCEAN_WIND_SPEED, seaRoughness, slopeVariance } from '../src/scene/oceanGlint.ts'
 import { groundHaze, limbShading } from '../src/scene/limbScattering.ts'
 import { markerPlacement } from '../src/scene/sunMarker.ts'
+import { TILE_DEGREES, tileAt, tileUvBox } from '../src/scene/earthDetail.ts'
 
 const R = 6371
 const H = 420
@@ -551,6 +552,37 @@ heading('C. The station view')
     'a Sun behind the camera points the other way',
     atBack.visible && atBack.x < 0.5,
     `x ${atBack.x.toFixed(3)}, where the unguarded projection would say ${((0.5 * 0.88 + 1) / 2).toFixed(3)}`,
+  )
+}
+
+{
+  // C16. The close-up tile the scene loads has to be the one the ground is actually under. Three
+  // pieces have to agree for that: the propagator's latitude and longitude, the sphere's texture
+  // coordinates, and the grid the build cut the tiles on. They are in three different files, so the
+  // check runs the whole way through rather than asking the grid about itself.
+  let worst = 0
+  let outside = 0
+  for (const when of SAMPLES) {
+    const state = propagateIss(satrec, when)
+    const id = tileAt(state.latitude, state.longitude)
+    if (!id) continue
+    // The sphere's own convention, the one three.js gives the shader and the one the tiles were cut
+    // against — taken here from geocentric rather than restated.
+    const onGlobe = geocentric(state.latitude, state.longitude)
+    const place = geodetic(onGlobe)
+    const uv = [place.longitude / 360 + 0.5, place.latitude / 180 + 0.5]
+    const { origin, size } = tileUvBox(id)
+    const inside =
+      uv[0] >= origin[0] - 1e-9 && uv[0] <= origin[0] + size[0] + 1e-9 &&
+      uv[1] >= origin[1] - 1e-9 && uv[1] <= origin[1] + size[1] + 1e-9
+    if (!inside) outside += 1
+    // How far from the middle of its tile, which bounds how much of the view the tile can cover.
+    worst = Math.max(worst, Math.abs((uv[0] - origin[0]) / size[0] - 0.5))
+  }
+  check(
+    'the station is inside the tile the scene would load',
+    outside === 0,
+    `${SAMPLES.length} positions, ${outside} outside; worst offset from the tile’s middle ${(worst * TILE_DEGREES).toFixed(1)}° of ${TILE_DEGREES}`,
   )
 }
 

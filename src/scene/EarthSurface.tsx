@@ -17,19 +17,23 @@
  * Three layers, drawn outward: the surface, the clouds, and — in NightLights, because it is
  * additive and belongs after everything — the cities.
  */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import {
+  DataTexture,
   Group,
   Matrix3,
   Matrix4,
   SRGBColorSpace,
   TextureLoader,
+  Vector4,
   type Texture,
+  type WebGLProgramParametersWithUniforms,
 } from 'three'
 import { useOrbitStore } from '../orbit/useOrbit'
 import { earthOrientationLvlh } from '../orbit/propagator'
 import { EARTH_CENTRE, EARTH_RADIUS } from './earthLimb'
+import { tileAt, tileName, tileUvBox, type TileId } from './earthDetail'
 
 const TEXTURE = (name: string) => `${import.meta.env.BASE_URL}textures/${name}`
 
@@ -86,6 +90,68 @@ function useSurfaceTexture(name: string, colour = true): Texture | null {
   return texture
 }
 
+/**
+ * How much of the tile's edge is spent fading it out.
+ *
+ * A tile ends on a meridian and a parallel, and sharpness that stops along a straight line is more
+ * noticeable than the blur it replaced. An eighth of the tile is 2.25° of fade, about 250 km, which
+ * is wide enough that no edge is findable and narrow enough to leave the middle at full strength.
+ */
+const EDGE_FADE = 0.125
+
+/** Ratio encoding: the build stores `value / 255 * 4`, so unity is 64. See build-earth-detail. */
+const RATIO_RANGE = 4
+
+/**
+ * The close-up tile under the station, swapped as it crosses the grid.
+ *
+ * Tiles over open water are not shipped at all — Blue Marble has nothing there for a sharper
+ * texture to resolve — so a miss is the ordinary case rather than an error, and the name is
+ * remembered so a missing tile is asked for once and not once a frame.
+ */
+function useDetailTile() {
+  const [tile, setTile] = useState<{ id: TileId; texture: Texture } | null>(null)
+  const wanted = useRef<string | null>(null)
+  const absent = useRef(new Set<string>())
+
+  useFrame(() => {
+    const { state } = useOrbitStore.getState()
+    if (!state) return
+    const id = tileAt(state.latitude, state.longitude)
+    const name = id ? tileName(id) : null
+    if (name === wanted.current) return
+    wanted.current = name
+
+    if (!name || !id || absent.current.has(name)) {
+      setTile(null)
+      return
+    }
+    new TextureLoader().load(
+      TEXTURE(name),
+      (loaded) => {
+        // The ratio is data, not colour: decoding it as sRGB would apply the curve twice.
+        loaded.anisotropy = 8
+        if (wanted.current !== name) {
+          loaded.dispose()
+          return
+        }
+        setTile((previous) => {
+          previous?.texture.dispose()
+          return { id, texture: loaded }
+        })
+      },
+      undefined,
+      () => {
+        absent.current.add(name)
+        setTile(null)
+      },
+    )
+  })
+
+  useEffect(() => () => tile?.texture.dispose(), [tile])
+  return tile
+}
+
 export function EarthSurface() {
   const group = useRef<Group>(null)
   const day = useSurfaceTexture(`earth-day-${month}.jpg`)
@@ -93,6 +159,75 @@ export function EarthSurface() {
   // Data, not colour. It is an opacity map now, and tagging it sRGB makes the *hardware* decode it
   // on every sample — which quietly crushed a cloud stored at 0.30 down to 0.07 of opacity.
   const clouds = useSurfaceTexture('earth-clouds.jpg', false)
+
+  const detail = useDetailTile()
+
+  /*
+   * The detail is fed into the standard material rather than drawn as a second surface. A patch of
+   * geometry laid over the globe would need its own lighting, its own glint and its own edge, and
+   * would have to agree with the sphere underneath about all three; multiplying inside the one
+   * material cannot disagree with itself.
+   *
+   * Multiplying is also what the data is: the tile holds the 500 m imagery *divided by* the global
+   * map, so the month, the season and the colour keep coming from the map and the tile only
+   * restores what the map is too coarse to hold.
+   */
+  const neutral = useMemo(() => {
+    const texture = new DataTexture(new Uint8Array([64, 64, 64, 255]), 1, 1)
+    texture.needsUpdate = true
+    return texture
+  }, [])
+
+  const detailUniforms = useMemo(
+    () => ({
+      uDetail: { value: neutral as Texture },
+      uDetailBox: { value: new Vector4(0, 0, 1, 1) },
+      uDetailStrength: { value: 0 },
+    }),
+    [neutral],
+  )
+
+  useEffect(() => {
+    if (detail) {
+      const { origin, size } = tileUvBox(detail.id)
+      detailUniforms.uDetailBox.value.set(origin[0], origin[1], size[0], size[1])
+      detailUniforms.uDetail.value = detail.texture
+      detailUniforms.uDetailStrength.value = 1
+    } else {
+      detailUniforms.uDetail.value = neutral
+      detailUniforms.uDetailStrength.value = 0
+    }
+  }, [detail, detailUniforms, neutral])
+
+  const injectDetail = useCallback(
+    (shader: WebGLProgramParametersWithUniforms) => {
+      Object.assign(shader.uniforms, detailUniforms)
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          '#include <common>',
+          `#include <common>
+           uniform sampler2D uDetail;
+           uniform vec4 uDetailBox;
+           uniform float uDetailStrength;`,
+        )
+        .replace(
+          '#include <map_fragment>',
+          `#include <map_fragment>
+           {
+             vec2 inTile = (vMapUv - uDetailBox.xy) / uDetailBox.zw;
+             vec2 within = step(vec2(0.0), inTile) * step(inTile, vec2(1.0));
+             vec2 fade = smoothstep(vec2(0.0), vec2(${EDGE_FADE}), inTile) *
+                         smoothstep(vec2(0.0), vec2(${EDGE_FADE}), vec2(1.0) - inTile);
+             float amount = within.x * within.y * fade.x * fade.y * uDetailStrength;
+             // Luminance only: the tile carries how much brighter this kilometre is than the map
+             // says, and the map keeps the colour. See build-earth-detail for why chroma was left out.
+             float ratio = texture2D(uDetail, clamp(inTile, 0.0, 1.0)).r * ${RATIO_RANGE}.0;
+             diffuseColor.rgb *= mix(1.0, ratio, amount);
+           }`,
+        )
+    },
+    [detailUniforms],
+  )
 
   const scratch = useMemo(() => ({ matrix: new Matrix3(), full: new Matrix4() }), [])
 
@@ -131,6 +266,7 @@ export function EarthSurface() {
             color={day ? '#ffffff' : '#1b4f7a'}
             roughness={roughness ? 1 : 0.528}
             metalness={0}
+            onBeforeCompile={injectDetail}
           />
         </mesh>
 
