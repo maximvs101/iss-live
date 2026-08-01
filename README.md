@@ -493,6 +493,41 @@ The last one is the one worth keeping. It closes the loop through every stage at
 pixel, camera ray, orientation matrix, texture lookup. Nothing else would have caught a rotation
 that was subtly wrong rather than obviously so.
 
+### The camera could fall through the sky
+
+Reported from a screenshot rather than found by testing: swing the view under the station and the
+left of the frame went flat blue, with an orange smear where the terminator should have been. The
+atmosphere is drawn back-face-first, so from *inside* the shell it stops being a limb and becomes a
+wall.
+
+This is the seam between the scene's two scales. The station is drawn a metre to the unit; the
+planet is compressed until it merely subtends the right angle, which puts its surface **118.7 units
+below the origin** to stand for 420 km, and the top of the air at **90.4**. The orbit controls
+allowed the camera out to **400 units** with no polar limit at all — four times deeper than the
+ground. Four hundred metres is a sensible step back from a 94-metre object and, in the planet's
+units, more than a thousand kilometres.
+
+A fixed `maxPolarAngle` cannot express the fix. It would either forbid looking up at the station's
+underside from close in — a view worth having, and perfectly safe there — or allow it from far out,
+where it is not. So the limit is recomputed each frame from the current distance, by the law of
+cosines, and says the sensible thing on its own:
+
+| orbit radius | furthest under | clearance above the air |
+|---|---|---|
+| 15 | 178° — directly beneath | 72 |
+| 40 | 178° — directly beneath | 47 |
+| 105 (default) | 128° | 25 |
+| 250 | 108° | 25 |
+| 400 | 105° | 25 |
+
+It runs at frame priority −2, ahead of the controls' own update at −1. Set afterwards and the limit
+lands a frame late: drag inward and the freedom to swing under arrives one frame after it should,
+drag outward and one frame is drawn from a place the limit was about to forbid.
+
+The shader carries a guard as well — if the camera is ever inside the shell it stops drawing the
+air rather than filling the screen. The controls should make that unreachable; a wall of blue is
+too loud a failure to leave to *should*.
+
 ### Seeing it, in a tab that will not draw
 
 A hidden tab does not just stop `requestAnimationFrame`. React Three Fiber measures its container

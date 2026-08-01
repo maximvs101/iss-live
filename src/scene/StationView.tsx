@@ -11,7 +11,7 @@
 import { useEffect, useRef } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Stars } from '@react-three/drei'
-import { AdditiveBlending } from 'three'
+import { AdditiveBlending, Vector3 } from 'three'
 import type { DirectionalLight, Group } from 'three'
 import { useOrbitStore } from '../orbit/useOrbit'
 import { sunDirectionLvlh } from '../orbit/propagator'
@@ -19,12 +19,38 @@ import { IssGltf } from './nasa/IssGltf'
 import { useIssModel } from './nasa/useIssModel'
 import { EARTH_CENTRE, EARTH_RADIUS } from './earthLimb'
 import { Atmosphere } from './Atmosphere'
+import { maxPolarAngle } from './cameraFloor'
 import { NightLights } from './NightLights'
 import { SunPointer } from './SunPointer'
 import { FrozenJoints } from './FrozenJoints'
 
 /** Distance to the Sun in the scene: far enough that its rays are parallel. */
 const SUN_DISTANCE = 600
+
+/**
+ * Stops the camera dropping through the sky.
+ *
+ * The orbit controls take a single `maxPolarAngle`, and a single number cannot express this: how
+ * far under the station it is safe to swing depends on how far out the camera is. So the number is
+ * recomputed each frame from the current distance. See cameraFloor for why the scene has a floor at
+ * all — it is the seam between the station's scale and the planet's.
+ */
+function CameraFloor() {
+  const controls = useThree((three) => three.controls) as
+    | { maxPolarAngle: number; target: Vector3; object: { position: Vector3 } }
+    | null
+
+  // Priority −2, ahead of the controls' own update at −1. Set it afterwards and the limit applies
+  // to the *next* frame: drag inward and the freedom to swing under arrives a frame late, drag
+  // outward and one frame is drawn from a place the limit was about to forbid.
+  useFrame(() => {
+    if (!controls) return
+    const distance = controls.object.position.distanceTo(controls.target)
+    controls.maxPolarAngle = maxPolarAngle(distance, controls.target.y)
+  }, -2)
+
+  return null
+}
 
 /**
  * Development-only handle on the render loop.
@@ -276,6 +302,7 @@ export function StationView() {
           target={[0, -3, 0]}
           makeDefault
         />
+        <CameraFloor />
       </Canvas>
 
       <FrozenJoints />

@@ -90,6 +90,12 @@ export const fragmentShader = `
     float outer2 = uAtmosphereRadius * uAtmosphereRadius;
     if (impact2 >= outer2) discard;
 
+    // Everything below assumes the camera is outside the air looking in. It should be — the orbit
+    // controls are bounded to keep it there — but a shell drawn back-face-first turns into a wall
+    // the moment it is not, which is a whole screen of flat blue rather than a subtle error. So it
+    // is checked rather than trusted, and the air simply stops being drawn.
+    if (dot(toCentre, toCentre) <= outer2) discard;
+
     // Length of air on the ray. The surface never enters this: a pixel whose ray reaches the
     // ground has already failed the depth test against the planet.
     float chord = 2.0 * sqrt(outer2 - impact2);
