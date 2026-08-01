@@ -62,12 +62,66 @@ const DAY_RECORDS = {
   '09': 73801, '10': 73826, '11': 73884, '12': 73909,
 }
 
+/**
+ * Which size to fetch, and which to ship.
+ *
+ * NASA publishes each month at 5400 × 2700 and at 21600 × 10800. The first is what this used to
+ * take, and it is too coarse for the view this scene actually shows: 7.41 km per texel against
+ * about **one kilometre per screen pixel**, so the map is magnified seven to nine times and reads
+ * as an image that has not finished loading.
+ *
+ * The ceiling is not the file size, it is the GPU. 21600 is past `maxTextureSize` on most hardware
+ * and would want 1.19 GB of texture memory. 10800 lands at 3.71 km per texel and 297 MB, and
+ * measures — acutance over the ground, which is blind to exposure — at **3.028 against 2.075**, a
+ * 46 % gain. 8192 was the middle option and gives 2.656.
+ */
+const DAY_SOURCE_WIDTH = 21600
+const DAY_WIDTH = 10800
+
 const dayUrl = (month) =>
   `https://eoimages.gsfc.nasa.gov/images/imagerecords/73000/${DAY_RECORDS[month]}` +
-  `/world.topo.bathy.2004${month}.3x5400x2700.jpg`
+  `/world.topo.bathy.2004${month}.3x${DAY_SOURCE_WIDTH}x${DAY_SOURCE_WIDTH / 2}.jpg`
 
-const CLOUDS_URL =
-  'https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57747/cloud_combined_2048.jpg'
+/**
+ * The clouds, in two hemispheres.
+ *
+ * The obvious file is `cloud_combined_2048.jpg`, which is what this used to take, and it is a trap:
+ * at 19.55 km per texel it was the coarsest thing in the scene by a factor of three, and
+ * downsampling by ten from the real product had smoothed a structured sky into a uniform veil.
+ * That veil is what made an earlier version of this file claim the data was a monthly *mean* with
+ * no edges. It is not. `2001210` is a date — 29 July 2001 — and at full size the field is plainly
+ * synoptic: cyclones, frontal bands, the ITCZ, cellular convection over the oceans.
+ *
+ * Two tiles of 21600 × 21600, a hemisphere each, 202 MB apiece. Which is which was settled by
+ * correlating every arrangement against the published small map rather than by reading the names:
+ * west then east scores 0.50, and the five alternatives — the other order, and either with a flip
+ * — score between −0.12 and −0.05.
+ */
+const CLOUD_TILES = {
+  west: 'https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57747/cloud.W.2001210.21600x21600.png',
+  east: 'https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57747/cloud.E.2001210.21600x21600.png',
+}
+
+/**
+ * Width of the finished cloud map.
+ *
+ * Smaller than the day map's 10800 on purpose. Texture memory is the binding constraint — the day
+ * map alone wants 297 MB — and clouds are soft-edged by nature, so the last doubling buys less here
+ * than it does on coastlines and terrain. 5400 is 7.41 km per texel, 2.6 times finer than the file
+ * it replaces, for 74 MB.
+ */
+const CLOUD_WIDTH = 5400
+
+/**
+ * Columns over which the two hemispheres are cross-faded into each other.
+ *
+ * The join is not clean, and the discontinuity is NASA's rather than this script's: the halves are
+ * composited from different passes, so at 0° and at 180° the cloud field genuinely does not line
+ * up. A feather cannot invent the missing agreement; it spreads the step over about a degree of
+ * longitude, which is under what the eye picks out as an edge. The two numbers printed at the end
+ * are the step and an ordinary neighbour's, so the claim can be checked rather than trusted.
+ */
+const CLOUD_SEAM_FEATHER = 16
 
 /** Roughness either side of the shoreline. The sea's value is derived in scene/oceanGlint. */
 const SEA_ROUGHNESS = 0.528
@@ -115,9 +169,9 @@ function waterFraction(r, g, b) {
   return blueness * darkness
 }
 
-async function fetchOnce(name, url) {
+async function fetchOnce(name, url, extension = 'jpg') {
   mkdirSync(cache, { recursive: true })
-  const path = resolve(cache, `${name}.jpg`)
+  const path = resolve(cache, `${name}.${extension}`)
   if (existsSync(path)) return path
   process.stdout.write(`  fetching ${name} … `)
   const response = await fetch(url)
@@ -152,61 +206,106 @@ const EXPECTED = [
 /**
  * The curve put on the cloud image before it becomes an opacity map.
  *
- * The composite is a **monthly mean**, and a mean has no edges. Drawn at face value it is not a sky
- * but a veil: area-weighted, its mean opacity is 24.5 % spread smoothly over everything, so the
- * whole planet goes milky and the ground beneath stops being legible. An instantaneous sky is the
- * opposite — mostly clear or mostly covered, with edges.
+ * There is none, and the reason is worth keeping because getting here took a wrong turn. Drawn from
+ * the small `cloud_combined_2048` file the field was a uniform veil — area-weighted mean opacity
+ * 24.5 % spread smoothly over everything — and the planet went milky. The diagnosis at the time was
+ * that the data must be a monthly *mean*, and that a mean has no edges, so the values went through
+ * a 1.5 power curve to push the thin half towards clear.
  *
- * So the values are put through a power curve, which pushes the thin half towards clear and leaves
- * the thick half alone. Stated plainly because it is a presentation choice and not a measurement:
- * it trades faithfulness to the mean for the structure a real sky has. 1.5 is the gentlest curve
- * that does it — the mean falls to 16.1 %, and the share reading as clear goes from 35 % to 52 %.
- *
- * A stronger curve is not more correct, only emptier. There was no anchor available to choose by:
- * this product's mean is 24.5 % where MODIS puts global cloud fraction near 67 %, so whatever it
- * measures, it is not a fraction on that scale, and a number derived from that comparison would be
- * arithmetic laid over a guess.
+ * The diagnosis was wrong. The data is one day, 29 July 2001, and the smoothness was an artefact of
+ * downsampling it by ten. At full resolution the edges are there and the curve is a solution to a
+ * problem that no longer exists, so it is 1.0: the field as published. Kept as a constant rather
+ * than deleted, because the next person to look at a milky planet should find this note before
+ * reaching for the same lever.
  */
-const CLOUD_GAMMA = 1.5
+const CLOUD_GAMMA = 1.0
 
 /** Half the colour resolution: this decides *whether* a pixel glints, not what it looks like. */
 const ROUGHNESS_WIDTH = 2700
 
-async function buildClouds(source) {
-  const { data, info } = await sharp(source).raw().toBuffer({ resolveWithObject: true })
+async function buildClouds() {
+  const width = CLOUD_WIDTH
+  const height = CLOUD_WIDTH / 2
+  const half = width / 2
+
+  // Each tile is 180° by 180°, so a hemisphere becomes a square half of the finished map.
+  const hemisphere = async (name, url) => {
+    const path = await fetchOnce(name, url, 'png')
+    const { data, info } = await sharp(path, { limitInputPixels: false, sequentialRead: true })
+      .resize(half, height, { kernel: 'lanczos3' })
+      .raw()
+      .toBuffer({ resolveWithObject: true })
+    // Read back with the channel count sharp actually returns. A greyscale source can come back as
+    // three, and assuming one scrambles every index by a factor of three — which showed up here as
+    // neighbouring pixels differing by exactly zero, because it was comparing red against green.
+    const plane = new Uint8Array(half * height)
+    for (let p = 0; p < plane.length; p += 1) plane[p] = data[p * info.channels]
+    return plane
+  }
+
+  const west = await hemisphere('cloud-W', CLOUD_TILES.west)
+  const east = await hemisphere('cloud-E', CLOUD_TILES.east)
+
   const lut = new Uint8Array(256)
   for (let v = 0; v < 256; v += 1) lut[v] = Math.round(255 * (v / 255) ** CLOUD_GAMMA)
 
-  const mask = Buffer.alloc(info.width * info.height)
+  const mask = Buffer.alloc(width * height)
   let weighted = 0
   let weight = 0
-  for (let y = 0, p = 0; y < info.height; y += 1) {
+  let seamStep = 0
+  let ordinaryStep = 0
+
+  for (let y = 0; y < height; y += 1) {
     // Area weight: an equirectangular map gives the poles as much room as the equator.
-    const w = Math.cos(((0.5 - (y + 0.5) / info.height) * Math.PI))
-    for (let x = 0; x < info.width; x += 1, p += 1) {
-      const value = lut[data[p * info.channels]]
-      mask[p] = value
-      weighted += (value / 255) * w
+    const w = Math.cos((0.5 - (y + 0.5) / height) * Math.PI)
+    seamStep += Math.abs(west[y * half + half - 1] - east[y * half])
+    ordinaryStep += Math.abs(west[y * half + 1000] - west[y * half + 1001])
+
+    for (let x = 0; x < width; x += 1) {
+      const inWest = x < half
+      let value = inWest ? west[y * half + x] : east[y * half + (x - half)]
+
+      // Feather both joins: the one down the middle at 0°, and the one at the wrap at ±180°.
+      const acrossCentre = inWest ? half - 1 - x : x - half
+      const acrossWrap = inWest ? x : width - 1 - x
+      const facing = inWest ? east[y * half] : west[y * half + half - 1]
+      const behind = inWest ? east[y * half + half - 1] : west[y * half]
+
+      if (acrossCentre < CLOUD_SEAM_FEATHER) {
+        const t = (CLOUD_SEAM_FEATHER - acrossCentre) / (2 * CLOUD_SEAM_FEATHER)
+        value = Math.round(value * (1 - t) + facing * t)
+      } else if (acrossWrap < CLOUD_SEAM_FEATHER) {
+        const t = (CLOUD_SEAM_FEATHER - acrossWrap) / (2 * CLOUD_SEAM_FEATHER)
+        value = Math.round(value * (1 - t) + behind * t)
+      }
+
+      const curved = lut[value]
+      mask[y * width + x] = curved
+      weighted += (curved / 255) * w
       weight += w
     }
   }
 
-  await sharp(mask, { raw: { width: info.width, height: info.height, channels: 1 } })
-    .jpeg({ quality: 82, mozjpeg: true })
+  await sharp(mask, { raw: { width, height, channels: 1 } })
+    .jpeg({ quality: 84, mozjpeg: true })
     .toFile(resolve(out, 'earth-clouds.jpg'))
 
   console.log(
-    `  clouds  gamma ${CLOUD_GAMMA}, mean opacity ${((weighted / weight) * 100).toFixed(1)} %` +
-      ' by area — a monthly mean, curved so it reads as sky rather than haze',
+    `  clouds  ${width}×${height}, ${((2 * Math.PI * 6371) / width).toFixed(2)} km per texel,` +
+      ` gamma ${CLOUD_GAMMA}, mean opacity ${((weighted / weight) * 100).toFixed(1)} % by area`,
+  )
+  console.log(
+    `          seam step ${(seamStep / height).toFixed(1)} where an ordinary neighbour is` +
+      ` ${(ordinaryStep / height).toFixed(1)} — feathered over ${CLOUD_SEAM_FEATHER} columns`,
   )
 }
 
 async function buildMonth(month) {
   const source = await fetchOnce(`day-${month}`, dayUrl(month))
 
-  // Kept at the source resolution: 5,400 across is 7.4 km a pixel, and the ground the station can
-  // see at once is 2,290 km, so about 310 pixels of it. Re-encoded because the original is generous.
+  // Halved from the source, which is the largest size the GPU will hold. See DAY_WIDTH.
   await sharp(source)
+    .resize(DAY_WIDTH, DAY_WIDTH / 2, { kernel: 'lanczos3' })
     .jpeg({ quality: 82, mozjpeg: true })
     .toFile(resolve(out, `earth-day-${month}.jpg`))
 
@@ -266,8 +365,7 @@ async function buildMonth(month) {
 console.log('Earth textures\n')
 mkdirSync(out, { recursive: true })
 
-const cloudPath = await fetchOnce('clouds', CLOUDS_URL)
-await buildClouds(cloudPath)
+await buildClouds()
 
 // Listed rather than taken from the record table's keys: '10', '11' and '12' are canonical integer
 // strings and JavaScript hoists those ahead of '01', so the report came out starting in October.

@@ -18,7 +18,7 @@
  * additive and belongs after everything — the cities.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import {
   Group,
   Matrix3,
@@ -60,6 +60,7 @@ const CLOUD_RADIUS = EARTH_RADIUS * ((6371 + CLOUD_TOP_KM) / 6371)
 /** Loads a texture once, tags it sRGB, and disposes it on the way out. */
 function useSurfaceTexture(name: string, colour = true): Texture | null {
   const [texture, setTexture] = useState<Texture | null>(null)
+  const gl = useThree((three) => three.gl)
 
   useEffect(() => {
     let live = true
@@ -70,12 +71,16 @@ function useSurfaceTexture(name: string, colour = true): Texture | null {
       }
       // Colour maps are sRGB; the roughness map is data and must not be decoded as if it were not.
       if (colour) loaded.colorSpace = SRGBColorSpace
+      // Most of the planet is seen edge-on. Without this the mip chain picks a level sized to the
+      // *compressed* direction and smears the other one, so the ground towards the limb — which is
+      // most of the frame — is blurred far past what the texture can actually resolve.
+      loaded.anisotropy = gl.capabilities.getMaxAnisotropy()
       setTexture(loaded)
     })
     return () => {
       live = false
     }
-  }, [name, colour])
+  }, [name, colour, gl])
 
   useEffect(() => () => texture?.dispose(), [texture])
   return texture
@@ -131,11 +136,13 @@ export function EarthSurface() {
 
         {clouds && (
           /*
-           * Clouds, and an honest label: this is a cloud *field*, not today's weather. It is NASA's
-           * Blue Marble composite, which is a month of observations averaged into something that
-           * looks like a sky. Nothing in this app invents data, so it must not be read as a
-           * forecast — hence the note in the README and the deliberate absence of any claim in the
-           * interface that it is current.
+           * Clouds, and an honest label: this is a cloud field, and it is not today's. It is NASA's
+           * Blue Marble cloud layer for **29 July 2001** — one day's observations, not a month's
+           * averaged, which an earlier version of this comment claimed. The correction matters
+           * because it is the difference between a smooth statistic and a real sky, and the sky is
+           * what is drawn: cyclones, fronts and the ITCZ, all in the places they were on that
+           * morning. Nothing in this app invents data, so it must not be read as a forecast — hence
+           * the note in the README and the absence of any claim in the interface that it is current.
            *
            * Lit by the scene's own Sun like everything else, so the terminator runs across the
            * cloud tops exactly where it runs across the ground.

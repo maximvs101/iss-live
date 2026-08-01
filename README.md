@@ -666,17 +666,65 @@ which is a category error: a cloud is white, and the image says how much of it t
 the two multiplied, so a cloud stored at 0.30 came out as a 0.30-grey at 0.30 opacity — a dark film
 rather than a cloud. White now, with the image supplying opacity alone.
 
-That fix immediately produced the opposite problem, and the reason is in the data rather than the
-code. The composite is a **monthly mean**, and a mean has no edges: drawn at face value its
-area-weighted opacity is 24.5 % spread smoothly over everything, so the planet went milky. A real
-sky is mostly clear or mostly covered. So the values go through a power curve at build time, and
-1.5 is the gentlest one that restores the structure — mean opacity 16.1 %, the share reading as
-clear up from 35 % to 52 %.
+That fix immediately produced the opposite problem — the planet went milky — and the diagnosis was
+wrong. It looked like a **monthly mean**, spread smoothly over everything at 24.5 % opacity, and a
+mean has no edges; so the values went through a 1.5 power curve to push the thin half towards
+clear. Both the reasoning and the number were sound given the premise, and the premise was false.
+See the next section.
 
-That last number is a presentation choice and is labelled as one in the script. There was no anchor
-to derive it from: this product's mean is 24.5 % where MODIS puts global cloud fraction near 67 %,
-so whatever it measures it is not a fraction on that scale, and a figure computed from that
-comparison would have been arithmetic laid over a guess.
+### It was the small file, twice over
+
+*"The resolution is really poor — it looks like the display hasn't finished loading. Is that what
+Blue Marble is?"* Yes and no: it is Blue Marble, at the smallest of the sizes NASA publishes, and
+the arithmetic says the complaint is exactly right. One screen pixel covers **0.83 to 1.36 km** of
+ground in the default view. One texel of a 5400 × 2700 map covers **7.41**. The map was being
+magnified six to nine times.
+
+The ceiling is not the file size, it is texture memory:
+
+| width | km per texel | acutance over the ground | download | GPU |
+|---|---|---|---|---|
+| 5400 | 7.41 | 2.075 | 1.2 MB | 74 MB |
+| 8192 | 4.89 | 2.656 | 2.5 MB | 171 MB |
+| **10800** | **3.71** | **3.028** | **4.1 MB** | **297 MB** |
+| 21600 | 1.85 | — | 13.9 MB | 1.19 GB — past `maxTextureSize` |
+
+Acutance is the mean absolute luminance step between neighbouring pixels, measured over the ground
+only. It is blind to exposure, which matters here because the lighting had just changed underneath
+it. 10800 is a **46 %** gain and the last size the GPU will hold comfortably.
+
+**The first version of that table said the resolution made no difference at all**, and it was
+wrong in a way worth recording: `Texture.clone()` copies the `source` object *by reference*, so
+assigning `.image` on the clone mutated the original too, and every variant was rendering the same
+picture. The measurement agreed with itself to three decimal places, which is what a broken
+experiment looks like when it is broken cleanly.
+
+**Then the clouds, which turned out to be the real limit.** At 2048 × 1024 they were 19.55 km per
+texel — three times coarser than the ground they sit on — and NASA publishes no larger version of
+`cloud_combined`. It publishes the source instead: two hemispheres of 21600 × 21600, 202 MB each.
+Stitched and reduced to 5400, that is 7.41 km per texel, **2.6 times finer**.
+
+Two things fell out of doing that. Which tile is which was settled by correlating every arrangement
+against the published small map rather than by trusting the letters in the filenames — west then
+east scores 0.50, and the five alternatives score between −0.12 and −0.05. And the join is not
+clean: the step across it averages 20.8 grey levels where neighbouring pixels ordinarily differ by
+8, because the halves come from different passes. That is NASA's discontinuity, not the script's, so
+it is feathered over sixteen columns rather than pretended away, and both numbers are printed at
+every build.
+
+The other thing that fell out was a **correction**. At full size the field is plainly one day's
+weather — cyclones, frontal bands, the ITCZ, cellular convection over the oceans — dated in its own
+filename, 29 July 2001. It is not a monthly mean, and the section above says so because the small
+file looked like one: ten-fold downsampling had smoothed a real sky into a statistic. The power
+curve added to fix that milkiness was a fix for an artefact, so it is gone, and the field is drawn
+as published at 20.7 % mean opacity.
+
+Anisotropic filtering was off as well — 1, on hardware offering 16. It does nothing for the
+foreground, which is magnified rather than minified, but most of the planet is seen edge-on, and
+there the mip chain was picking a level sized to the compressed direction and smearing the other.
+
+The whole planet now costs a visitor 4.1 MB of colour, 0.13 of roughness and 2.3 of cloud, against
+a 14.9 MB model it was already fetching.
 
 ### The camera could fall through the sky
 
