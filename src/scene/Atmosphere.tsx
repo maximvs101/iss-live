@@ -25,14 +25,23 @@
  */
 import { useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { AdditiveBlending, BackSide, Vector3 } from 'three'
+import { AdditiveBlending, BackSide, FrontSide, Vector3 } from 'three'
 import { useOrbitStore } from '../orbit/useOrbit'
 import { sunDirectionLvlh } from '../orbit/propagator'
-import { ATMOSPHERE_RADIUS, EARTH_CENTRE, LIMB_CHORD } from './earthLimb'
-import { fragmentShader, vertexShader } from './limbScattering'
+import { ATMOSPHERE_RADIUS, EARTH_CENTRE, EARTH_RADIUS, LIMB_CHORD } from './earthLimb'
+import { fragmentShader, hazeFragmentShader, vertexShader } from './limbScattering'
 
 /** World position of the planet's centre. The scene puts the station at the origin. */
 const CENTRE = new Vector3(0, -EARTH_CENTRE, 0)
+
+/**
+ * Where the haze shell sits.
+ *
+ * Above the cloud tops at 1803.4, so distant cloud is hazed along with distant ground — which is
+ * what a photograph shows — and well inside the limb shell at 1828.25. Nothing about the shading
+ * depends on this number: it is a surface to rasterise, and the shader works from the ray.
+ */
+const HAZE_RADIUS = 1806
 
 export function Atmosphere() {
   const sun = useMemo(() => new Vector3(0, 1, 0), [])
@@ -47,6 +56,17 @@ export function Atmosphere() {
     [sun],
   )
 
+  const hazeUniforms = useMemo(
+    () => ({
+      uEarthCentre: { value: CENTRE },
+      uSunDirection: { value: sun },
+      uSurfaceRadius: { value: EARTH_RADIUS },
+      uAtmosphereRadius: { value: ATMOSPHERE_RADIUS },
+      uBandDepth: { value: ATMOSPHERE_RADIUS - EARTH_RADIUS },
+    }),
+    [sun],
+  )
+
   useFrame(() => {
     const state = useOrbitStore.getState().state
     if (!state) return
@@ -56,17 +76,43 @@ export function Atmosphere() {
   })
 
   return (
-    <mesh position={CENTRE}>
-      <sphereGeometry args={[ATMOSPHERE_RADIUS, 96, 64]} />
-      <shaderMaterial
-        vertexShader={vertexShader}
-        fragmentShader={fragmentShader}
-        uniforms={uniforms}
-        transparent
-        side={BackSide}
-        blending={AdditiveBlending}
-        depthWrite={false}
-      />
-    </mesh>
+    <>
+      {/*
+        The haze between the eye and the ground.
+        
+        Ordinary alpha rather than additive, because haze is not a glow: it adds its own light and
+        washes out what is behind it in the same stroke, which is what a blend already does. The
+        shell only exists to give every pixel of the planet a fragment to run in — its radius is
+        arbitrary above the cloud tops, and the shader discards anything whose ray misses the
+        ground, so it covers exactly the disc and stops where the limb takes over.
+
+        Drawn before the limb, and both after the surface: `renderOrder` decides it outright,
+        because all three shells share a centre and so sort at the same distance.
+      */}
+      <mesh position={CENTRE} renderOrder={1}>
+        <sphereGeometry args={[HAZE_RADIUS, 96, 64]} />
+        <shaderMaterial
+          vertexShader={vertexShader}
+          fragmentShader={hazeFragmentShader}
+          uniforms={hazeUniforms}
+          transparent
+          side={FrontSide}
+          depthWrite={false}
+        />
+      </mesh>
+
+      <mesh position={CENTRE} renderOrder={2}>
+        <sphereGeometry args={[ATMOSPHERE_RADIUS, 96, 64]} />
+        <shaderMaterial
+          vertexShader={vertexShader}
+          fragmentShader={fragmentShader}
+          uniforms={uniforms}
+          transparent
+          side={BackSide}
+          blending={AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
+    </>
   )
 }

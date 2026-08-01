@@ -33,6 +33,24 @@ const SCATTERING = {
   strength: 1.15,
 }
 
+/**
+ * Rayleigh optical depth of the whole atmosphere, straight down, at 550 nm.
+ *
+ * Measured, not chosen: about 0.1 at sea level in the green. It is what makes the haze the right
+ * strength without a slider — a ray straight down crosses one vertical column and comes out 10 %
+ * hazed, and one grazing the limb crosses ten and comes out 63 %.
+ */
+const VERTICAL_OPTICAL_DEPTH = 0.1
+
+/**
+ * The longest path to the ground, in vertical columns.
+ *
+ * Geometry, not taste. From 420 km the ray that just reaches the ground at the horizon crosses
+ * 280 units of a band 28.3 deep — a factor of **9.92**, and that is the whole reason the horizon
+ * is pale while the nadir is not.
+ */
+const MAX_AIRMASS = 9.92
+
 const smoothstep = (edge0: number, edge1: number, x: number) => {
   const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)))
   return t * t * (3 - 2 * t)
@@ -52,6 +70,32 @@ export function limbShading(depth: number, sunElevation: number) {
     (channel, i) => channel + (SCATTERING.sunset[i] - channel) * reddening,
   ) as [number, number, number]
   return { colour, reddening, intensity: depth ** SCATTERING.falloff * lit * SCATTERING.strength }
+}
+
+/**
+ * The haze between the camera and the ground.
+ *
+ * The limb shader deliberately leaves this out — it discards any ray that reaches the surface, on
+ * the grounds that haze belongs on the ground rather than on a shell floating over it. That was
+ * right about where it belongs and wrong to stop there: the ground then carried **no air at all**,
+ * which is what made the planet read as a painted ball rather than something with a sky.
+ *
+ * Same air, so the same colour rule as the limb: one function decides what lit air looks like, and
+ * the reddening at a low Sun follows from the path length exactly as it does out at the edge. What
+ * differs is only how much air the ray crosses, and that is geometry.
+ *
+ * Returns an opacity rather than a brightness, because haze does two things at once — it adds its
+ * own light *and* washes out what is behind it — and an ordinary alpha blend is precisely that.
+ */
+export function groundHaze(airmass: number, sunElevation: number) {
+  const lit = smoothstep(SCATTERING.litFrom, SCATTERING.litTo, sunElevation)
+  const depth = Math.min(1, Math.max(0, (airmass - 1) / (MAX_AIRMASS - 1)))
+  const { colour, reddening } = limbShading(depth, sunElevation)
+  return {
+    colour,
+    reddening,
+    opacity: (1 - Math.exp(-VERTICAL_OPTICAL_DEPTH * airmass)) * lit,
+  }
 }
 
 /** GLSL has no integer-to-float promotion in literals, so every number needs a decimal point. */
@@ -117,3 +161,57 @@ export const fragmentShader = `
   }
 `
 
+
+/**
+ * The same arithmetic as `groundHaze`, built from the same constants by interpolation so the test
+ * suite and the GPU cannot come to disagree about them.
+ *
+ * Drawn on a shell just above the cloud tops, front faces only, and discarded wherever the ray
+ * misses the ground — which is exactly the region the limb shell already owns, so the two tile the
+ * disc between them without a seam or an overlap.
+ */
+export const hazeFragmentShader = `
+  uniform vec3 uEarthCentre;
+  uniform vec3 uSunDirection;
+  uniform float uSurfaceRadius;
+  uniform float uAtmosphereRadius;
+  uniform float uBandDepth;
+
+  varying vec3 vWorldPosition;
+
+  const vec3 DAY = vec3(${SCATTERING.day.map(f).join(', ')});
+  const vec3 SUNSET = vec3(${SCATTERING.sunset.map(f).join(', ')});
+
+  void main() {
+    vec3 origin = cameraPosition;
+    vec3 ray = normalize(vWorldPosition - origin);
+
+    vec3 toCentre = uEarthCentre - origin;
+    float along = dot(toCentre, ray);
+    float impact2 = dot(toCentre, toCentre) - along * along;
+
+    float ground2 = uSurfaceRadius * uSurfaceRadius;
+    // Only where the ray reaches the ground. Past that silhouette the limb shell draws the air, and
+    // two shells drawing the same pixel would count it twice.
+    if (impact2 >= ground2) discard;
+
+    float outer2 = uAtmosphereRadius * uAtmosphereRadius;
+    float toGround = along - sqrt(ground2 - impact2);
+    float toAir = along - sqrt(max(0.0, outer2 - impact2));
+    float airmass = max(0.0, toGround - toAir) / uBandDepth;
+
+    // Lit or not is a question about the ground the ray lands on, not about this shell.
+    vec3 up = normalize(origin + ray * toGround - uEarthCentre);
+    float sunElevation = dot(up, uSunDirection);
+
+    float lit = smoothstep(${f(SCATTERING.litFrom)}, ${f(SCATTERING.litTo)}, sunElevation);
+    float lowSun = smoothstep(${f(SCATTERING.lowSunFrom)}, ${f(SCATTERING.lowSunTo)}, sunElevation);
+    float depth = clamp((airmass - 1.0) / ${f(MAX_AIRMASS - 1)}, 0.0, 1.0);
+    float deep = smoothstep(${f(SCATTERING.deepFrom)}, ${f(SCATTERING.deepTo)}, depth);
+
+    vec3 colour = mix(DAY, SUNSET, lowSun * deep);
+    float opacity = (1.0 - exp(-${f(VERTICAL_OPTICAL_DEPTH)} * airmass)) * lit;
+
+    gl_FragColor = vec4(colour, opacity);
+  }
+`

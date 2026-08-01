@@ -50,7 +50,7 @@ import {
 } from '../src/scene/distantScene.ts'
 import { PAN_LIMIT, STATION_RADIUS, clampTarget, clearances, farPlane } from '../src/scene/cameraReach.ts'
 import { OCEAN_ROUGHNESS, OCEAN_WIND_SPEED, seaRoughness, slopeVariance } from '../src/scene/oceanGlint.ts'
-import { limbShading } from '../src/scene/limbScattering.ts'
+import { groundHaze, limbShading } from '../src/scene/limbScattering.ts'
 import { markerPlacement } from '../src/scene/sunMarker.ts'
 
 const R = 6371
@@ -476,6 +476,35 @@ heading('C. The station view')
     'and reddens only when the Sun is low',
     sunset.reddening > 0.9 && highSun.reddening < 0.01 && sunset.colour[0] > sunset.colour[2],
     `reddening ${sunset.reddening.toFixed(2)} at sunset against ${highSun.reddening.toFixed(2)} at noon`,
+  )
+}
+
+{
+  // C13b. The haze over the ground, against the geometry it is supposed to follow. The air mass is
+  // recomputed here from the two radii by ray-sphere intersection — the same triangle the shader
+  // solves, but written out rather than imported — and the two numbers the shading depends on are
+  // the ones it produces at the nadir and at the horizon.
+  const centre = EARTH_CENTRE
+  const airmassAt = (offDegrees) => {
+    const th = offDegrees * rad
+    const along = -centre * -Math.cos(th)
+    const impact2 = centre * centre - along * along
+    if (impact2 >= EARTH_RADIUS ** 2) return null
+    const toGround = along - Math.sqrt(EARTH_RADIUS ** 2 - impact2)
+    const toAir = along - Math.sqrt(ATMOSPHERE_RADIUS ** 2 - impact2)
+    return (toGround - toAir) / (ATMOSPHERE_RADIUS - EARTH_RADIUS)
+  }
+  const nadir = airmassAt(0)
+  const horizon = airmassAt(deg(Math.asin(EARTH_RADIUS / centre)) - 0.05)
+  check(
+    'one vertical column straight down, ten at the horizon',
+    near(nadir, 1, 1e-6) && horizon > 9 && horizon < 11,
+    `${nadir.toFixed(3)} at the nadir, ${horizon.toFixed(2)} grazing`,
+  )
+  check(
+    'and the haze that follows is a tenth, then two thirds',
+    near(groundHaze(nadir, 1).opacity, 0.095, 0.002) && groundHaze(horizon, 1).opacity > 0.55,
+    `${(groundHaze(nadir, 1).opacity * 100).toFixed(1)} % overhead, ${(groundHaze(horizon, 1).opacity * 100).toFixed(1)} % at the limb, 0 % unlit`,
   )
 }
 

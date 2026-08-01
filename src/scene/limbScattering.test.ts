@@ -12,7 +12,7 @@
  * constants, so these assertions bind what the GPU does.
  */
 import { describe, expect, it } from 'vitest'
-import { limbShading } from './limbScattering'
+import { groundHaze, hazeFragmentShader, limbShading } from './limbScattering'
 
 /** Sun elevation over the air being looked at: 1 straight overhead, 0 on its horizon. */
 const NOON = 0.9
@@ -72,5 +72,49 @@ describe('limbShading', () => {
       expect(Math.abs(current - previous)).toBeLessThan(0.12)
       previous = current
     }
+  })
+})
+
+describe('the haze between the eye and the ground', () => {
+  it('is a tenth of the way to opaque straight down, and two thirds at the limb', () => {
+    // Both numbers follow from the Rayleigh optical depth and the geometry, not from taste: one
+    // vertical column at the nadir, 9.92 of them for a ray that just reaches the ground at the
+    // horizon. If either drifts, the planet stops looking like it has air over it.
+    expect(groundHaze(1, 1).opacity).toBeCloseTo(0.095, 3)
+    expect(groundHaze(9.92, 1).opacity).toBeCloseTo(0.629, 3)
+  })
+
+  it('thickens with the path and never runs away', () => {
+    let previous = -1
+    for (const airmass of [1, 1.5, 2, 3, 5, 8, 9.92]) {
+      const { opacity } = groundHaze(airmass, 1)
+      expect(opacity).toBeGreaterThan(previous)
+      expect(opacity).toBeLessThan(1)
+      previous = opacity
+    }
+  })
+
+  it('disappears on the night side', () => {
+    // Unlit air scatters nothing, and a haze that survived the terminator would grey out the city
+    // lights — the one place on the planet where nothing should be washed.
+    expect(groundHaze(9.92, -1).opacity).toBe(0)
+    expect(groundHaze(1, -1).opacity).toBe(0)
+  })
+
+  it('is the same air as the limb, reddened by the same rule', () => {
+    // One function decides what lit air looks like. A second colour rule here would drift, and the
+    // seam between the ground and the limb is the one place a viewer would see it.
+    const long = groundHaze(9.92, -0.2)
+    expect(long.reddening).toBeCloseTo(limbShading(1, -0.2).reddening, 9)
+    expect(long.colour[0]).toBeGreaterThan(long.colour[2])
+    const noon = groundHaze(9.92, 1)
+    expect(noon.colour[2]).toBeGreaterThan(noon.colour[0])
+  })
+
+  it('puts the same constants in the shader as in the function', () => {
+    // The shader is built by interpolation, so this pins that the GPU runs these numbers.
+    expect(hazeFragmentShader).toContain('exp(-0.1 * airmass)')
+    expect(hazeFragmentShader).toContain('(airmass - 1.0) / 8.92')
+    expect(hazeFragmentShader).toContain('if (impact2 >= ground2) discard;')
   })
 })
