@@ -34,6 +34,20 @@ import { EARTH_CENTRE, EARTH_RADIUS } from './earthLimb'
 const TEXTURE = (name: string) => `${import.meta.env.BASE_URL}textures/${name}`
 
 /**
+ * Which month's planet to paint.
+ *
+ * Blue Marble is a set of twelve composites and the first version of this took one of them —
+ * December — which put snow across two thirds of the northern hemisphere's land in the middle of
+ * August and made the whole thing read as the Moon. The station is where it is *now*, so the ground
+ * under it should be the ground that is there now: Manitoba in August is green, and its saturation
+ * in the August composite is seven times what December gives.
+ *
+ * Read once, at mount. A session that crosses midnight on the last of the month keeps the texture
+ * it started with, which is a thirtieth of a degree of Sun and nobody's idea of a defect.
+ */
+const month = String(new Date().getMonth() + 1).padStart(2, '0')
+
+/**
  * Height of the cloud deck, scaled with the planet like everything else.
  *
  * 12 km is the top of the troposphere at the equator, which is where the tall weather stops. On
@@ -69,9 +83,11 @@ function useSurfaceTexture(name: string, colour = true): Texture | null {
 
 export function EarthSurface() {
   const group = useRef<Group>(null)
-  const day = useSurfaceTexture('earth-day.jpg')
-  const roughness = useSurfaceTexture('earth-roughness.jpg', false)
-  const clouds = useSurfaceTexture('earth-clouds.jpg')
+  const day = useSurfaceTexture(`earth-day-${month}.jpg`)
+  const roughness = useSurfaceTexture(`earth-roughness-${month}.jpg`, false)
+  // Data, not colour. It is an opacity map now, and tagging it sRGB makes the *hardware* decode it
+  // on every sample — which quietly crushed a cloud stored at 0.30 down to 0.07 of opacity.
+  const clouds = useSurfaceTexture('earth-clouds.jpg', false)
 
   const scratch = useMemo(() => ({ matrix: new Matrix3(), full: new Matrix4() }), [])
 
@@ -123,11 +139,19 @@ export function EarthSurface() {
            *
            * Lit by the scene's own Sun like everything else, so the terminator runs across the
            * cloud tops exactly where it runs across the ground.
+           *
+           * **White, with the image supplying opacity alone.** It was wired as both `map` and
+           * `alphaMap` at first, which is a category error: a cloud is white, and the greyscale is
+           * how *much* cloud there is, not what colour it is. Using it twice multiplied the two
+           * together — a cloud stored at 0.30 came out as a 0.30-grey at 0.30 opacity, so instead
+           * of white it laid a dark film over the ground. Measured, that was worth only eight
+           * levels out of 255, so it was never the reason the planet looked grey; it was still
+           * wrong.
            */
           <mesh castShadow={false} receiveShadow={false}>
             <sphereGeometry args={[CLOUD_RADIUS, 96, 64]} />
             <meshStandardMaterial
-              map={clouds}
+              color="#ffffff"
               alphaMap={clouds}
               transparent
               depthWrite={false}

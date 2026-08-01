@@ -15,8 +15,13 @@
  *
  * **Lights inside here light both passes.** Layers filter lights exactly as they filter geometry,
  * so a light moved onto the sky's layer would stop reaching the station entirely — which is why
- * they are *enabled* on it rather than moved to it. Putting them here is not an accident of
- * plumbing: the Sun, the Earth's albedo and the fill are the sky, and the station is lit by it.
+ * they are *enabled* on it rather than moved to it.
+ *
+ * Which makes what is *not* in here a decision rather than an oversight. Only the Sun is: it is the
+ * one light that genuinely falls on both. The ambient and hemisphere fills stay outside, because
+ * they exist to keep the station's shadow side legible and a planet has no such excuse — passing
+ * them through washed the ground half again as bright and half as saturated as the texture it came
+ * from. Earthshine stays outside twice over, being the planet's own light bounced back.
  */
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'

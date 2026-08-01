@@ -558,6 +558,12 @@ hidden, the brightest pixel landed 0.055 in NDC from the predicted specular peak
 *away* from the nadir, which is where Fresnel puts it and where a prediction using only `N·H`
 would not.
 
+Those luminances are historical: they were read while the station's fill lights still reached the
+planet, and *Half the planet had geography* ends with taking them away. Re-measured across the
+whole frame through the Sun's azimuth, the lobe is unchanged in shape and far stronger in
+contrast — **9 at the dark end, 117 at the peak, and falling again after it**, where the fills used
+to hold the dark water up at 67.
+
 ### Half the planet had geography and half was paint
 
 This reverses a decision, so it is worth naming which one. The sphere was deliberately unmarked, on
@@ -578,9 +584,12 @@ can regenerate is a texture nobody can check:
 
 | | source | on disk |
 |---|---|---|
-| day | Blue Marble Next Generation, 5400 × 2700 | 1380 kB |
-| roughness | derived from the day image | 145 kB |
-| clouds | BMNG cloud composite, 2048 × 1024 | 409 kB |
+| day | Blue Marble Next Generation, 5400 × 2700 | 1.2–1.4 MB, one per month |
+| roughness | derived from the day image | 108–145 kB, one per month |
+| clouds | BMNG cloud composite, 2048 × 1024 | 369 kB |
+
+(One month each at first, which turned out to be a mistake worth its own section — see *Why it
+looked like the Moon*.)
 
 The **roughness map is derived, not downloaded**, because the glint from the previous section is now
 wrong everywhere there is land — 0.528 is a figure for water, and painting it over the Sahara makes
@@ -612,6 +621,62 @@ The last row is not decoration. It is the only check in the table that a mirrore
 frame cannot pass, and the reflection described earlier survived everything that was not of that
 kind. The night side gives the same test for free and sharper: over Brazil the lights stop dead
 along a diagonal with black beyond it, which is the Atlantic coast drawn by where people are not.
+
+### Why it looked like the Moon
+
+Reported as a question rather than a bug — *is it the clouds giving that grey?* — and the answer was
+no, twice over, which is why it is worth writing down. The clouds were the obvious suspect and
+measuring them took a minute: remove the layer entirely and the frame moves from rgb(172,162,145)
+to rgb(180,171,155). **Eight levels out of 255.** Whatever was wrong, that was not it.
+
+**The basemap was December.** `world.topo.bathy.200412`, chosen without noticing that Blue Marble is
+twelve composites and one of them is northern midwinter. In August. The station flew over the
+Rockies and the ground below it was under snow:
+
+| | December | August |
+|---|---|---|
+| land north of 39° N reading as snow | **65.7 %** | 12.8 % |
+| Manitoba, 50.5° N | rgb(117,122,120) | rgb(26,38,11) |
+| its saturation | **0.10** | **0.70** |
+
+Seven times the saturation, same place, same planet. So all twelve months are built now and the
+scene loads the one it is. The repository carries 17 MB of them and a visitor still downloads 1.4.
+NASA's record numbers step by 25 for most of the year and then do not — 46 across April, 58 across
+October — so they are written out rather than computed, because a formula would have fetched the
+wrong month in silence.
+
+**And the planet was wearing the station's lighting.** At the same point, the texture reads
+rgb(117,122,120) and the renderer put it on screen at rgb(178,177,168): half again as bright, half
+as saturated. The ambient and hemisphere fills exist to keep the station's shadow side legible,
+which is a stated compromise for a 94-metre object being inspected — on a planet they are simply
+wrong, because nothing fills a planet's shading but the planet. They are now on layer 0 only, so
+they reach the station and stop at the sky's edge. Earthshine is out for a second reason as well:
+it *is* the planet's light, so lighting the planet with it counts it twice.
+
+Measured after, comparing every rendered pixel against the texture at the latitude and longitude it
+came from — 2,304 of them, land and sea kept apart:
+
+| | texture | rendered | |
+|---|---|---|---|
+| land | rgb(36,43,26) sat 0.542 | rgb(41,43,31) sat 0.363 | **×1.10** brightness, was ×1.52 |
+| sea | rgb(23,52,78) sat 0.673 | rgb(64,75,88) sat 0.283 | ×1.48 — which is the glint, and belongs there |
+
+**The clouds were still wrong, just not guilty.** The greyscale was wired as colour *and* opacity,
+which is a category error: a cloud is white, and the image says how much of it there is. Used twice
+the two multiplied, so a cloud stored at 0.30 came out as a 0.30-grey at 0.30 opacity — a dark film
+rather than a cloud. White now, with the image supplying opacity alone.
+
+That fix immediately produced the opposite problem, and the reason is in the data rather than the
+code. The composite is a **monthly mean**, and a mean has no edges: drawn at face value its
+area-weighted opacity is 24.5 % spread smoothly over everything, so the planet went milky. A real
+sky is mostly clear or mostly covered. So the values go through a power curve at build time, and
+1.5 is the gentlest one that restores the structure — mean opacity 16.1 %, the share reading as
+clear up from 35 % to 52 %.
+
+That last number is a presentation choice and is labelled as one in the script. There was no anchor
+to derive it from: this product's mean is 24.5 % where MODIS puts global cloud fraction near 67 %,
+so whatever it measures it is not a fraction on that scale, and a figure computed from that
+comparison would have been arithmetic laid over a guess.
 
 ### The camera could fall through the sky
 

@@ -258,16 +258,28 @@ export function StationView() {
         <FrameHandle />
 
         {/*
-          Drawn in a pass of its own, from a camera that has barely moved — see Sky. The lights are
-          in here with the planet and the stars deliberately: they *are* the sky, and a light left
-          outside would stop reaching the things inside, because layers filter lights exactly as
-          they filter geometry.
+          Fill light, and it stays out of the sky pass on purpose.
+
+          These two exist to keep the station's shadow side readable, which is a stated compromise
+          for a 94-metre object being inspected. On a planet they are simply wrong: nothing fills a
+          planet's shading but the planet, and letting them through washed the ground out — the
+          same square of Manitoba came off the texture at rgb(117,122,120) and out of the renderer
+          at rgb(178,177,168), half again as bright and half as saturated. Earthshine is left out
+          for the same reason twice over: it is the planet's own light, so lighting the planet with
+          it counts it twice.
+        */}
+        <ambientLight intensity={0.16} color="#9fb6d0" />
+        <hemisphereLight args={['#24425e', '#05080e', 0.22]} />
+        <EarthShine />
+
+        {/*
+          Drawn in a pass of its own, from a camera that has barely moved — see Sky. The Sun is in
+          here with the planet and the stars deliberately: it is the sky, and it is the one light
+          that should reach both. Layers filter lights exactly as they filter geometry, so being
+          inside this group is what makes it reach the planet at all.
         */}
         <Sky>
-          <ambientLight intensity={0.16} color="#9fb6d0" />
-          <hemisphereLight args={['#24425e', '#05080e', 0.22]} />
           <Sun />
-          <EarthShine />
 
           <EarthSurface />
           <NightLights />
