@@ -21,6 +21,7 @@ import { EARTH_CENTRE, EARTH_RADIUS } from './earthLimb'
 import { Atmosphere } from './Atmosphere'
 import { clampTarget, farPlane, maxPolarAngle } from './cameraFloor'
 import { NightLights } from './NightLights'
+import { OCEAN_ROUGHNESS } from './oceanGlint'
 import { SunPointer } from './SunPointer'
 import { FrozenJoints } from './FrozenJoints'
 
@@ -213,6 +214,9 @@ function Sun() {
  * The air above it is a separate component, because it is a different kind of object: this sphere
  * is a surface and is shaded like one, while the limb is a length of nothing that happens to be
  * lit. See Atmosphere.
+ *
+ * Unmarked also settles what it is made of. There are no continents on it, so it is all sea, and it
+ * is now shaded as sea: see OCEAN_ROUGHNESS for the glint.
  */
 function Earth() {
   return (
@@ -221,7 +225,9 @@ function Earth() {
           sized to the station, and asking for either would only spend resolution on nothing. */}
       <mesh castShadow={false} receiveShadow={false}>
         <sphereGeometry args={[EARTH_RADIUS, 64, 48]} />
-        <meshStandardMaterial color="#1b4f7a" roughness={0.95} metalness={0} />
+        {/* Dielectric, so metalness stays 0: water reflects about 2 % head-on and everything at a
+            grazing angle, which is what the standard material's Fresnel already does. */}
+        <meshStandardMaterial color="#1b4f7a" roughness={OCEAN_ROUGHNESS} metalness={0} />
       </mesh>
 
     </group>

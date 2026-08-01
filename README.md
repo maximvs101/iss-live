@@ -501,6 +501,41 @@ The last one is the one worth keeping. It closes the loop through every stage at
 pixel, camera ray, orientation matrix, texture lookup. Nothing else would have caught a rotation
 that was subtly wrong rather than obviously so.
 
+### The sea reads as sea
+
+The planet was `roughness: 0.95` — near-matte, which is paint. The one thing every daylight
+photograph over an ocean has and this scene did not is the **glint**: the smeared bright patch where
+the Sun reflects off the water, and the thing that tells the eye the blue is liquid. Unmarked also
+settles what the sphere is made of: there are no continents on it, so it is all sea.
+
+The number is derived, because the interesting property of a glint is its *size*, and size comes
+from the slope of the waves. Cox and Munk measured that from aerial photographs in 1954 and the fit
+is still standard — slope variance `0.003 + 0.00512·U` for a wind of U m/s. Two conversions follow,
+and both are worth writing down because neither is guessable:
+
+| | |
+|---|---|
+| wind 7 m/s, an ordinary day | slope variance 0.0388 |
+| RMS slope | √0.0388 = 0.197 rad, about 11° |
+| GGX lobe width | √2 × 0.197 = 0.279 |
+| three.js takes *perceptual* roughness | √0.279 = **0.528** |
+
+Stopping after either conversion gives 0.197 or 0.279 — both plausible numbers to hand a material,
+both wrong, and both still producing *a* bright patch, which is why a test asserts it is neither.
+Wind barely matters: a flat calm gives 0.40 and a gale 0.68, and everything between reads as water.
+
+Verified by measuring rather than by looking. Across the same frame, sampling a line over the sea:
+
+| | luminance across the water | contrast |
+|---|---|---|
+| matte, 0.95 | 74 · 74 · 74 · 74 · 74 · 75 · 75 · 76 · 76 · 77 | 3 |
+| water, 0.528 | 67 · 70 · 73 · 77 · 82 · 86 · 88 · **89** · 88 · 86 | 22 |
+
+It rises and falls, so it is a lobe rather than a gradient. And with everything but the planet
+hidden, the brightest pixel landed 0.055 in NDC from the predicted specular peak — displaced
+*away* from the nadir, which is where Fresnel puts it and where a prediction using only `N·H`
+would not.
+
 ### The camera could fall through the sky
 
 Reported from a screenshot rather than found by testing: swing the view under the station and the
