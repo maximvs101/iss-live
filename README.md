@@ -627,10 +627,10 @@ allowed the camera out to **400 units** with no polar limit at all — four time
 ground. Four hundred metres is a sensible step back from a 94-metre object and, in the planet's
 units, more than a thousand kilometres.
 
-A fixed `maxPolarAngle` cannot express the fix. It would either forbid looking up at the station's
-underside from close in — a view worth having, and perfectly safe there — or allow it from far out,
-where it is not. So the limit is recomputed each frame from the current distance, by the law of
-cosines, and says the sensible thing on its own:
+A fixed `maxPolarAngle` could not express the fix. It would either forbid looking up at the
+station's underside from close in — a view worth having, and perfectly safe there — or allow it
+from far out, where it is not. So the limit was recomputed each frame from the current distance, by
+the law of cosines, and said the sensible thing on its own:
 
 | orbit radius | furthest under | clearance above the air |
 |---|---|---|
@@ -640,7 +640,7 @@ cosines, and says the sensible thing on its own:
 | 250 | 108° | 25 |
 | 400 | 105° | 25 |
 
-It runs at frame priority −2, ahead of the controls' own update at −1. Set afterwards and the limit
+It ran at frame priority −2, ahead of the controls' own update at −1. Set afterwards and the limit
 lands a frame late: drag inward and the freedom to swing under arrives one frame after it should,
 drag outward and one frame is drawn from a place the limit was about to forbid.
 
@@ -665,6 +665,61 @@ geometry that holds only while the field of view does not change is not a geomet
 
 Swept afterwards over **780 positions** — pan from −5,000 to +3,000 and 600 sideways, distance 15
 to 400, every 15° of polar angle: no camera inside the air, none inside the planet, nothing clipped.
+
+**All of that has since been deleted.** Every one of the four defects was a symptom of the planet
+being pinned to the station's origin, and the limits treated the symptom: they were correct, they
+were tested, and they spent their existence forbidding a view worth having. The next section
+removes the cause instead, at which point the camera cannot reach the air from anywhere and the
+floor has nothing left to do. What survives is the pan reach, which was never about safety, and the
+shader's own guard, because a wall of blue is too loud a failure to leave to *should*.
+
+### The planet shrank when you stepped back
+
+The same seam, seen from the other side, and the more visible of its two faces. Pull the camera out
+to look at the whole station and the horizon closes from **69.7° to 50.9°** — four hundred metres
+of real altitude moves it by **nine thousandths of a degree**. The planet deflated like a beach
+ball whenever anyone zoomed out, which is the single loudest thing in the scene saying *model*
+rather than *orbit*.
+
+Two more of the same. The star field is a shell of radius 800, so 400 units of travel swings it
+through 30° of sky, where stars do not move at all. The Sun's disc sits 600 units out, so backing
+off carried it **41.8°** away from the direction of the light it was supposed to be casting — and
+the off-screen marker pointed at the disc, so it pointed at nothing.
+
+The fix that suggests itself — move the planet with the camera — cannot work, and it is worth
+saying why, because the reason is not obvious and it is what dictates the design. Anything held at
+a fixed apparent size sits **118.7 units from the camera** at its nearest, while the station is up
+to 400. One depth buffer cannot have the same object both nearer than the station and further.
+
+So the sky gets a **pass of its own**: same orientation, same field of view, and the camera's
+offset converted to the planet's units before it is applied — 400 units becomes **0.113**. Draw the
+sky, throw the depth buffer away, draw the station over it from its own camera.
+
+That is not parallax suppressed, it is parallax reproduced. The far pass is the real geometry under
+a uniform scale about the observer, and a uniform scale about the observer changes no ray's
+direction — so it renders the image the real geometry would render, including the hundredth of a
+degree the horizon really does move. Everything else falls out of it: the stars stop swinging, the
+Sun's disc holds the direction of its own light, and the camera can go anywhere at all.
+
+Three things it also bought, none of them the point:
+
+| | before | after |
+|---|---|---|
+| far plane over the station | 4,400, shared with a planet | **700** — six times the depth resolution where the fine geometry is |
+| depth resolution at the planet | 0.44 units, against city lights sitting 0.7 above the surface | **0.02** |
+| the camera floor | 190 lines, four defects, one forbidden view | gone |
+
+Verified three ways, because the plumbing is a runtime arrangement that no unit test can reach:
+
+| | how | result |
+|---|---|---|
+| The geometry | 1,438,560 camera positions, horizon compared against the kilometres of the real Earth | worst disagreement **0.0000°**; nearest approach to the air 90.25 units where the old arrangement went 459.6 *inside* it |
+| The pixels | flat-lit planet, wide field, silhouette measured off the framebuffer at four distances | **69.695°** at 20, 105, 250 and 400 units — the same edge pixels, 565 and 1434, in all four |
+| The cost | each pass timed on its own | sky pass **0.23 ms** against the station's 174 in the same measurement |
+
+The pixel row is the one that matters. The sweep tests the arithmetic; only the framebuffer tests
+whether the renderer is actually using the second camera, and a single pass would have read 68.2°
+at 20 units and 50.9° at 400.
 
 ### Seeing it, in a tab that will not draw
 
@@ -794,13 +849,14 @@ The scene had a station and a sky and nothing to be *over*, which left the model
 object on a shelf rather than a thing in orbit.
 
 It cannot be to scale. The Earth would be 6,371,000 units across with its centre 6,791,000 below,
-in a scene whose far plane is 4,000, so something has to give — and the thing worth keeping is what
+in a scene whose far plane was 4,000, so something has to give — and the thing worth keeping is what
 the eye reads: **how much sky the planet fills**. From 420 km the Earth's angular radius is
 `asin(6371 / 6791)` = 69.7°, covering 139° of the sky and putting the horizon well below the station
 rather than at its feet. A sphere of radius r at distance d subtends `asin(r / d)`, so matching the
 angle means `d = r · (R + h) / R`. At r = 1800 the centre sits at 1919 and the far side at 3719,
-inside the existing far plane — the depth buffer keeps the range it was tuned for and the station's
-fine geometry does not begin to z-fight.
+inside the far plane as it then was, so the depth buffer kept the range it had been tuned for. It
+has since been split in two — the planet is drawn in a pass of its own, with its own frustum — but
+these are still the numbers that decide where the sphere sits.
 
 That one line of arithmetic is exactly the kind that goes wrong invisibly: a horizon at 60° and one
 at 80° both look like a horizon. **The same two numbers also produce a plausible wrong answer** —

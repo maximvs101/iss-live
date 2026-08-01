@@ -19,8 +19,9 @@ import { IssGltf } from './nasa/IssGltf'
 import { useIssModel } from './nasa/useIssModel'
 import { Atmosphere } from './Atmosphere'
 import { EarthSurface } from './EarthSurface'
-import { clampTarget, farPlane, maxPolarAngle } from './cameraFloor'
+import { clampTarget, farPlane } from './cameraReach'
 import { NightLights } from './NightLights'
+import { Sky } from './Sky'
 import { SunPointer } from './SunPointer'
 import { FrozenJoints } from './FrozenJoints'
 
@@ -31,31 +32,24 @@ const SUN_DISTANCE = 600
 const MAX_CAMERA_DISTANCE = 400
 
 /**
- * Stops the camera dropping through the sky.
+ * Keeps the pan from losing the station.
  *
- * The orbit controls take a single `maxPolarAngle`, and a single number cannot express this: how
- * far under the station it is safe to swing depends on how far out the camera is. So the number is
- * recomputed each frame from the current distance. See cameraFloor for why the scene has a floor at
- * all — it is the seam between the station's scale and the planet's.
+ * All this used to do more: a polar limit recomputed every frame, because how far under the station
+ * it was safe to swing depended on how far out the camera was. That was the seam between the
+ * station's scale and the planet's, and the sky pass has since removed it — the camera cannot reach
+ * the air from anywhere now. See cameraReach for what went and why. What remains is a radius on the
+ * pan target, which is a matter of not losing sight of a 94-metre object, not of safety.
  */
-function CameraFloor() {
-  const controls = useThree((three) => three.controls) as
-    | { maxPolarAngle: number; target: Vector3; object: { position: Vector3 } }
-    | null
+function PanClamp() {
+  const controls = useThree((three) => three.controls) as { target: Vector3 } | null
 
-  // Priority −2, ahead of the controls' own update at −1. Set it afterwards and the limit applies
-  // to the *next* frame: drag inward and the freedom to swing under arrives a frame late, drag
-  // outward and one frame is drawn from a place the limit was about to forbid.
+  // Priority −2, ahead of the controls' own update at −1: set it afterwards and the clamp applies
+  // to the frame after the one that needed it.
   useFrame(() => {
     if (!controls) return
-    // The target first: panning carries the camera with it, so a target below the air puts the
-    // camera there too however the angle is limited.
     const { target } = controls
     const [x, y, z] = clampTarget(target.x, target.y, target.z)
     target.set(x, y, z)
-
-    const distance = controls.object.position.distanceTo(target)
-    controls.maxPolarAngle = maxPolarAngle(distance, [target.x, target.y, target.z])
   }, -2)
 
   return null
@@ -248,7 +242,6 @@ export function StationView() {
         camera={{ position: [60, 34, 78], fov: 42, near: 0.5, far: farPlane(MAX_CAMERA_DISTANCE) }}
         dpr={[1, 2]}
       >
-        <color attach="background" args={['#04060b']} />
         {/*
           Almost no fill, because there is almost none up there.
           
@@ -262,20 +255,30 @@ export function StationView() {
           inspecting the parts on that side. This is the compromise, stated rather than pretended
           away.
         */}
-        <ambientLight intensity={0.16} color="#9fb6d0" />
-        <hemisphereLight args={['#24425e', '#05080e', 0.22]} />
         <FrameHandle />
-        <Sun />
-        <EarthShine />
 
-        <EarthSurface />
-        <NightLights />
-        <Atmosphere />
+        {/*
+          Drawn in a pass of its own, from a camera that has barely moved — see Sky. The lights are
+          in here with the planet and the stars deliberately: they *are* the sky, and a light left
+          outside would stop reaching the things inside, because layers filter lights exactly as
+          they filter geometry.
+        */}
+        <Sky>
+          <ambientLight intensity={0.16} color="#9fb6d0" />
+          <hemisphereLight args={['#24425e', '#05080e', 0.22]} />
+          <Sun />
+          <EarthShine />
+
+          <EarthSurface />
+          <NightLights />
+          <Atmosphere />
+
+          <Stars radius={800} depth={120} count={2500} factor={3} fade speed={0} />
+        </Sky>
+
         <SunPointer target={sunMarker} />
 
         {scene && <IssGltf scene={scene} />}
-
-        <Stars radius={800} depth={120} count={2500} factor={3} fade speed={0} />
 
         <OrbitControls
           enablePan
@@ -284,7 +287,7 @@ export function StationView() {
           target={[0, -3, 0]}
           makeDefault
         />
-        <CameraFloor />
+        <PanClamp />
       </Canvas>
 
       <FrozenJoints />

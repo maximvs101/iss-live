@@ -8,6 +8,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { ATMOSPHERE_RADIUS, EARTH_CENTRE, EARTH_RADIUS, LIMB_CHORD } from './earthLimb'
+import { DISTANT_FAR, DISTANT_NEAR } from './distantScene'
 
 /** Mean radius and the station's nominal altitude, in kilometres. */
 const R = 6371
@@ -36,9 +37,10 @@ describe('the Earth limb', () => {
     expect(EARTH_CENTRE - EARTH_RADIUS).toBeGreaterThan(100)
   })
 
-  it('fits inside the camera’s far plane', () => {
-    // 4000 in StationView. Beyond it the far side would be clipped and the limb would open up.
-    expect(EARTH_CENTRE + EARTH_RADIUS).toBeLessThan(4000)
+  it('fits inside the far plane of the pass that draws it', () => {
+    // The sky pass's, not the station's — they are separate frustums now, and this planet is drawn
+    // by the far one. Beyond it the far side would be clipped and the limb would open up.
+    expect(EARTH_CENTRE + EARTH_RADIUS).toBeLessThan(DISTANT_FAR)
   })
 })
 
@@ -68,6 +70,8 @@ describe('the atmosphere band', () => {
   })
 
   it('stays inside the far plane along with everything else', () => {
-    expect(EARTH_CENTRE + ATMOSPHERE_RADIUS).toBeLessThan(4000)
+    expect(EARTH_CENTRE + ATMOSPHERE_RADIUS).toBeLessThan(DISTANT_FAR)
+    // And clear of the near plane at the other end, which the surface alone would not settle.
+    expect(EARTH_CENTRE - ATMOSPHERE_RADIUS).toBeGreaterThan(DISTANT_NEAR)
   })
 })

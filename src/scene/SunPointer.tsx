@@ -47,7 +47,12 @@ export function SunPointer({ target }: { target: RefObject<HTMLDivElement | null
     }
 
     const [x, y, z] = sunDirectionLvlh(state, new Date())
-    at.set(x * SUN_DISTANCE, y * SUN_DISTANCE, z * SUN_DISTANCE)
+    // Measured from the camera, not from the origin, because that is where the disc appears. The
+    // Sun is drawn in the sky pass, whose camera sits at the station whatever the real one is
+    // doing, so the disc holds the true solar direction from wherever you are looking. Projecting
+    // a fixed point 600 units from the *origin* instead put the marker up to 41.8° out at the far
+    // end of the orbit — pointing confidently at nothing.
+    at.set(x, y, z).multiplyScalar(SUN_DISTANCE).add(camera.position)
 
     // In camera space first: `project` alone cannot tell a point in front from one behind.
     const behind = at.clone().applyMatrix4(camera.matrixWorldInverse).z > 0

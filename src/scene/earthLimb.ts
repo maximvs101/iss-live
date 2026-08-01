@@ -16,9 +16,11 @@
  * the existing far plane, so the depth buffer keeps the range it was tuned for and the station's
  * fine geometry does not start z-fighting.
  *
- * What this does not preserve is parallax: pull the camera out to 400 units and the horizon shifts
- * about 12°, where 400 metres at orbital altitude would move it by three hundredths of a degree.
- * The alternative is a planet that will not fit in the scene at all.
+ * For a long time that held from one point and one point only. Pulling the camera out to 400 units
+ * closed the horizon from 69.7° to 50.9°, where 400 metres at orbital altitude moves it by nine
+ * thousandths of a degree — the planet visibly shrank like a beach ball whenever anyone stepped
+ * back. These numbers still describe where the sphere sits; what recovers the parallax is drawing
+ * it from a camera of its own, in distantScene.
  */
 
 /** Mean radius and the station's nominal altitude, in kilometres. */
