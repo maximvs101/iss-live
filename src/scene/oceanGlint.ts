@@ -23,8 +23,10 @@
  *   α = √2 × 0.197 = 0.279
  *   roughness = √0.279 = 0.53
  *
- * Wind is the only free parameter, and it moves this slowly: a flat calm at 2 m/s gives 0.44, a
- * gale at 20 m/s gives 0.66. Anything in that band reads as water, which is the useful thing to
+ * Wind is the only free parameter, and it moves this slowly: 2 m/s gives 0.403 and a gale at
+ * 20 m/s gives 0.678. (Those two figures read 0.44 and 0.66 here until an audit computed them; the
+ * test beside this file had the right one all along, which is what a comment nobody re-derives is
+ * worth.) Anything in that band reads as water, which is the useful thing to
  * know — the glint does not need the weather to be right, only the physics.
  */
 

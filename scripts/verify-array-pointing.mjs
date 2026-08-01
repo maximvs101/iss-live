@@ -273,6 +273,15 @@ async function readTelemetry(seconds = 12) {
   return values
 }
 
+/**
+ * How far off the Sun a wing may read before this is a defect.
+ *
+ * The station's own tracking is not perfect and neither is a TLE a few hours old, so this is not
+ * asking for zero. It is asking that no wing be somewhere else entirely, which is the failure the
+ * last three rounds of this work kept producing.
+ */
+const TOLERANCE = 15
+
 // ------------------------------------- part two: against the Sun, live
 //
 // The geometry above fixes the constants without ever asking where the Sun is. This part asks,
@@ -341,6 +350,57 @@ for (const binding of wings) {
   )
 }
 
+/**
+ * Are the arrays actually tracking the Sun tonight?
+ *
+ * This check has a premise, and until it was violated nobody had written the premise down: that
+ * the station is flying nominal LVLH and its arrays are following the Sun. When they are not — a
+ * visiting vehicle on approach, an EVA, a manoeuvre — the beta joints are exactly where the crew
+ * left them, and blaming the model's mapping for that is a tool crying wolf.
+ *
+ * `best reachable` is what says so, and it was already in the table above. It is the residual no
+ * beta angle can remove, so it belongs entirely to the alpha joints: large on every wing means the
+ * SARJ is not where Sun-tracking would put it. That alone is ambiguous — a broken alpha mapping
+ * looks the same — so when it fires, the telemetry is read a second time a minute and a quarter
+ * later. Joints that have not moved while the geometry has are parked; joints that moved are a
+ * regression, and still fail.
+ */
+const irreducible = wings
+  .map((binding) => {
+    const published = telemetry.get(binding.pui)
+    if (published === undefined) return 0
+    let best = Infinity
+    for (let angle = 0; angle < 360; angle += 0.5) {
+      setJoint(binding, angle)
+      best = Math.min(best, offSun(blanketNormal(binding)))
+    }
+    setJoint(binding, published)
+    return best
+  })
+  .filter((value) => Number.isFinite(value))
+
+let parked = false
+if (irreducible.length && Math.min(...irreducible) > TOLERANCE) {
+  console.log(
+    `
+Every wing has ${Math.min(...irreducible).toFixed(1)}° or more that no beta angle can remove,` +
+      ' so the alpha joints are not tracking. Reading again in 75 s to see whether they are moving.',
+  )
+  await new Promise((resolve) => setTimeout(resolve, 75_000))
+  const again = await readTelemetry()
+  const moved = JOINT_BINDINGS.map((binding) => {
+    const before = telemetry.get(binding.pui)
+    const after = again.get(binding.pui)
+    return before === undefined || after === undefined ? 0 : Math.abs(after - before)
+  })
+  const largest = Math.max(...moved)
+  parked = largest < 0.5
+  console.log(
+    `  largest joint movement in 75 s: ${largest.toFixed(2)}°` +
+      ` — a tracking SARJ turns about 4°/min, so this is ${parked ? 'parked' : 'moving'}.`,
+  )
+}
+
 const mean = offsets.reduce((sum, value) => sum + value, 0) / offsets.length
 const spread = Math.max(...offsets) - Math.min(...offsets)
 console.log(`\nrequired offset: mean ${mean.toFixed(1)}°, spread across the eight wings ${spread.toFixed(1)}°`)
@@ -349,12 +409,16 @@ console.log(`|beta| is ${Math.abs(beta).toFixed(1)}° — ideal Sun-pointing nee
 // The station's own tracking is not perfect and neither is a TLE a few hours old, so this is not
 // asking for zero. It is asking that no wing be somewhere else entirely, which is the failure the
 // last three rounds of this work kept producing.
-const TOLERANCE = 15
 for (const binding of wings) {
   const published = telemetry.get(binding.pui)
   if (published === undefined) continue
   const off = offSun(blanketNormal(binding))
-  if (off > TOLERANCE) fail(`${binding.node} is ${off.toFixed(1)}° off the Sun, over the ${TOLERANCE}° tolerance`)
+  if (off <= TOLERANCE) continue
+  if (parked) {
+    console.log(`  note  ${binding.node} is ${off.toFixed(1)}° off the Sun — the arrays are parked, not mispointed`)
+  } else {
+    fail(`${binding.node} is ${off.toFixed(1)}° off the Sun, over the ${TOLERANCE}° tolerance`)
+  }
 }
 
 // Both wings of a module publish mirrored angles, and so must end up pointing the same way. This

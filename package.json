@@ -25,7 +25,8 @@
     "verify:camera": "node scripts/verify-camera.mjs",
     "verify:media": "node scripts/verify-nasa-media.mjs",
     "inspect:glb": "node scripts/inspect-glb.mjs",
-    "inspect:joints": "node scripts/inspect-joints.mjs"
+    "inspect:joints": "node scripts/inspect-joints.mjs",
+    "verify:render": "node scripts/verify-render-math.mjs"
   },
   "overrides": {
     "sharp": "^0.35.3"

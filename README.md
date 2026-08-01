@@ -544,7 +544,9 @@ and both are worth writing down because neither is guessable:
 
 Stopping after either conversion gives 0.197 or 0.279 — both plausible numbers to hand a material,
 both wrong, and both still producing *a* bright patch, which is why a test asserts it is neither.
-Wind barely matters: a flat calm gives 0.40 and a gale 0.68, and everything between reads as water.
+Wind moves it slowly rather than not at all: 2 m/s gives 0.403 and a gale at 20 m/s gives 0.678, a
+dead calm 0.278 and a storm at 25 m/s 0.715. Nothing in that range is either a mirror or a matte
+surface, which is the useful part — the glint does not depend on getting the weather right.
 
 Verified by measuring rather than by looking. Across the same frame, sampling a line over the sea:
 
@@ -725,6 +727,46 @@ there the mip chain was picking a level sized to the compressed direction and sm
 
 The whole planet now costs a visitor 4.1 MB of colour, 0.13 of roughness and 2.3 of cloud, against
 a 14.9 MB model it was already fetching.
+
+### Auditing the arithmetic instead of the functions
+
+Asked for after a run of defects that all had one shape, and it is worth naming the shape rather
+than the defects: **an assumption about the thing beside the thing being edited.** A month's URL
+copied without noticing it was one of twelve. A cloud field described as a monthly mean without the
+file ever being opened, when its own name carried the date. Two textures compared while a shared
+`source` object meant both were the same image — and the null result published rather than
+questioned, though a nil difference between two resolutions is impossible. A channel count assumed
+on a readback, ten lines below a comment warning about that exact trap.
+
+So `npm run verify:render` walks every calculation the two views are drawn from, **46 of them**, and
+the rule for each is that the expected value comes from a route the code under test does not use.
+The footprint radius is checked against a different triangle, the subsolar point against an
+independent almanac, the beta angle against the eclipse fraction it predicts, the terminator by
+putting its answer back into the spherical rule it was solved from. It is organised by chain rather
+than by file, and it ends with the section that matters:
+
+| the seam | what has to agree |
+|---|---|
+| footprint ↔ horizon | the central angle at the planet's centre and the angular radius at the station must add to **90°** — 20.37 + 69.74 |
+| map ↔ scene | the Sun's elevation over the sub-satellite point, from the map's subsolar figures and from the scene's light vector: **0.157°** apart, which is the geodetic-to-geocentric difference |
+| map ↔ globe | a point on the map's terminator, carried into the scene, sits where the scene's own lighting turns over: **0.00000°** |
+| ground ↔ station | the station must stay lit after the ground below it goes dark, never the reverse |
+
+It found two things on its first run. One was a real error of the kind this whole section is about:
+`oceanGlint` claimed in its own comment that 2 m/s gives 0.44 and 20 m/s gives 0.66, where the
+figures are **0.403 and 0.678** — and the test file beside it had the right number all along. The
+other was in the audit itself, which reported a 1.2e-6° disagreement about the Sun that was the
+arccosine's noise floor near zero rather than a disagreement; it uses `atan2` of the cross product
+now, and reads 1.0e-14.
+
+**And a false alarm worth keeping.** `verify:arrays` failed that evening with all eight wings 40°
+off the Sun, then 63°, then 73°. Nothing in the code had changed. The signal was already in its own
+table: `best reachable` — the residual no beta angle can remove, which belongs entirely to the
+alpha joints — had gone from 1.1° to 61°. Read twice, 75 seconds apart, the joints had not moved by
+a hundredth of a degree while the orbit carried on, and the stream was demonstrably alive. **The
+arrays were parked**, as they are for an approach, an EVA or a manoeuvre. The check had a premise
+nobody had written down — that the station is flying nominal and tracking — so it now tests that
+premise before blaming the model, and says which it found.
 
 ### The camera could fall through the sky
 

@@ -6,7 +6,10 @@
  * wave in it, the whole world is visible at once, and no part of the orbit hides behind the
  * globe. This is the projection every tracking map uses, for those reasons.
  */
-import { subsolarPoint } from '../../orbit/propagator'
+// The extension is spelled out, as in cameraReach, so `npm run verify:render` can import this file
+// directly: Node's TypeScript support resolves nothing for a bare relative path, and this one is a
+// value import rather than a type, so it does not vanish before Node sees it.
+import { subsolarPoint } from '../../orbit/propagator.ts'
 
 export interface MapSize {
   width: number
