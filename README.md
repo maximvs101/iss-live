@@ -53,6 +53,10 @@ The catalogue names the symbols but does not say how to interpret them. These do
 | [Reference Guide to the ISS, Utilization Edition](https://www.nasa.gov/wp-content/uploads/2017/09/np-2015-05-022-jsc-iss-guide-2015-update-111015-508c.pdf) (NP-2015-05-022-JSC, 2015) | what each subsystem is for, the CMG and solar-cell figures, station-level dimensions |
 | [Boeing ISS Electric Power System overview](https://ia902801.us.archive.org/20/items/GandalfDDI-SpaceShuttleDocuments/Misc_Space_Non-Shuttle/ISS_EPS.pdf) | the only source found that gives the BGA's rotation range and its four command modes |
 | [SARJ Anomaly Investigation](https://ntrs.nasa.gov/api/citations/20100021920/downloads/20100021920.pdf) (NASA/CP-2010-216272) | the SARJ's rotation rate and mechanical layout |
+| [Active Thermal Control System Overview](https://www.nasa.gov/wp-content/uploads/2021/02/473486main_iss_atcs_overview.pdf) | the two ammonia loops, their flow rates, and what the radiator beam is actually pointed at |
+| [A Researcher's Guide to Space Environmental Effects](https://www.nasa.gov/wp-content/uploads/2020/10/researchers-guide-space-environment-effects_tagged.pdf) | the temperature range surfaces outside actually cycle through |
+| [NASA: water recovery milestone](https://www.nasa.gov/missions/station/iss-research/nasa-achieves-water-recovery-milestone-on-international-space-station/) (June 2023) | how much of the water is recycled, now rather than at first flight |
+| [Out-of-Band Diagnostics Architecture for the ISS](https://ntrs.nasa.gov/api/citations/20030001141/downloads/20030001141.pdf) | the three C&DH tiers and the hot / warm / cold redundancy of the top one |
 
 The Mimic deck is the useful one, because it is candid about its own gaps. It labels the
 electrical current readout "not working" and the total power usage "not working currently" —

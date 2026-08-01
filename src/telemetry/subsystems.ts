@@ -139,7 +139,7 @@ export const SUBSYSTEMS: Subsystem[] = [
     id: 'eclss',
     label: 'Life support',
     tagline:
-      'The ISS makes its own air and recycles its water. Oxygen is produced by electrolysis, carbon dioxide is scrubbed out, and close to 90 % of the water is reused.',
+      'The ISS makes its own air and recycles its water. Oxygen is produced by electrolysis, carbon dioxide is scrubbed out, and 98 % of the water is reused — a figure reached in 2023, when the brine processor took it up from 93–94 %.',
     disciplines: ['ETHOS'],
     sections: [
       {
@@ -253,7 +253,7 @@ export const SUBSYSTEMS: Subsystem[] = [
     id: 'tcs',
     label: 'Thermal',
     tagline:
-      'In sunlight the hull reaches +120 °C, in shadow −150 °C. Two ammonia loops carry equipment heat out to large steerable radiators.',
+      'Surfaces outside cycle between −120 °C and +120 °C, sixteen times a day. Two ammonia loops carry equipment heat out to large steerable radiators.',
     disciplines: ['SPARTAN', 'VVO'],
     sections: [
       {
@@ -263,7 +263,7 @@ export const SUBSYSTEMS: Subsystem[] = [
           {
             pui: 'S1000001',
             label: 'Loop A flow rate',
-            hint: 'Ammonia circulates at several thousand kilograms per hour between the heat exchangers and the radiators.',
+            hint: 'Ammonia circulates between the heat exchangers and the radiators — nominally 3,700 kg per hour on this loop and 4,000 on loop B, the difference being the hydraulic resistance of two differently shaped plumbing runs rather than a fault. Between them the two loops reject up to 70 kW.',
             part: 'radiator-stbd',
           },
           { pui: 'S1000002', label: 'Loop A pump outlet pressure', part: 'radiator-stbd' },
@@ -286,7 +286,7 @@ export const SUBSYSTEMS: Subsystem[] = [
           {
             pui: 'S0000001',
             label: 'Starboard TRRJ position',
-            hint: 'The radiator turns edge-on to the Sun so that it radiates towards deep space, at 3 K.',
+            hint: 'The radiator beam is turned twice an orbit, edge-on to the Sun while the station is lit and face to the Earth during eclipse. It is not simply chasing the coldest sky: the goal is −40 °C at the radiator outlet, cold enough to reject the heat and warm enough that the ammonia does not freeze in the manifolds.',
             part: 'trrj-stbd',
           },
           { pui: 'S0000002', label: 'Port TRRJ position', part: 'trrj-port' },
@@ -520,7 +520,7 @@ export const SUBSYSTEMS: Subsystem[] = [
     id: 'cdh',
     label: 'Command & data',
     tagline:
-      'Around fifty redundant computers run the station. The three command-and-control computers work as primary, backup and standby.',
+      'Around fifty redundant computers run the station, in three tiers. The top tier is two-fault tolerant: three identical command-and-control machines, one hot, one warm backup processing data without commanding, and one cold.',
     disciplines: ['ODIN', 'ODIN/VVO', 'CDH', 'N/A'],
     sections: [
       {
