@@ -29,19 +29,25 @@ export function NowOver() {
 
   if (!overflight) return null
 
+  /*
+   * Sea areas are named by region rather than looked up from geometry, and the line has to say so —
+   * but it says it in the title rather than on screen.
+   *
+   * A visible "(approximate)" was tried at three lengths and two breakpoints. The header is exactly
+   * full at 1280 before this line is added at all, and it gains a whole sentence of explanation
+   * whenever the stream is interrupted, so the marker was never affordable: what it bought was an
+   * ellipsis eating the place name, which is the part worth reading. The title carries the whole
+   * sentence instead of one abbreviated word.
+   */
+  const caveat =
+    overflight.kind === 'ocean'
+      ? 'Sea areas are named by region rather than looked up from geometry, so this is approximate'
+      : undefined
+
   return (
-    <p className="now-over">
+    <p className="now-over" title={caveat}>
       <span className="now-over__label">Now over</span>{' '}
       <strong>{overflight.name}</strong>
-      {overflight.kind === 'ocean' && (
-        <span
-          className="now-over__note"
-          title="Sea areas are named by region rather than looked up from geometry, so this is approximate"
-        >
-          {' '}
-          (approximate)
-        </span>
-      )}
     </p>
   )
 }
