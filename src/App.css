@@ -56,13 +56,18 @@
  * interruption the bar gains a paragraph and there is nothing else elastic in the row. Wrapping the
  * header cost three lines and a quarter of the viewport.
  *
- * So on a desktop it holds its size and the explanation beside it takes the extra line instead,
- * which is what prose is for and it already wraps.
+ * So it holds its size and the explanation beside it takes the extra line instead, which is what
+ * prose is for and it already wraps.
  *
- * On a tablet that trade stops paying. Measured at 768 during an interruption: holding this line's
- * width squeezes the explanation into a narrow column and grows the header from 102 px to **191**,
- * which is 89 px of a 900 px screen spent on a caption. So below 1000 it gives ground instead, and
- * takes an ellipsis with the whole name on its title.
+ * That was unaffordable on a tablet until the tagline went: at 768 during an interruption, holding
+ * this width squeezed the explanation into a narrow column and grew the header from 102 px to
+ * **191**. Dropping "Digital twin of the International Space Station" below 1200 brings the same
+ * case to **137**, and the line is never clipped at any width. The costs, measured:
+ *
+ *     1280, interrupted   102 px with the line, 102 without — free
+ *     1024, interrupted   102 px against 68 — 34 px
+ *      768, interrupted   137 px against 102 — 35 px
+ *      any width, live    no cost at all
  */
 .now-over {
   flex: 0 0 auto;
@@ -73,12 +78,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   cursor: help;
-}
-
-@media (max-width: 1000px) {
-  .now-over {
-    flex: 0 1 auto;
-  }
 }
 
 .now-over__label {
@@ -97,7 +96,14 @@
  * the longest sea area — "Now over South Atlantic" — was three pixels short of fitting, which
  * `text-overflow` spends on an ellipsis and two characters.
  */
-@media (max-width: 900px) {
+/*
+ * The tagline goes before the position does.
+ *
+ * It is decoration — it says nothing the title does not — and it is the widest thing in the row.
+ * Trading it buys the position line its full width at every size the application targets, which is
+ * a straight swap of something that never changes for something that changes every second.
+ */
+@media (max-width: 1200px) {
   .app__brand p {
     display: none;
   }

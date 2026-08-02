@@ -12,6 +12,7 @@
  */
 import { LightstreamerClient, Subscription } from 'lightstreamer-client-web'
 import { appendHistory } from '../history/indexeddb'
+import { onboardTimestampToDate } from './health'
 import { useTelemetryStore, type ConnectionState, type TelemetrySample } from './store'
 
 export const LS_SERVER = 'https://push.lightstreamer.com'
@@ -130,11 +131,16 @@ export function connectTelemetry({ items, maxFrequency = 1 }: ConnectOptions): v
     }) {
       const pui = update.getItemName()
       if (!pui) return
+      const timestamp = update.getValue('TimeStamp')
+      // Parsed here, once, rather than wherever it is read: the field is hours since the start of
+      // the year and needs the current year to be resolved, so it wants doing while "now" is known.
+      const onboard = timestamp ? onboardTimestampToDate(timestamp) : null
       pending.set(pui, {
         pui,
         value: update.getValue('Value'),
         calibrated: update.getValue('CalibratedData'),
-        timestamp: update.getValue('TimeStamp'),
+        timestamp,
+        onboardAt: onboard ? onboard.getTime() : null,
         statusClass: update.getValue('Status.Class'),
         statusIndicator: update.getValue('Status.Indicator'),
         statusColor: update.getValue('Status.Color'),

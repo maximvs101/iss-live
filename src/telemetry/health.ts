@@ -43,11 +43,36 @@ export interface StreamStatus {
   updateCount: number
 }
 
-export function computeStreamStatus(now: number): StreamStatus {
-  const { connection, connectionDetail, lastUpdateAt, subscribedCount, updateCount } =
-    useTelemetryStore.getState()
+/**
+ * How old the telemetry is, by the station's clock.
+ *
+ * Exported, and the only definition of it. The indicator and the reconnection watchdog both need
+ * this number, and the first version of the watchdog computed its own from arrival time — so the
+ * light went honest while the thing meant to fix the connection went on seeing a healthy stream and
+ * did nothing. Two definitions of one quantity is how that happens.
+ */
+export function streamAgeMs(now: number): number | null {
+  const { lastUpdateAt, newestOnboardAt } = useTelemetryStore.getState()
+  if (newestOnboardAt !== null) return Math.max(0, now - newestOnboardAt)
+  return lastUpdateAt === null ? null : now - lastUpdateAt
+}
 
-  const ageMs = lastUpdateAt === null ? null : now - lastUpdateAt
+export function computeStreamStatus(now: number): StreamStatus {
+  const { connection, connectionDetail, subscribedCount, updateCount } = useTelemetryStore.getState()
+
+  /*
+   * Freshness is the station's clock, not ours.
+   *
+   * The two normally agree to a few seconds. They part company in the one case that decides whether
+   * this indicator can be trusted: re-subscribing re-delivers the last known values, which *arrive*
+   * now and were *taken* whenever the station last spoke. Measured from arrival, every reconnection
+   * would turn the light green over a station that has sent nothing since — and the whole point of
+   * the light is that it does not do that.
+   *
+   * Eight of the 163 symbols carry no usable onboard timestamp, so arrival is the fallback; it is
+   * only ever reached before the first timestamped sample has landed.
+   */
+  const ageMs = streamAgeMs(now)
   const base = { ageMs, detail: connectionDetail, subscribedCount, updateCount }
 
   if (connection === 'idle') return { ...base, health: 'idle' }
@@ -56,7 +81,19 @@ export function computeStreamStatus(now: number): StreamStatus {
     return { ...base, health: 'connecting' }
   }
 
-  // Connected to the server: the age of the data decides.
+  /*
+   * Connected to the server: the age of the data decides — but not until enough of it has arrived
+   * to ask.
+   *
+   * The symbols run at wildly different rates, and the freshest of them is what says whether the
+   * station is talking. In the first fraction of a second after subscribing, the handful that have
+   * landed may all be slow ones: measured on a fresh page, two samples in, the newest onboard
+   * reading was forty minutes old and the honest answer was "not yet known" rather than "outage".
+   */
+  if (subscribedCount > 0 && Object.keys(useTelemetryStore.getState().samples).length < subscribedCount / 2) {
+    return { ...base, health: 'waiting' }
+  }
+
   if (ageMs === null) return { ...base, health: 'waiting' }
   if (ageMs <= LIVE_THRESHOLD_MS) return { ...base, health: 'live' }
   if (ageMs <= STALE_THRESHOLD_MS) return { ...base, health: 'stale' }

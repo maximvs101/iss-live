@@ -11,6 +11,7 @@ import { Suspense, lazy, useEffect, useState } from 'react'
 import { connectTelemetry, disconnectTelemetry } from './telemetry/client'
 import { useTelemetryStore } from './telemetry/store'
 import { LIVE_THRESHOLD_MS, reconnectDecision } from './telemetry/reconnect'
+import { streamAgeMs } from './telemetry/health'
 import { NowOver } from './ui/NowOver'
 import { SUBSCRIBED_PUIS } from './telemetry/subsystems'
 import { useOrbitEngine } from './orbit/useOrbit'
@@ -101,9 +102,12 @@ export default function App() {
     let woke = false
 
     const evaluate = () => {
-      const { connection, lastUpdateAt } = useTelemetryStore.getState()
+      const { connection } = useTelemetryStore.getState()
       const now = Date.now()
-      const ageMs = lastUpdateAt === null ? null : now - lastUpdateAt
+      // The same age the indicator shows, from the same function: measured by the station's clock
+      // rather than by when the packet landed. A watchdog reading arrival time sees a healthy
+      // stream during exactly the failure it exists to repair.
+      const ageMs = streamAgeMs(now)
 
       // A stream that is delivering again clears the backoff, so the next outage starts from the
       // short step rather than from wherever the last one left off.

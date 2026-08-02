@@ -11,6 +11,7 @@ import {
   BACKOFF_CAP_MS,
   BACKOFF_START_MS,
   LIVE_THRESHOLD_MS,
+  SILENT_BACKOFF_CAP_MS,
   SILENT_LIMIT_MS,
   reconnectDecision,
 } from './reconnect'
@@ -77,18 +78,28 @@ describe('the reconnection policy', () => {
     expect(reconnectDecision({ ...base, ageMs: 3_600_000, woke: true, visible: false }).reconnect).toBe(false)
   })
 
-  it('tries once when a live connection has gone quiet, then leaves it', () => {
+  it('re-subscribes soon after a live connection goes quiet', () => {
+    // Two minutes, not the quarter of an hour it started at. That delay was the reported bug: the
+    // light stayed red long after the telemetry came back, and only a reload or a tab switch —
+    // both of which re-subscribe — brought it round.
     const silent = { ...base, ageMs: SILENT_LIMIT_MS + 1_000 }
     expect(reconnectDecision(silent).reconnect).toBe(true)
     expect(reconnectDecision({ ...silent, sinceAttemptMs: 60_000 }).reconnect).toBe(false)
     expect(reconnectDecision({ ...silent, sinceAttemptMs: SILENT_LIMIT_MS }).reconnect).toBe(true)
   })
 
-  it('sits through an ordinary loss of signal without touching anything', () => {
-    // Several minutes of silence between relay satellites is normal, and reconnecting through it
-    // would be a reconnection every pass for no reason at all.
-    for (const minutes of [2, 5, 10, 14]) {
-      expect(reconnectDecision({ ...base, ageMs: minutes * 60_000 }).reconnect, `${minutes} min`).toBe(false)
+  it('spaces those retries further and further apart', () => {
+    const silent = { ...base, ageMs: 10 * 60_000 }
+    expect(reconnectDecision({ ...silent, attempts: 1, sinceAttemptMs: SILENT_LIMIT_MS }).reconnect).toBe(false)
+    expect(reconnectDecision({ ...silent, attempts: 1, sinceAttemptMs: 2 * SILENT_LIMIT_MS }).reconnect).toBe(true)
+    expect(reconnectDecision({ ...silent, attempts: 30, sinceAttemptMs: SILENT_BACKOFF_CAP_MS }).reconnect).toBe(true)
+    expect(reconnectDecision({ ...silent, attempts: 30, sinceAttemptMs: SILENT_BACKOFF_CAP_MS - 1 }).reconnect).toBe(false)
+  })
+
+  it('sits through a brief gap between relay satellites', () => {
+    // A minute of silence is ordinary and means nothing; two is where it starts to mean something.
+    for (const seconds of [61, 90, 119]) {
+      expect(reconnectDecision({ ...base, ageMs: seconds * 1_000 }).reconnect, `${seconds} s`).toBe(false)
     }
   })
 
@@ -111,9 +122,9 @@ describe('the reconnection policy', () => {
         sinceAttemptMs += 60_000
       }
     }
-    // Four an hour is the ceiling the quarter-hour rule sets; the loop lands a little under it
-    // because the wait restarts from the attempt rather than from the previous deadline.
-    expect(attempts).toBeLessThanOrEqual(24 * 4)
+    // The ladder settles at four an hour, so a day is under a hundred attempts even though the
+    // first few come quickly.
+    expect(attempts).toBeLessThanOrEqual(24 * 4 + 4)
     expect(attempts).toBeGreaterThan(24 * 3)
   })
 

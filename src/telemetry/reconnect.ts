@@ -30,11 +30,29 @@ export const LIVE_THRESHOLD_MS = 60_000
 /**
  * How long a *connected* stream may stay silent before the subscription is suspected.
  *
- * Loss of signal between relay satellites runs to several minutes and is entirely normal, so this
- * has to sit well past it or every pass would trigger a needless reconnection. Fifteen minutes is
- * the same boundary the status bar calls an outage rather than an interruption.
+ * This was fifteen minutes, and fifteen minutes was too long: reported from use, the light stayed
+ * red long after the telemetry had plainly come back, and switching tabs or reloading fixed it —
+ * both of which force the re-subscription this was making the page wait a quarter of an hour for.
+ *
+ * It could not be shortened while freshness was measured from arrival time, because then a
+ * reconnection would have turned the light green over a silent station: the snapshot re-delivers
+ * the last known values, and they arrive *now*. Freshness now comes from the station's own clock
+ * (see health), so a reconnection can no longer fake liveness and there is nothing left to be
+ * cautious about except the server's load — which is what the backoff below is for.
+ *
+ * Two minutes is past an ordinary gap between relay satellites and well inside what a person
+ * watching a stalled page will tolerate.
  */
-export const SILENT_LIMIT_MS = 15 * 60_000
+export const SILENT_LIMIT_MS = 120_000
+
+/**
+ * How far apart the silent-case retries grow.
+ *
+ * Doubling from the two minutes above: 2, 4, 8, then held at a quarter of an hour. A dead
+ * subscription is caught almost at once, and a broadcast that has been down for four days settles
+ * to four attempts an hour rather than thirty.
+ */
+export const SILENT_BACKOFF_CAP_MS = 15 * 60_000
 
 /** First backoff step after a failed connection, doubling to the cap. */
 export const BACKOFF_START_MS = 5_000
@@ -95,14 +113,15 @@ export function reconnectDecision(input: ReconnectInput): ReconnectDecision {
   }
 
   /*
-   * Connected, and silent for longer than a loss of signal explains. This is the ambiguous case —
-   * a dead subscription and a dead broadcast look identical from here — so it is tried once and
-   * then left alone for another quarter of an hour. If the broadcast really is down the page keeps
-   * saying so, which is the honest answer, and it says it without a reconnection loop behind it.
+   * Connected, and silent for longer than a gap between relay satellites explains. A dead
+   * subscription and a dead broadcast look identical from here, so both get the same treatment:
+   * re-subscribe, quickly at first and then less and less often. Whichever it was, the light tells
+   * the truth either way, because it reads the station's clock rather than the postmark.
    */
   if (connection === 'connected' && ageMs !== null && ageMs > SILENT_LIMIT_MS) {
-    return sinceAttemptMs === null || sinceAttemptMs >= SILENT_LIMIT_MS
-      ? { reconnect: true, reason: 'connected but silent for a quarter of an hour' }
+    const wait = Math.min(SILENT_BACKOFF_CAP_MS, SILENT_LIMIT_MS * 2 ** attempts)
+    return sinceAttemptMs === null || sinceAttemptMs >= wait
+      ? { reconnect: true, reason: 'connected but the station has gone quiet' }
       : { reconnect: false, reason: null }
   }
 

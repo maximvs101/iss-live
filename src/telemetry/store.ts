@@ -19,8 +19,20 @@ export interface TelemetrySample {
   statusClass: string | null
   statusIndicator: string | null
   statusColor: string | null
-  /** Local time of receipt, the basis for every freshness calculation. */
+  /** Local time of receipt. */
   receivedAt: number
+  /**
+   * When the *station* says the reading was taken, parsed from `timestamp`. Null when it carries
+   * nothing usable, which eight of the 163 symbols do.
+   *
+   * This, and not `receivedAt`, is what freshness has to be measured from. The two normally agree
+   * to a few seconds — measured live, the newest onboard reading was 3 s old against 1 s since it
+   * arrived — and they part company in exactly the case that matters: re-subscribing re-delivers
+   * the last known values, which arrive *now* and were taken whenever they were taken. Measuring
+   * from arrival would let a reconnection turn the light green over a station that has sent
+   * nothing, which is the one thing this application is not allowed to do.
+   */
+  onboardAt: number | null
 }
 
 interface TelemetryStore {
@@ -32,6 +44,14 @@ interface TelemetryStore {
   subscribedCount: number
   /** Most recent receipt, across all symbols. null until something arrives. */
   lastUpdateAt: number | null
+  /**
+   * Newest reading the *station* has taken, across all symbols.
+   *
+   * The newest rather than the average, because the symbols run at wildly different rates: the
+   * joint angles are seconds old while the partial-pressure sensors publish readings weeks back.
+   * The freshest of them is what says whether the station is talking.
+   */
+  newestOnboardAt: number | null
   /** Running count of updates since the page was opened. */
   updateCount: number
 
@@ -47,6 +67,7 @@ export const useTelemetryStore = create<TelemetryStore>((set) => ({
   connectionDetail: null,
   subscribedCount: 0,
   lastUpdateAt: null,
+  newestOnboardAt: null,
   updateCount: 0,
 
   applyBatch: (batch) =>
@@ -54,13 +75,16 @@ export const useTelemetryStore = create<TelemetryStore>((set) => ({
       if (batch.length === 0) return state
       const samples = { ...state.samples }
       let newest = state.lastUpdateAt ?? 0
+      let onboard = state.newestOnboardAt ?? 0
       for (const sample of batch) {
         samples[sample.pui] = sample
         if (sample.receivedAt > newest) newest = sample.receivedAt
+        if (sample.onboardAt !== null && sample.onboardAt > onboard) onboard = sample.onboardAt
       }
       return {
         samples,
         lastUpdateAt: newest,
+        newestOnboardAt: onboard === 0 ? null : onboard,
         updateCount: state.updateCount + batch.length,
       }
     }),
@@ -74,6 +98,7 @@ export const useTelemetryStore = create<TelemetryStore>((set) => ({
       connectionDetail: null,
       subscribedCount: 0,
       lastUpdateAt: null,
+      newestOnboardAt: null,
       updateCount: 0,
     }),
 }))
