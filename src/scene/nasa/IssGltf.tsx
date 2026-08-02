@@ -10,6 +10,7 @@
  */
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, type ThreeEvent } from '@react-three/fiber'
+import { Bvh } from '@react-three/drei'
 import {
   Box3,
   Color,
@@ -276,14 +277,11 @@ export function IssGltf({ scene, rotation = [0, -Math.PI / 2, 0] }: IssGltfProps
 
   return (
     /*
-     * Ray casting straight against the triangles, with no acceleration structure.
+     * Accelerated ray casting, and now with the arithmetic that justifies it.
      *
-     * `three-mesh-bvh` was here and has been taken out. The cost is written down because it is not
-     * small, and because the figure this file used to quote — "4 ms on average and over 20 at
-     * worst" — was close enough to be believed and not close enough to decide on.
-     *
-     * Measured both ways over the same 1 008 pointer positions across the default view, against the
-     * same object, 308 of them landing on the station:
+     * It was taken out to find out what it was worth, and the answer put it straight back. Measured
+     * both ways over the same 1 008 pointer positions across the default view, against the same
+     * object, 308 of them landing on the station:
      *
      *              with a BVH      without      ratio
      *     mean       0.217 ms      1.526 ms      7.0×
@@ -295,10 +293,18 @@ export function IssGltf({ scene, rotation = [0, -Math.PI / 2, 0] }: IssGltfProps
      * miss costs nothing either way. The whole bill lands on the hits, where 28 ms is nearly two
      * frames at 60 Hz — on an event that fires with every movement of the mouse.
      *
-     * What it buys back is 41.9 kB of a 595 kB chunk, 13.4 kB over the wire, on a chunk that is
-     * only fetched when this view is opened. Restoring it is one import and one wrapper.
+     * Against that, it weighs 41.9 kB of the Station chunk and 13.4 kB over the wire, on a chunk
+     * fetched only when this view is opened. Thirteen kilobytes against a visible stutter every
+     * time the cursor crosses the station is not a close call.
+     *
+     * The figure this comment used to carry — "4 ms on average and over 20 at worst" — was close
+     * enough to be believed and not close enough to decide on. The real average was 1.5 and the
+     * real worst 28.
+     *
+     * `firstHitOnly` is safe here because the interface only ever needs the nearest surface under
+     * the cursor.
      */
-    <>
+    <Bvh firstHitOnly>
       <primitive
         object={model}
         scale={scale}
@@ -307,6 +313,6 @@ export function IssGltf({ scene, rotation = [0, -Math.PI / 2, 0] }: IssGltfProps
         onPointerMove={handleMove}
         onPointerOut={handleOut}
       />
-    </>
+    </Bvh>
   )
 }
