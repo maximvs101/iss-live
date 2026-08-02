@@ -8,10 +8,10 @@
  * simplified station, the view reports what it is doing and how far along it is: a placeholder
  * shape would be indistinguishable from the real thing at a glance, and worse than an honest wait.
  */
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Stars } from '@react-three/drei'
-import { AdditiveBlending, Vector3 } from 'three'
+import { AdditiveBlending, CanvasTexture, SRGBColorSpace, Vector3 } from 'three'
 import type { DirectionalLight, Group } from 'three'
 import { useOrbitStore } from '../orbit/useOrbit'
 import { sunDirectionLvlh } from '../orbit/propagator'
@@ -97,21 +97,21 @@ function FrameHandle() {
 const NIGHT_FLOOR = 0.18
 
 /**
- * Nested additive shells standing in for a glow.
+ * The Sun's halo, as a falloff rather than as a stack of shells.
  *
- * The bare disc was there and nobody found it: at 600 units the Sun subtends half a degree inside
- * a 42° field, so it is in frame perhaps one time in six and reads as a speck when it is. A halo
- * an order of magnitude wider is what makes a bright source legible — real optics spread it across
- * the lens, and every photograph of the Sun anyone has seen is mostly halo.
+ * It was three nested spheres at fixed opacity, which works while the Sun is a speck in the corner
+ * of the frame and falls apart the moment it is not: each shell has a silhouette, and the outermost
+ * one reads as the hard edge of a grey ball. That went unnoticed until the camera floor was removed
+ * and the view could be swung underneath the station, where the halo fills a third of the frame.
  *
- * Additive and depth-write-off, so the shells brighten whatever they overlap instead of stacking
- * into a grey ball, and so the outermost one does not occlude the core.
+ * One sphere now, shaded by how far the fragment is from the centre of the disc — which is what a
+ * halo is: light spread across the optics, densest at the source and trailing off. The exponent
+ * sets how quickly, and 2.5 puts most of the brightness inside the first fifth of the radius while
+ * leaving a visible glow to the edge, where it reaches zero and so has no silhouette at all.
  */
-const GLOW = [
-  { radius: 26, opacity: 0.5 },
-  { radius: 52, opacity: 0.22 },
-  { radius: 105, opacity: 0.09 },
-]
+const GLOW_RADIUS = 105
+const GLOW_FALLOFF = 2.5
+const GLOW_STRENGTH = 0.55
 
 /**
  * The Sun: the light, the disc it comes from, and the glow that makes it findable.
@@ -124,9 +124,39 @@ const GLOW = [
  * Larger than life, and openly so: the real Sun would be 2.6 units across here. What is preserved
  * is the *direction*, which is the part that carries information.
  */
+/**
+ * The halo's falloff, painted once into a 128 px texture.
+ *
+ * A canvas gradient rather than a shader because that is all it is — a radial ramp — and a texture
+ * costs one bind where a custom material costs a program. 128 px across a disc that is at most a
+ * third of the screen is far below what the eye resolves in a smooth gradient.
+ */
+function useHaloTexture() {
+  const gl = useThree((three) => three.gl)
+  return useMemo(() => {
+    const size = 128
+    const canvas = document.createElement('canvas')
+    canvas.width = canvas.height = size
+    const context = canvas.getContext('2d')!
+    const gradient = context.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
+    for (let i = 0; i <= 16; i += 1) {
+      const t = i / 16
+      gradient.addColorStop(t, `rgba(255, 233, 184, ${(GLOW_STRENGTH * (1 - t) ** GLOW_FALLOFF).toFixed(4)})`)
+    }
+    context.fillStyle = gradient
+    context.fillRect(0, 0, size, size)
+    const texture = new CanvasTexture(canvas)
+    texture.colorSpace = SRGBColorSpace
+    texture.anisotropy = gl.capabilities.getMaxAnisotropy()
+    texture.needsUpdate = true
+    return texture
+  }, [gl])
+}
+
 function Sun() {
   const light = useRef<DirectionalLight>(null)
   const body = useRef<Group>(null)
+  const haloTexture = useHaloTexture()
 
   useFrame(() => {
     const state = useOrbitStore.getState().state
@@ -177,19 +207,17 @@ function Sun() {
           {/* Unlit, and out of the tone mapper's reach so it clips to white like a real source. */}
           <meshBasicMaterial color="#fffdf5" toneMapped={false} />
         </mesh>
-        {GLOW.map((shell) => (
-          <mesh key={shell.radius}>
-            <sphereGeometry args={[shell.radius, 24, 24]} />
-            <meshBasicMaterial
-              color="#ffe9b8"
-              transparent
-              opacity={shell.opacity}
-              blending={AdditiveBlending}
-              depthWrite={false}
-              toneMapped={false}
-            />
-          </mesh>
-        ))}
+        {/* A billboard rather than a sphere: a halo has no shape of its own, and a sphere at this
+            size was contributing one — its own silhouette. */}
+        <sprite scale={[GLOW_RADIUS * 2, GLOW_RADIUS * 2, 1]}>
+          <spriteMaterial
+            transparent
+            blending={AdditiveBlending}
+            depthWrite={false}
+            toneMapped={false}
+            map={haloTexture}
+          />
+        </sprite>
       </group>
     </>
   )

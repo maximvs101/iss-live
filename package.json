@@ -30,7 +30,8 @@
     "build:detail": "node scripts/build-earth-detail.mjs",
     "verify": "node scripts/verify-all.mjs",
     "verify:fast": "node scripts/verify-all.mjs fast",
-    "verify:live": "node scripts/verify-all.mjs live"
+    "verify:live": "node scripts/verify-all.mjs live",
+    "verify:survey": "node scripts/verify-plottable.mjs"
   },
   "overrides": {
     "sharp": "^0.35.3"

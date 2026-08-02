@@ -82,7 +82,12 @@ const RANGES = {
   Z1000010: { min: 6400, max: 6800, unit: 'rpm', what: 'CMG nominal 6,600 rpm' },
   Z1000011: { min: 6400, max: 6800, unit: 'rpm', what: 'CMG nominal 6,600 rpm' },
   Z1000012: { min: 6400, max: 6800, unit: 'rpm', what: 'CMG nominal 6,600 rpm' },
-  USLAB000039: { min: 380000, max: 460000, unit: 'kg', what: 'ISS mass, about 420 t' },
+  // 420 t is the figure everyone quotes for the station alone. The published value has read
+  // 472 t all along, and that is not an error: it is the station plus whatever is docked — a
+  // Progress, a Cargo Dragon and a Soyuz together are 30 t of spacecraft and propellant, and the
+  // symbol reports the stack. The old upper bound of 460 t made this the one warning the suite
+  // emitted permanently, which is how a suite stops being read.
+  USLAB000039: { min: 380000, max: 500000, unit: 'kg', what: 'ISS mass with docked vehicles, about 470 t' },
   USLAB000040: { min: -75, max: 75, unit: '°', what: 'solar beta angle stays within +/-75' },
 
   // Angles that are joint positions: any value in a full turn is legal.

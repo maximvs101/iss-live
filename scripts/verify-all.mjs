@@ -43,10 +43,13 @@ const LIVE = new Set(['orbit', 'passes', 'telemetry', 'arrays', 'media'])
  *
  * `plottable` holds a subscription open for five minutes to see whether every channel offered on a
  * chart actually varies. That window is the point of it — the slow symbols need the time — and it
- * also made it 300 s of a 301 s run, so the whole suite cost what this one script costs. It is
- * still there, by name, for when the question is worth five minutes.
+ * also made it 300 s of a 301 s run, so the whole suite cost what this one script costs.
+ *
+ * Taking it out of the routine run left nothing checking that a chart has anything to draw, so it
+ * has a name of its own: `npm run verify:survey`. Worth running after any change to the plottable
+ * list, and worth running now and then regardless.
  */
-const SURVEY = new Set(['plottable'])
+const SURVEY = new Set(['plottable', 'survey'])
 
 const declared = Object.entries(manifest)
   .filter(([name]) => name.startsWith('verify:') && !['verify:fast', 'verify:live'].includes(name))
