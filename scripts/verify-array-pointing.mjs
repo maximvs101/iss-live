@@ -384,9 +384,12 @@ if (irreducible.length && Math.min(...irreducible) > TOLERANCE) {
   console.log(
     `
 Every wing has ${Math.min(...irreducible).toFixed(1)}° or more that no beta angle can remove,` +
-      ' so the alpha joints are not tracking. Reading again in 75 s to see whether they are moving.',
+      ' so the alpha joints are not tracking. Reading again in 25 s to see whether they are moving.',
   )
-  await new Promise((resolve) => setTimeout(resolve, 75_000))
+  // Twenty-five seconds, not the seventy-five it started at. A tracking SARJ turns 4°/min, so it
+  // covers 1.7° in that time against a 0.5° threshold — three times the margin needed, for a third
+  // of the wait. It was the single slowest thing in the whole verification suite at 107 s.
+  await new Promise((resolve) => setTimeout(resolve, 25_000))
   const again = await readTelemetry()
   const moved = JOINT_BINDINGS.map((binding) => {
     const before = telemetry.get(binding.pui)

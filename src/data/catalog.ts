@@ -41,11 +41,3 @@ export function getSymbol(pui: string): PuiSymbol | undefined {
   return bySymbol.get(pui)
 }
 
-export function symbolsOfDiscipline(discipline: string): PuiSymbol[] {
-  return catalog.symbols.filter((symbol) => symbol.discipline === discipline)
-}
-
-/** Composite disciplines ("SPARTAN/VVO") belong to each of their consoles. */
-export function disciplineParts(discipline: string): string[] {
-  return discipline.split('/')
-}

@@ -112,7 +112,3 @@ export function useOrbitEngine(): void {
   }, [])
 }
 
-/** Current orbital state, for components that must redraw every second. */
-export function useOrbitState(): OrbitState | null {
-  return useOrbitStore((store) => store.state)
-}

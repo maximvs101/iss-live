@@ -108,11 +108,6 @@ export function useSample(pui: string): TelemetrySample | undefined {
   return useTelemetryStore((state) => state.samples[pui])
 }
 
-/** Read outside React, for the 3D animation loop, which must not trigger renders. */
-export function readSample(pui: string): TelemetrySample | undefined {
-  return useTelemetryStore.getState().samples[pui]
-}
-
 /** Numeric value of a symbol, or null if absent or non-numeric. */
 export function readNumber(pui: string): number | null {
   const raw = useTelemetryStore.getState().samples[pui]?.value

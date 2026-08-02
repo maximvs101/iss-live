@@ -584,10 +584,6 @@ export function getChannel(pui: string): Channel | undefined {
   return channelByPui.get(pui)
 }
 
-export function getSubsystem(id: SubsystemId): Subsystem | undefined {
-  return SUBSYSTEMS.find((subsystem) => subsystem.id === id)
-}
-
 /** Channels attached to a part of the 3D twin, in subsystem order. */
 export function channelsForPart(part: PartId): Channel[] {
   return ALL_CHANNELS.filter((channel) => channel.part === part)

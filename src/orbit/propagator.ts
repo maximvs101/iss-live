@@ -150,11 +150,6 @@ export function betaAngle(state: OrbitState, date: Date): number {
   return (Math.asin(Math.max(-1, Math.min(1, sine))) * 180) / Math.PI
 }
 
-/** True when the station is in sunlight (beyond the penumbra). */
-export function isSunlit(state: OrbitState): boolean {
-  return state.shadow < 0.5
-}
-
 function cross(a: EciVec3<number>, b: EciVec3<number>): EciVec3<number> {
   return {
     x: a.y * b.z - a.z * b.y,
