@@ -9,6 +9,15 @@ export default defineConfig({
     format: 'es',
   },
   build: {
+    /*
+     * The default 500 kB warning is raised rather than obeyed.
+     *
+     * It fires on the Station view's chunk, which is 595 kB and cannot honestly be made smaller:
+     * see the note below for the measurements. A warning nobody can act on is noise that hides the
+     * ones that matter, so the threshold sits just above the chunk it was flagging — and will fire
+     * again if that chunk grows by another sixth.
+     */
+    chunkSizeWarningLimit: 620,
     rolldownOptions: {
       output: {
         // Split the dependencies away from the application code.
@@ -19,13 +28,20 @@ export default defineConfig({
         // Lightstreamer client are megabytes and change almost never. In one chunk, editing a
         // label invalidated all of it. Split, the vendor chunks keep their content hash and stay
         // in cache, which is what makes the `immutable` header on /assets/* worth setting.
-        // three and @react-three are deliberately absent from this list.
+        // three and @react-three are absent from this list, and naming them would not help.
         //
-        // They belong only to the Station view, which is imported dynamically, and naming them
-        // here defeats that entirely: a named group becomes a static chunk, Vite adds a
-        // `modulepreload` for it, and the browser fetches 257 kB of 3D engine before the map —
-        // which has no use for any of it — has finished drawing. Left unnamed, they land inside
-        // the Station view's own dynamic chunk and are fetched when it is opened.
+        // Measured, not assumed: a group named for `node_modules/three` emits **no chunk at all**.
+        // `advancedChunks` only reaches modules in the static graph, and three is reachable solely
+        // through the Station view's dynamic import, so the rule matches nothing. Tried with
+        // `minSize: 0` and `minShareCount: 1`, and under an unmistakable name to be sure the output
+        // was not being confused with `three.core`, which is three's own module split and not a
+        // chunk this file creates.
+        //
+        // Which is the right outcome anyway. The 595 kB Station chunk is 39 % three and 38 %
+        // react-three/fiber, attributed from its source map, and the view cannot draw a frame
+        // without either. Nothing in it is deferrable; it is already deferred as a whole, and the
+        // map view never fetches it — confirmed in the emitted `index.html`, whose modulepreloads
+        // are react, lightstreamer, orbit, selection and atlas, with no three and no Station view.
         //
         // The same trap caught the glTF and Draco loaders earlier, where a `three` rule matching
         // `three/examples` reduced the emitted loader chunk to a 0.06 kB stub.
