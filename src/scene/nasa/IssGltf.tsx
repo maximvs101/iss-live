@@ -10,7 +10,6 @@
  */
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, type ThreeEvent } from '@react-three/fiber'
-import { Bvh } from '@react-three/drei'
 import {
   Box3,
   Color,
@@ -276,11 +275,30 @@ export function IssGltf({ scene, rotation = [0, -Math.PI / 2, 0] }: IssGltfProps
   }
 
   return (
-    // Accelerated ray casting. Without it, each pointer move tests the ray against the raw
-    // triangles of 555 meshes — measured at 4 ms on average and over 20 ms at worst, enough to
-    // drop frames while the cursor sweeps across the station. `firstHitOnly` is safe here because
-    // the interface only ever needs the nearest surface under the cursor.
-    <Bvh firstHitOnly>
+    /*
+     * Ray casting straight against the triangles, with no acceleration structure.
+     *
+     * `three-mesh-bvh` was here and has been taken out. The cost is written down because it is not
+     * small, and because the figure this file used to quote — "4 ms on average and over 20 at
+     * worst" — was close enough to be believed and not close enough to decide on.
+     *
+     * Measured both ways over the same 1 008 pointer positions across the default view, against the
+     * same object, 308 of them landing on the station:
+     *
+     *              with a BVH      without      ratio
+     *     mean       0.217 ms      1.526 ms      7.0×
+     *     median     0.2 ms        0.1 ms          —
+     *     p95        0.6 ms        7.0 ms       11.7×
+     *     worst      1.3 ms       28.0 ms       21.5×
+     *
+     * The median is unchanged, and that is the shape of it: most of the frame is empty sky and a
+     * miss costs nothing either way. The whole bill lands on the hits, where 28 ms is nearly two
+     * frames at 60 Hz — on an event that fires with every movement of the mouse.
+     *
+     * What it buys back is 41.9 kB of a 595 kB chunk, 13.4 kB over the wire, on a chunk that is
+     * only fetched when this view is opened. Restoring it is one import and one wrapper.
+     */
+    <>
       <primitive
         object={model}
         scale={scale}
@@ -289,6 +307,6 @@ export function IssGltf({ scene, rotation = [0, -Math.PI / 2, 0] }: IssGltfProps
         onPointerMove={handleMove}
         onPointerOut={handleOut}
       />
-    </Bvh>
+    </>
   )
 }
