@@ -7,7 +7,7 @@
  *
  * The file is downloaded once per session, however many times the component mounts.
  */
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Group } from 'three'
 
 export const ISS_MODEL_URL = '/models/iss-igoal.glb'
@@ -83,15 +83,30 @@ export interface ModelState {
   /** Download progress, 0 to 1. Decoding happens after it reaches 1. */
   progress: number
   error: Error | null
+  /**
+   * Try the download again after a failure.
+   *
+   * Without this the only way out of a failed load was reloading the page — which throws away the
+   * telemetry session and the orbital state to recover from what is usually a dropped packet on a
+   * 15 MB file. The failure path already clears the cached promise, so this is a real second
+   * attempt rather than a replay of the first one's rejection.
+   */
+  retry: () => void
 }
 
 export function useIssModel(): ModelState {
-  const [state, setState] = useState<ModelState>({
+  const [attempt, setAttempt] = useState(0)
+  const [state, setState] = useState<Omit<ModelState, 'retry'>>({
     scene: null,
     loading: true,
     progress: sharedProgress,
     error: null,
   })
+
+  const retry = useCallback(() => {
+    setState({ scene: null, loading: true, progress: 0, error: null })
+    setAttempt((n) => n + 1)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -114,7 +129,7 @@ export function useIssModel(): ModelState {
       cancelled = true
       progressListeners.delete(onProgress)
     }
-  }, [])
+  }, [attempt])
 
-  return state
+  return { ...state, retry }
 }

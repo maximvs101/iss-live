@@ -8,7 +8,7 @@
  * simplified station, the view reports what it is doing and how far along it is: a placeholder
  * shape would be indistinguishable from the real thing at a glance, and worse than an honest wait.
  */
-import { useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Stars } from '@react-three/drei'
 import { AdditiveBlending, CanvasTexture, SRGBColorSpace, Vector3 } from 'three'
@@ -244,10 +244,38 @@ function EarthShine() {
   return <directionalLight ref={light} position={[0, -200, 0]} intensity={0.38} color="#6f93c4" />
 }
 
+/**
+ * What the canvas is, for a reader who cannot see it.
+ *
+ * It had no name at all: a screen reader met an unlabelled canvas and said nothing about the
+ * largest thing on the page. `img` is the honest role — the scene needs a pointer to explore, and
+ * everything it encodes (joint angles, array pointing, every reading) is already text in the
+ * panels beside it. So the label describes the picture and says where the same facts are readable,
+ * rather than pretending the geometry is navigable.
+ */
+const CANVAS_DESCRIPTION =
+  'Three-dimensional view of the International Space Station, lit from the real Sun direction and ' +
+  'seen against the Earth below. The same joint angles and readings are given as text in the ' +
+  'panels beside it.'
+
 export function StationView() {
-  const { scene, loading, progress, error } = useIssModel()
+  const { scene, loading, progress, error, retry } = useIssModel()
   // Mutated every frame from inside the Canvas; see SunPointer.
   const sunMarker = useRef<HTMLDivElement>(null)
+
+  /*
+   * The name goes on through a ref rather than as a prop or from `onCreated`.
+   *
+   * `Canvas` forwards neither `role` nor `aria-label` — measured, both the canvas and the wrapper
+   * came back null. `onCreated` would work but only once a WebGL context exists, so the name would
+   * be missing in exactly the situations where the scene fails to start. The ref points at the
+   * canvas element itself and is set at mount, whatever the renderer goes on to do.
+   */
+  const canvas = useCallback((element: HTMLCanvasElement | null) => {
+    if (!element) return
+    element.setAttribute('role', 'img')
+    element.setAttribute('aria-label', CANVAS_DESCRIPTION)
+  }, [])
 
   return (
     <>
@@ -265,6 +293,7 @@ export function StationView() {
         was fixed.
       */}
       <Canvas
+        ref={canvas}
         shadows="soft"
         gl={{ toneMappingExposure: 1.15 }}
         camera={{ position: [60, 34, 78], fov: 42, near: 0.5, far: farPlane(MAX_CAMERA_DISTANCE) }}
@@ -339,7 +368,7 @@ export function StationView() {
       </div>
 
       {loading && <ModelProgress progress={progress} />}
-      {error && <ModelError message={error.message} />}
+      {error && <ModelError message={error.message} onRetry={retry} />}
     </>
   )
 }
@@ -348,12 +377,23 @@ function ModelProgress({ progress }: { progress: number }) {
   const percent = Math.round(progress * 100)
   // Past the download, the file still has to be decompressed and uploaded to the GPU, which the
   // loader reports nothing about. Saying so beats a bar that sits at 100 % looking stuck.
-  const stage = percent >= 99 ? 'Decoding geometry…' : `Loading NASA model — ${percent}%`
+  const decoding = percent >= 99
 
   return (
     <div className="model-progress">
-      <span className="model-progress__label">{stage}</span>
-      <span className="model-progress__track">
+      {/*
+        The announcement and the number are deliberately separated.
+
+        A live region around "Loading NASA model — 43%" is read again at every percentage point:
+        sixty repetitions of the same sentence for one piece of news. The live region holds only
+        the stage, which changes twice; the percentage sits beside it, hidden from the reader,
+        where the progress bar it belongs to is also invisible to one.
+      */}
+      <span className="model-progress__label">
+        <span role="status">{decoding ? 'Decoding geometry…' : 'Loading NASA model'}</span>
+        {!decoding && <span aria-hidden="true"> — {percent}%</span>}
+      </span>
+      <span className="model-progress__track" aria-hidden="true">
         <span className="model-progress__bar" style={{ width: `${Math.max(percent, 2)}%` }} />
       </span>
       <span className="model-progress__note">14.9 MB · cached by the browser afterwards</span>
@@ -361,15 +401,26 @@ function ModelProgress({ progress }: { progress: number }) {
   )
 }
 
-function ModelError({ message }: { message: string }) {
+function ModelError({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="scene-error">
+    /*
+     * `alert`, because it interrupts: the view the person just asked for is not going to appear,
+     * and they need to know without being told to go and look.
+     */
+    <div className="scene-error" role="alert">
       <h2>Station model unavailable</h2>
       <p>
         The 3D model could not be loaded. The orbital view and every telemetry panel still work —
         only this view needs the file.
       </p>
       <pre>{message}</pre>
+      {/*
+        A retry, because the alternative was reloading the page — which throws away the telemetry
+        session and the orbital state to recover from a dropped packet on a 15 MB download.
+      */}
+      <button type="button" className="scene-error__retry" onClick={onRetry}>
+        Try again
+      </button>
     </div>
   )
 }

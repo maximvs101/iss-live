@@ -172,9 +172,15 @@ export default function App() {
         <div className="app__controls">
           <nav className="view-switch" aria-label="View">
             {VIEWS.map((entry) => (
+              /*
+               * `aria-pressed` rather than a tablist: which view is showing was carried by a
+               * class and nothing else, so a screen reader read two identical buttons. Toggle
+               * buttons say it without the arrow-key model a real tablist would owe the reader.
+               */
               <button
                 key={entry.id}
                 type="button"
+                aria-pressed={view === entry.id}
                 className={`view-switch__item${view === entry.id ? ' view-switch__item--active' : ''}`}
                 onClick={() => setView(entry.id)}
               >
