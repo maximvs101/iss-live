@@ -10,6 +10,7 @@
 // directly: Node's TypeScript support resolves nothing for a bare relative path, and this one is a
 // value import rather than a type, so it does not vanish before Node sees it.
 import { subsolarPoint } from '../../orbit/propagator.ts'
+import { EARTH_RADIUS_KM } from '../../earth.ts'
 
 export interface MapSize {
   width: number
@@ -137,9 +138,6 @@ export function splitAtAntimeridian<T extends { latitude: number; longitude: num
   if (current.length > 1) runs.push(current)
   return runs
 }
-
-/** Mean radius, the same figure `footprintPoints` divides by. */
-const EARTH_RADIUS_KM = 6371
 
 /**
  * Is the station above the horizon from here?

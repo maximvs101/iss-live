@@ -50,7 +50,7 @@ export interface Observer {
   label?: string
 }
 
-export interface PassPoint {
+interface PassPoint {
   date: Date
   /** Degrees from north, clockwise. */
   azimuth: number

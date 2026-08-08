@@ -24,8 +24,16 @@
  */
 import type { ConnectionState } from './store'
 
-/** Past this, data is no longer live — the same figure the status bar uses. */
-export const LIVE_THRESHOLD_MS = 60_000
+/*
+ * Re-exported, not redefined.
+ *
+ * "The same figure the status bar uses" was a comment on a second copy of 60_000, which is a
+ * promise the compiler cannot keep. If the two ever parted, the watchdog would decide the stream
+ * was dead while the indicator called it live, or the reverse — and a light disagreeing with the
+ * machinery behind it is the exact failure this module was written to repair.
+ */
+export { LIVE_THRESHOLD_MS } from './health'
+import { LIVE_THRESHOLD_MS } from './health'
 
 /**
  * How long a *connected* stream may stay silent before the subscription is suspected.

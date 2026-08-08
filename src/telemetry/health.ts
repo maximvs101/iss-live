@@ -32,7 +32,7 @@ export type StreamHealth =
 /** Past this delay without an update, the stream is no longer considered real time. */
 export const LIVE_THRESHOLD_MS = 60_000
 /** Past this delay, the interruption exceeds an ordinary loss of signal. */
-export const STALE_THRESHOLD_MS = 15 * 60_000
+const STALE_THRESHOLD_MS = 15 * 60_000
 
 export interface StreamStatus {
   health: StreamHealth
@@ -57,7 +57,7 @@ export function streamAgeMs(now: number): number | null {
   return lastUpdateAt === null ? null : now - lastUpdateAt
 }
 
-export function computeStreamStatus(now: number): StreamStatus {
+function computeStreamStatus(now: number): StreamStatus {
   const { connection, connectionDetail, subscribedCount, updateCount } = useTelemetryStore.getState()
 
   /*

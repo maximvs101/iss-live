@@ -11,7 +11,7 @@
  */
 import { json2satrec, twoline2satrec, type OMMJsonObject, type SatRec } from 'satellite.js'
 
-export const ISS_NORAD_ID = 25544
+const ISS_NORAD_ID = 25544
 
 const CELESTRAK_URL = `https://celestrak.org/NORAD/elements/gp.php?CATNR=${ISS_NORAD_ID}&FORMAT=json`
 const CACHE_KEY = 'iss-live.orbital-elements'

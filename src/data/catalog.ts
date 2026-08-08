@@ -25,7 +25,7 @@ export interface PuiSymbol {
   precision: number | null
 }
 
-export interface PuiCatalog {
+interface PuiCatalog {
   source: string
   sourceCreated: string | null
   generatedAt: string
@@ -33,7 +33,7 @@ export interface PuiCatalog {
   symbols: PuiSymbol[]
 }
 
-export const catalog = catalogJson as PuiCatalog
+const catalog = catalogJson as PuiCatalog
 
 const bySymbol = new Map<string, PuiSymbol>(catalog.symbols.map((symbol) => [symbol.pui, symbol]))
 

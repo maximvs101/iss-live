@@ -23,8 +23,9 @@
  * it from a camera of its own, in distantScene.
  */
 
-/** Mean radius and the station's nominal altitude, in kilometres. */
-const EARTH_KM = 6371
+import { EARTH_RADIUS_KM as EARTH_KM } from '../earth.ts'
+
+/** The station's nominal altitude, in kilometres. */
 const ALTITUDE_KM = 420
 
 export const EARTH_RADIUS = 1800

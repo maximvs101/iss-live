@@ -31,7 +31,7 @@ function store(observer: Observer | null): void {
   }
 }
 
-export type LocationStatus = 'idle' | 'locating' | 'denied' | 'unavailable'
+type LocationStatus = 'idle' | 'locating' | 'denied' | 'unavailable'
 
 interface ObserverStore {
   observer: Observer | null

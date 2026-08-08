@@ -15,10 +15,10 @@ import { appendHistory } from '../history/indexeddb'
 import { onboardTimestampToDate } from './health'
 import { useTelemetryStore, type ConnectionState, type TelemetrySample } from './store'
 
-export const LS_SERVER = 'https://push.lightstreamer.com'
-export const LS_ADAPTER_SET = 'ISSLIVE'
+const LS_SERVER = 'https://push.lightstreamer.com'
+const LS_ADAPTER_SET = 'ISSLIVE'
 
-export const LS_SCHEMA = [
+const LS_SCHEMA = [
   'TimeStamp',
   'Value',
   'Status.Class',

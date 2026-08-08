@@ -16,6 +16,7 @@ import {
   type EciVec3,
   type SatRec,
 } from 'satellite.js'
+import { EARTH_RADIUS_KM } from '../earth.ts'
 
 export interface OrbitState {
   date: Date
@@ -39,8 +40,6 @@ export interface OrbitState {
   /** 0 = full sunlight, 1 = full shadow. */
   shadow: number
 }
-
-const EARTH_RADIUS_KM = 6371
 
 /** Full state of the station at a given instant. null if the model does not converge. */
 export function propagateIss(satrec: SatRec, date: Date): OrbitState | null {

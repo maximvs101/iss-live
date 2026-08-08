@@ -32,16 +32,14 @@
  * have the same object both nearer and further. Two passes have two depth buffers, and the far one
  * is thrown away.
  */
+import { EARTH_RADIUS_KM as EARTH_KM } from '../earth.ts'
 import { ATMOSPHERE_RADIUS, EARTH_CENTRE, EARTH_RADIUS } from './earthLimb.ts'
-
-/** Mean radius of the Earth in kilometres, as everywhere else in this codebase. */
-const EARTH_KM = 6371
 
 /** Kilometres in one scene unit, on the planet's compressed scale. */
 export const KM_PER_EARTH_UNIT = EARTH_KM / EARTH_RADIUS
 
 /** Kilometres in one scene unit, on the station's: it is drawn a metre to the unit. */
-export const KM_PER_STATION_UNIT = 0.001
+const KM_PER_STATION_UNIT = 0.001
 
 /**
  * What a step of the real camera is worth to the far camera.

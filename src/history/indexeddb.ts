@@ -60,31 +60,45 @@ export async function readHistory(pui: string, sinceMs?: number): Promise<Histor
   return (await db.getAll(STORE, range)) as HistoryPoint[]
 }
 
-/** Trims each symbol back to capacity by deleting its oldest points. */
-export async function pruneHistory(): Promise<void> {
+/**
+ * Trims each symbol back to capacity by deleting its oldest points.
+ *
+ * A key cursor rather than `getAll`, which is what this used to be. `getAll` read every record —
+ * values and all — into an array in order to throw most of it away: at 163 symbols against a full
+ * ring that is 1.2 million points loaded every five minutes to delete a few hundred, and the
+ * history survives across sessions, so the ring does fill.
+ *
+ * Keys are `[pui, t]`, and IndexedDB iterates keys in order, so the points of one symbol arrive
+ * together and already oldest-first. That removes the grouping, removes the sort, and holds one
+ * symbol's timestamps at a time instead of the whole store.
+ */
+async function pruneHistory(): Promise<void> {
   const db = await getDb()
-  const all = (await db.getAll(STORE)) as HistoryPoint[]
-
-  const byPui = new Map<string, HistoryPoint[]>()
-  for (const point of all) {
-    const list = byPui.get(point.pui)
-    if (list) list.push(point)
-    else byPui.set(point.pui, [point])
-  }
-
   const tx = db.transaction(STORE, 'readwrite')
-  for (const [, points] of byPui) {
-    if (points.length <= MAX_POINTS_PER_PUI) continue
-    points.sort((a, b) => a.t - b.t)
-    for (const point of points.slice(0, points.length - MAX_POINTS_PER_PUI)) {
-      void tx.store.delete([point.pui, point.t])
-    }
-  }
-  await tx.done
-}
 
-/** Erases the entire locally stored history. */
-export async function clearHistory(): Promise<void> {
-  const db = await getDb()
-  await db.clear(STORE)
+  let pui: string | null = null
+  let times: number[] = []
+
+  /** Deletes the overflow of the symbol just finished. `times` is ascending, so the excess leads. */
+  const trim = () => {
+    if (pui === null) return
+    for (let i = 0; i < times.length - MAX_POINTS_PER_PUI; i += 1) {
+      void tx.store.delete([pui, times[i]])
+    }
+    times = []
+  }
+
+  let cursor = await tx.store.openKeyCursor()
+  while (cursor) {
+    const [itemPui, t] = cursor.primaryKey as [string, number]
+    if (itemPui !== pui) {
+      trim()
+      pui = itemPui
+    }
+    times.push(t)
+    cursor = await cursor.continue()
+  }
+  trim()
+
+  await tx.done
 }

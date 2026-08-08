@@ -24,7 +24,7 @@ export interface Channel {
   part?: PartId
 }
 
-export interface Section {
+interface Section {
   id: string
   label: string
   channels: Channel[]

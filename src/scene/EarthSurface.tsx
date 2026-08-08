@@ -33,6 +33,7 @@ import {
 import { useOrbitStore } from '../orbit/useOrbit'
 import { earthOrientationLvlh } from '../orbit/propagator'
 import { EARTH_CENTRE, EARTH_RADIUS } from './earthLimb'
+import { EARTH_RADIUS_KM } from '../earth'
 import { tileAt, tileName, tileUvBox, type TileId } from './earthDetail'
 
 const TEXTURE = (name: string) => `${import.meta.env.BASE_URL}textures/${name}`
@@ -59,7 +60,7 @@ const month = String(new Date().getMonth() + 1).padStart(2, '0')
  * the ground, and their height shows only in the shadows they cast, which this does not attempt.
  */
 const CLOUD_TOP_KM = 12
-const CLOUD_RADIUS = EARTH_RADIUS * ((6371 + CLOUD_TOP_KM) / 6371)
+const CLOUD_RADIUS = EARTH_RADIUS * ((EARTH_RADIUS_KM + CLOUD_TOP_KM) / EARTH_RADIUS_KM)
 
 /** Loads a texture once, tags it sRGB, and disposes it on the way out. */
 function useSurfaceTexture(name: string, colour = true): Texture | null {

@@ -3,7 +3,7 @@ import { create } from 'zustand'
 import type { PartId } from '../scene/parts'
 
 /** Cursor position in the page, so the hover label can follow it. */
-export interface ScreenPoint {
+interface ScreenPoint {
   x: number
   y: number
 }
