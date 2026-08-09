@@ -11,8 +11,12 @@ const DB_NAME = 'iss-live'
 const DB_VERSION = 1
 const STORE = 'samples'
 
-/** Points kept per symbol. At 1 Hz that is roughly two hours. */
-const MAX_POINTS_PER_PUI = 7200
+/**
+ * Points kept per symbol. At 1 Hz that is roughly two hours.
+ *
+ * Exported so the pruning test can state the capacity once rather than restate the number.
+ */
+export const MAX_POINTS_PER_PUI = 7200
 /** Pruning runs periodically rather than on every write, to spare the database. */
 const PRUNE_INTERVAL_MS = 5 * 60_000
 
@@ -71,8 +75,12 @@ export async function readHistory(pui: string, sinceMs?: number): Promise<Histor
  * Keys are `[pui, t]`, and IndexedDB iterates keys in order, so the points of one symbol arrive
  * together and already oldest-first. That removes the grouping, removes the sort, and holds one
  * symbol's timestamps at a time instead of the whole store.
+ *
+ * Exported only so the tests can await it. `appendHistory` fires it and walks away, which is right
+ * for a write path that must not wait on housekeeping — and is why a test that goes through
+ * `appendHistory` alone reads the store back before any of this has happened.
  */
-async function pruneHistory(): Promise<void> {
+export async function pruneHistory(): Promise<void> {
   const db = await getDb()
   const tx = db.transaction(STORE, 'readwrite')
 
@@ -98,6 +106,8 @@ async function pruneHistory(): Promise<void> {
     times.push(t)
     cursor = await cursor.continue()
   }
+  // The final symbol has no successor to flush it, so its overflow goes here — after the cursor is
+  // exhausted but before the transaction is allowed to settle.
   trim()
 
   await tx.done

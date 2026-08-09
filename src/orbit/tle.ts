@@ -62,10 +62,26 @@ function writeCache(omm: OMMJsonObject): void {
   }
 }
 
+/**
+ * Celestrak's `EPOCH` is UTC, and says so nowhere.
+ *
+ * It arrives as `2026-07-28T03:39:38.221000` — a date-time with no zone designator, which
+ * JavaScript reads as *local* time. On a machine two hours east of Greenwich the elements were
+ * being dated two hours early, and up to fourteen elsewhere. The propagation was never affected,
+ * because satellite.js parses the epoch out of the OMM fields itself; what was wrong was the age
+ * this application displays and the freshness a reader would judge it by.
+ *
+ * A zone already present is left alone, in case the feed ever starts sending one.
+ */
+function ommEpoch(epoch: string): Date {
+  const zoned = /([Zz]|[+-]\d{2}:?\d{2})$/.test(epoch)
+  return new Date(zoned ? epoch : `${epoch}Z`)
+}
+
 function fromOmm(omm: OMMJsonObject, source: ElementsSource): OrbitalElements {
   return {
     satrec: json2satrec(omm),
-    epoch: new Date(omm.EPOCH),
+    epoch: ommEpoch(omm.EPOCH),
     source,
     objectName: omm.OBJECT_NAME,
   }
