@@ -51,7 +51,15 @@ beforeEach(async () => {
 })
 
 describe('the history ring', () => {
-  it('trims every symbol that is over capacity, and only those, keeping the newest', async () => {
+  /*
+   * A budget of its own, because the default five seconds is roughly what this costs.
+   *
+   * Two symbols have to be over capacity — one flushed by a change of key, one flushed after the
+   * cursor ends — and capacity is 7200, so around fifteen thousand individual writes go in before
+   * a single assertion. Alone it lands near 4.6 s; sharing a machine with the rest of the suite it
+   * went over and failed on the clock rather than on the code, which is the worst kind of red.
+   */
+  it('trims every symbol that is over capacity, and only those, keeping the newest', { timeout: 30_000 }, async () => {
     const middleOverflow = 30
     const lastOverflow = 40
 

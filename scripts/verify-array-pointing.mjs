@@ -340,7 +340,7 @@ for (const binding of wings) {
   // smaller, otherwise half the wings read 180° apart for no physical reason.
   let offset = best.angle - published
   offset = ((offset % 180) + 270) % 180 - 90
-  offsets.push(offset)
+  offsets.push({ node: binding.node, offset })
 
   const name = binding.node.replace('_BETA_ROT', '').replace('PORT_', 'P ').replace('STBD_', 'S ')
   console.log(
@@ -404,10 +404,75 @@ Every wing has ${Math.min(...irreducible).toFixed(1)}° or more that no beta ang
   )
 }
 
-const mean = offsets.reduce((sum, value) => sum + value, 0) / offsets.length
-const spread = Math.max(...offsets) - Math.min(...offsets)
+const mean = offsets.reduce((sum, { offset }) => sum + offset, 0) / offsets.length
+const spread =
+  Math.max(...offsets.map((o) => o.offset)) - Math.min(...offsets.map((o) => o.offset))
 console.log(`\nrequired offset: mean ${mean.toFixed(1)}°, spread across the eight wings ${spread.toFixed(1)}°`)
 console.log(`|beta| is ${Math.abs(beta).toFixed(1)}° — ideal Sun-pointing needs |BGA| to equal it.`)
+
+/**
+ * Are the wings splayed on purpose?
+ *
+ * The second premise this check turned out to have. The first was that the arrays are tracking at
+ * all, which the parked guard above now states; this one is that when they track, they track the
+ * Sun. They do not always. The two blankets on a mast shadow each other at some geometries, so the
+ * station tilts them apart deliberately — beta-backtracking, and the other power and thermal modes
+ * that off-point on purpose. Every wing then reads well off the Sun while nothing whatever is wrong.
+ *
+ * Observed 09/08/2026 at |beta| 34.5°: all eight wings 17-21° off, and the run went red.
+ *
+ * Three things have to hold together before that is called deliberate, and each one excludes a
+ * failure this script exists to catch:
+ *
+ *   the two wings of every module are offset in *opposite* directions
+ *       A mapping error with a flipped sign puts every wing out the same way. A splay is
+ *       symmetric by construction, because it exists to open a pair apart.
+ *   the mean offset is near zero while the individual offsets are large
+ *       The same statement from the other side, and the one that fails loudly if a whole side of
+ *       the truss is mismapped: the mean would then sit near the offset, not near zero.
+ *   no wing has a large irreducible residual
+ *       `best reachable` is what no beta angle can remove. Small means the alpha joints *are*
+ *       where Sun-tracking puts them and each wing could face the Sun from where it is — it is
+ *       commanded elsewhere. Large means the SARJ is not tracking, which is the parked case above
+ *       and is not this one.
+ *
+ * A wing that is genuinely mispointed on its own still fails: it breaks the pairing, and it moves
+ * the mean.
+ */
+const SPLAY_MEAN_LIMIT = 5
+const SPLAY_MIN_MAGNITUDE = 10
+
+/** `PORT_BETA_ROT_2A` and `PORT_BETA_ROT_2B` are the two blankets of one mast. */
+const mastOf = (node) => node.replace(/[AB]$/, '')
+const masts = new Map()
+for (const { node, offset } of offsets) {
+  const mast = mastOf(node)
+  masts.set(mast, [...(masts.get(mast) ?? []), offset])
+}
+
+const everyMastOpensApart =
+  masts.size > 0 &&
+  [...masts.values()].every(
+    (pair) => pair.length === 2 && Math.sign(pair[0]) !== Math.sign(pair[1]),
+  )
+
+const splay =
+  !parked &&
+  offsets.length > 0 &&
+  everyMastOpensApart &&
+  Math.abs(mean) <= SPLAY_MEAN_LIMIT &&
+  Math.min(...offsets.map((o) => Math.abs(o.offset))) >= SPLAY_MIN_MAGNITUDE &&
+  Math.max(...irreducible) <= TOLERANCE
+
+if (splay) {
+  console.log(
+    `\nEvery mast is opened apart — its two wings offset in opposite directions, mean ${mean.toFixed(1)}°` +
+      ` over magnitudes of ${Math.min(...offsets.map((o) => Math.abs(o.offset))).toFixed(0)}° and more,` +
+      ` with at most ${Math.max(...irreducible).toFixed(1)}° that no beta angle could remove.` +
+      '\nThat is a deliberate off-point, not a mispointing: the wings could face the Sun from where the' +
+      '\nalpha joints have put them, and are commanded away from it.',
+  )
+}
 
 // The station's own tracking is not perfect and neither is a TLE a few hours old, so this is not
 // asking for zero. It is asking that no wing be somewhere else entirely, which is the failure the
@@ -419,6 +484,8 @@ for (const binding of wings) {
   if (off <= TOLERANCE) continue
   if (parked) {
     console.log(`  note  ${binding.node} is ${off.toFixed(1)}° off the Sun — the arrays are parked, not mispointed`)
+  } else if (splay) {
+    console.log(`  note  ${binding.node} is ${off.toFixed(1)}° off the Sun — the mast is opened apart on purpose`)
   } else {
     fail(`${binding.node} is ${off.toFixed(1)}° off the Sun, over the ${TOLERANCE}° tolerance`)
   }

@@ -30,14 +30,24 @@ export function PassesPanel() {
   const [open, setOpen] = useState(false)
 
   const passes = useMemo(() => {
-    // Nothing is searched while the panel is shut — 72 hours of propagation for a list nobody has
-    // asked to see is work done for its own sake.
-    if (!open || !elements || !observer) return []
+    /*
+     * Searched whether or not the panel is open, which it did not used to be.
+     *
+     * Skipping the work while shut looked like an easy saving and was a lie: the summary line is on
+     * screen the whole time and reads straight off this array, so a folded panel announced "0
+     * passes above 10° in the next 72 hours, none of them visible to the naked eye — every one
+     * falls in daylight or in the Earth's shadow" over a location with sixteen of them. A confident
+     * sentence, an explanation for it, and nothing computed behind either.
+     *
+     * The work it was avoiding is 17 ms, measured over 72 hours from Paris. It memoises on the
+     * elements and the observer, so it runs when one of those changes and not on every render.
+     */
+    if (!elements || !observer) return []
     return findPasses(elements.satrec, observer, new Date(), {
       hours: SEARCH_HOURS,
       minElevation: 10,
     })
-  }, [open, elements, observer])
+  }, [elements, observer])
 
   const shown = visibleOnly ? passes.filter((pass) => pass.visible) : passes
   const visibleCount = passes.filter((pass) => pass.visible).length
