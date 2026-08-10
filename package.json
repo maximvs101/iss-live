@@ -18,6 +18,7 @@
     "check:stream": "node scripts/check-stream.mjs",
     "verify:orbit": "node scripts/verify-orbit.mjs",
     "verify:scene": "node scripts/verify-scene.mjs",
+    "build:icons": "node scripts/build-icons.mjs",
     "build:model": "node scripts/build-iss-model.mjs",
     "build:earth": "node scripts/build-earth-textures.mjs",
     "fix:alpha": "node scripts/fix-alpha-modes.mjs",
