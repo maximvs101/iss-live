@@ -62,10 +62,8 @@ async function main() {
   let sessionId = null
   let subscribed = false
   let updates = 0
-  /** Updates that arrived after the snapshot ended, which are the only ones that mean anything. */
+  /** Updates beyond the first for a symbol: the ones the station pushed rather than remembered. */
   let live = 0
-  /** Item indices whose snapshot the server has declared finished. */
-  const pastSnapshot = new Set()
   const seen = new Map()
 
   while (Date.now() < deadline) {
@@ -107,30 +105,30 @@ async function main() {
         continue
       }
 
-      /*
-       * End of snapshot, per item. This is the line that makes the whole check mean something.
-       *
-       * A subscription asks for the snapshot, so the server answers with the last known value of
-       * every symbol whatever the state of the broadcast. Counting those as evidence of a live
-       * stream is how this script came to report "the stream is publishing data" during an outage
-       * that had been running for a quarter of an hour — one update per symbol, none of them new.
-       * Anything after EOS was pushed because the station said something.
-       */
-      if (line.startsWith('EOS,')) {
-        pastSnapshot.add(line.split(',')[2])
-        continue
-      }
-
       if (line.startsWith('U,')) {
         updates += 1
         // Format: U,<subId>,<itemIndex>,<pipe-separated values>
         const [, , itemIndex, ...rest] = line.split(',')
         const values = rest.join(',').split('|')
         const pui = ITEMS[Number(itemIndex) - 1] ?? `item ${itemIndex}`
-        const fresh = pastSnapshot.has(itemIndex)
-        if (fresh) live += 1
+
+        /*
+         * The second value a symbol sends is the first one that proves anything.
+         *
+         * A subscription asks for the snapshot, so the server answers with the last known value of
+         * every symbol whatever the state of the broadcast — which is how this script once reported
+         * "the stream is publishing data" through a quarter of an hour of silence. Exactly one
+         * update per symbol is a snapshot; a second is the station speaking.
+         *
+         * An earlier attempt used the protocol's own end-of-snapshot marker, EOS. This server never
+         * sends one — checked by dumping the line types it does send — so the set stayed empty,
+         * every update counted as snapshot, and the check called a live stream an outage. Counting
+         * per symbol needs nothing of the server but the updates themselves.
+         */
+        const repeat = seen.has(pui)
+        if (repeat) live += 1
         seen.set(pui, values[1] ?? '')
-        console.log(`  ${pui} = ${values[1] ?? ''}${fresh ? '  (pushed)' : ''}`)
+        if (!repeat) console.log(`  ${pui} = ${values[1] ?? ''}`)
       }
     }
   }
