@@ -64,6 +64,14 @@
 - **Hover is read on pointer *move*, not pointer *over*.** The whole NASA model is a single React
   object, so crossing from one module to the next does not necessarily produce a new "over" event —
   the pointer never left the primitive.
+- **The npm version is pinned, and the lock file is why.** npm 10 and npm 11 do not agree about the
+  optional native dependencies of the build toolchain: a lock written by npm 11 is rejected by
+  npm 10 with `Missing: @emnapi/core from lock file`, and regenerating it under npm 10 makes npm 11
+  rewrite it on the next install. Left alone the file oscillates, and the deploy fails on whichever
+  machine did not touch it last. `packageManager` and `engines` in `package.json` name the version;
+  the lock is generated with it; and CI, running `npm ci` on Node 22, goes red immediately if
+  someone commits a lock from a newer npm. A dry run is not enough to check this — reproduce the
+  host's install with `npx npm@10.9.2 ci`.
 - **Ray casting goes through a BVH** (`<Bvh>` from drei). Testing the ray against the raw triangles
   of 555 meshes measured 3.8 ms on average and 21 ms at worst — enough to drop frames as the cursor
   sweeps the station. With the bounding volume hierarchy: 1.3 ms on average, 4.4 ms at worst.
