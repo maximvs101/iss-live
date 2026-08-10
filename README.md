@@ -6,6 +6,8 @@ position computed in real time, and 3D exploration of the station module by modu
 A fully static web application — no server required, the browser talks directly to both data
 sources.
 
+**[iss-live.pages.dev](https://iss-live.pages.dev)** — deployed from `main` on every push.
+
 ## Documentation
 
 This file is the short version. The reasoning behind the code lives in `docs/`, where it can be
@@ -21,20 +23,24 @@ long without being in the way.
 
 ## State of the telemetry source
 
-**The stream is live.** The public ISS Live broadcast had been silent from 22/07/2026 01:19 GMT
-and resumed on 28/07/2026; the application was built and verified through that outage, which is
-why it treats missing data as a first-class state rather than an error.
+It comes and goes, so this file does not claim to know. The public broadcast was silent from
+22/07/2026 01:19 GMT to 28/07/2026, and has gone quiet for stretches of a quarter of an hour since —
+which is why the application treats missing data as a first-class state rather than an error, and
+why the age it shows is read from the station's own clock rather than from when the packet landed.
 
-To check the stream at any time:
+To ask:
 
 ```bash
 npm run check:stream
 ```
 
-The script opens a real TLCP session and reports how many updates arrived. Exit code 0 if data is
-flowing, 1 if the server responds but publishes nothing.
+It opens a real TLCP session and separates two things a single number confuses. Subscribing always
+yields the last known value of every symbol, whatever the state of the broadcast; only what arrives
+*after* that was pushed because the station said something. So the answer has three shapes: nothing
+at all, last known values with nothing pushed — a healthy session over an interrupted broadcast —
+or a live stream. Only the last exits 0.
 
-The orbital side does not depend on that stream and keeps working regardless.
+The orbital side does not depend on the stream and keeps working regardless.
 
 ## Data sources
 
@@ -69,8 +75,12 @@ npm run dev
 | `npm run dev` | development server |
 | `npm run build` | production build into `dist/` |
 | `npm test` | unit tests (`npm run test:watch` to keep them running) |
+| `npm run preview` | serves the built `dist/` as a static host would |
 | `npm run build:catalog` | regenerates `src/data/pui-catalog.json` from `data/PUIList.xml` |
 | `npm run build:model` | prepares the NASA 3D model for the web |
+| `npm run build:earth` | cuts the monthly Blue Marble base maps from NASA's originals |
+| `npm run build:detail` | cuts the high-resolution surface tiles the globe overlays |
+| `npm run build:icons` | rasterises `favicon.svg` for the platforms that refuse SVG |
 | `npm run fix:alpha` | corrects materials the source wrongly declares transparent |
 | `npm run check:stream` | is the NASA stream publishing data? |
 | `npm run verify` | every check below, run together |
@@ -97,8 +107,9 @@ What decides the choice is weight. The build is **113 MB**, and a visit that ope
 pulls about **22** of them: the month's base map at 4.1 MB, the cloud layer at 2.2, and the model at
 14.9. A visit that stays on the map costs under one. On a host billing 100 GB a month that is
 roughly 4,500 Station visits; **Cloudflare Pages** meters no bandwidth on its free plan, which is
-why it is the one set up here. Its two hard limits are 25 MiB per file and 20,000 files, against a
-largest file of 14.9 MiB and 154 of them.
+why it is the one set up here. Its two hard limits are 25 MiB per file and 20,000 files. The file
+count is never going to be the binding one; the per-file limit could be, and the model is the
+largest thing here at 14.9 MiB.
 
 ```bash
 npm run build
