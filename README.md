@@ -1694,6 +1694,21 @@ the origin.
 - NASA's **(E) Internal** model (a multipart 7z archive of 330 MB) would allow exploring the inside
   of the modules; it has not been processed.
 - The `three` chunk is still 725 kB. Both views need it, so deferring it would only move the wait.
-- Nothing tests the React components or the 3D scene. Both need a DOM and a WebGL context, and
-  what they would catch is mostly caught already: the scene by `verify:model`, the panels by the
-  editorial tests.
+- The 3D scene is untested. jsdom has no WebGL, so what runs against it is the arithmetic —
+  `verify:render`, `verify:camera`, `verify:scene` — while the image itself is checked by eye. The
+  React components around it are covered: the map is held to the projection at their seam, and the
+  chart, the passes panel, the error boundary and the photo gallery have tests of their own.
+- The station's arrays are sometimes deliberately off-Sun, and `verify:arrays` recognises that by a
+  three-part signature rather than by measuring it. A defect symmetric enough to imitate a splay in
+  all three respects would pass.
+
+## Licence
+
+The code is MIT — see [LICENSE](LICENSE).
+
+The data is not mine to license and keeps its own terms. The 3D model comes from NASA's
+[NASA-3D-Resources](https://github.com/nasa/NASA-3D-Resources); the telemetry is NASA's public ISS
+Live broadcast; the orbital elements are Celestrak's; the base maps are NASA Blue Marble; the
+coastlines are [Natural Earth](https://www.naturalearthdata.com), public domain. Every source is
+listed with its access terms under [Data sources](#data-sources). NASA material is generally free to
+reuse but is not covered by the licence above, and NASA does not endorse anything built with it.
