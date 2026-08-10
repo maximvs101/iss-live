@@ -25,7 +25,7 @@
  *
  * Usage: npm run verify:arrays
  */
-import { readFileSync } from 'node:fs'
+import { appendFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { Euler, Matrix4, Quaternion, Vector3 } from 'three'
 import { twoline2satrec } from 'satellite.js'
 import { propagateIss, betaAngle, sunDirectionLvlh } from '../src/orbit/propagator.ts'
@@ -469,8 +469,9 @@ if (splay) {
     `\nEvery mast is opened apart — its two wings offset in opposite directions, mean ${mean.toFixed(1)}°` +
       ` over magnitudes of ${Math.min(...offsets.map((o) => Math.abs(o.offset))).toFixed(0)}° and more,` +
       ` with at most ${Math.max(...irreducible).toFixed(1)}° that no beta angle could remove.` +
-      '\nThat is a deliberate off-point, not a mispointing: the wings could face the Sun from where the' +
-      '\nalpha joints have put them, and are commanded away from it.',
+      '\nThe wings could face the Sun from where the alpha joints have put them and do not, so this is' +
+      '\nnot a mispointing of the alpha chain. Whether it is the station opening its masts or the zero' +
+      '\nof every beta joint being out by that much is the question the log below exists to settle.',
   )
 }
 
@@ -485,7 +486,10 @@ for (const binding of wings) {
   if (parked) {
     console.log(`  note  ${binding.node} is ${off.toFixed(1)}° off the Sun — the arrays are parked, not mispointed`)
   } else if (splay) {
-    console.log(`  note  ${binding.node} is ${off.toFixed(1)}° off the Sun — the mast is opened apart on purpose`)
+    console.log(
+      `  note  ${binding.node} is ${off.toFixed(1)}° off the Sun — masts opened apart, deliberately` +
+        ' or by a zero error; see below',
+    )
   } else {
     fail(`${binding.node} is ${off.toFixed(1)}° off the Sun, over the ${TOLERANCE}° tolerance`)
   }
@@ -498,6 +502,84 @@ const spreadAcrossWings =
   Math.min(...wings.map((b) => offSun(blanketNormal(b))))
 if (spreadAcrossWings > 10) {
   fail(`the eight wings disagree by ${spreadAcrossWings.toFixed(1)}° about where the Sun is`)
+}
+
+/*
+ * The question the splay guard above cannot answer on its own.
+ *
+ * When every wing sits well off the Sun, two explanations fit the same instant. The station may be
+ * opening its masts apart on purpose — the guard's case — or the zero of every beta joint may be
+ * out by that amount, which is the last unverified assumption in the joint mapping: the rest pose
+ * comes from the model, and nothing has ever confronted it with the sky. A constant error would
+ * even wear the guard's signature, because the model's rest orientations are already mirrored
+ * between the two wings of a mast, so one offset appears as +d on one and -d on the other.
+ *
+ * What separates them is not visible in a snapshot. A zero error is a constant: the same offset at
+ * every beta. A deliberate off-point tracks beta — it exists to stop one blanket shadowing the next,
+ * which only happens as the Sun climbs out of the orbital plane, and it vanishes at low beta.
+ *
+ * So each run appends what it measured, and once the log spans enough beta the answer falls out of
+ * the spread. Beta moves a few degrees a day over a roughly two-month cycle; a handful of runs
+ * across a week is enough.
+ *
+ * The alpha joints need none of this and are already settled: `best reachable` is what no beta angle
+ * can remove, so it belongs to the alpha chain alone, and it reads a degree or two.
+ */
+const LOG = new URL('../data/array-offsets.jsonl', import.meta.url)
+const magnitudes = offsets.map((o) => Math.abs(o.offset)).sort((a, b) => a - b)
+const median = magnitudes[Math.floor(magnitudes.length / 2)]
+
+const sample = {
+  at: at.toISOString(),
+  beta: Number(beta.toFixed(2)),
+  shadow: Number(orbit.shadow.toFixed(2)),
+  medianOffset: Number(median.toFixed(2)),
+  worstIrreducible: Number(Math.max(...irreducible).toFixed(2)),
+  parked,
+}
+mkdirSync(new URL('.', LOG), { recursive: true })
+appendFileSync(LOG, `${JSON.stringify(sample)}\n`)
+
+const history = readFileSync(LOG, 'utf8')
+  .split('\n')
+  .filter(Boolean)
+  .map((line) => JSON.parse(line))
+  .filter((s) => !s.parked)
+
+console.log(`\nBeta against off-Sun offset — ${history.length} sample(s) in data/array-offsets.jsonl`)
+for (const s of history.slice(-8)) {
+  console.log(
+    `  ${s.at.slice(0, 16).replace('T', ' ')}  |beta| ${Math.abs(s.beta).toFixed(1).padStart(5)}°` +
+      `  offset ${s.medianOffset.toFixed(1).padStart(5)}°  ${s.shadow >= 0.5 ? 'eclipse' : 'sunlit'}`,
+  )
+}
+
+const betas = history.map((s) => Math.abs(s.beta))
+const betaSpread = betas.length ? Math.max(...betas) - Math.min(...betas) : 0
+
+if (betaSpread < 8) {
+  console.log(
+    `\n  Not settled yet: these samples span ${betaSpread.toFixed(1)}° of |beta|, and it takes about` +
+      '\n  8° to tell a constant offset from one that follows the Sun out of the orbital plane.' +
+      '\n  Run this again over the coming days.',
+  )
+} else {
+  const low = history.filter((s) => Math.abs(s.beta) <= Math.min(...betas) + betaSpread / 3)
+  const high = history.filter((s) => Math.abs(s.beta) >= Math.max(...betas) - betaSpread / 3)
+  const mean = (xs) => xs.reduce((sum, s) => sum + s.medianOffset, 0) / xs.length
+  const lowMean = mean(low)
+  const highMean = mean(high)
+  console.log(
+    `\n  low |beta| (${low.length} samples): offset ${lowMean.toFixed(1)}°` +
+      `\n  high |beta| (${high.length} samples): offset ${highMean.toFixed(1)}°`,
+  )
+  console.log(
+    Math.abs(highMean - lowMean) < 4
+      ? '\n  The offset does not follow beta. That is the signature of a zero error in the beta\n' +
+          '  joints, not of a deliberate off-point — the mapping needs correcting by that amount.'
+      : '\n  The offset follows beta, which is what a deliberate off-point does and a constant zero\n' +
+          '  error cannot. The joint zeros are exonerated.',
+  )
 }
 
 console.log(

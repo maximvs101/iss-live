@@ -125,7 +125,15 @@ query string rather than in paths, so there is no route for a static host to fai
 
 ## Still to do
 
-- Pin down the absolute zero of each joint angle against a reference image of the station.
+- Pin down the absolute zero of each **beta** joint. The alpha chain is settled: `best reachable` in
+  `verify:arrays` is the residual no beta angle can remove, so it belongs to the alpha joints alone,
+  and it reads one to two degrees. The beta zeros are not, and they are confounded with the station's
+  own off-pointing — both put every wing the same distance off the Sun, and a constant zero error
+  even wears the splay's signature, since the model's rest orientations are already mirrored between
+  the two wings of a mast. What separates them is beta: a zero error is constant, a deliberate
+  off-point follows the Sun out of the orbital plane. Each run of `verify:arrays` now appends its
+  measurement to `data/array-offsets.jsonl`, and the answer falls out once the samples span about 8°
+  of beta — a handful of runs across a week.
 - The four operational gyroscopes sit inside the Z1 truss and are not modelled separately, so their
   telemetry is attached to `truss-z1` rather than to parts of their own.
 - Which channels sit in the high-voltage group during sunlight, and whether membership tracks each
@@ -139,9 +147,10 @@ query string rather than in paths, so there is no route for a static host to fai
   `verify:render`, `verify:camera`, `verify:scene` — while the image itself is checked by eye. The
   React components around it are covered: the map is held to the projection at their seam, and the
   chart, the passes panel, the error boundary and the photo gallery have tests of their own.
-- The station's arrays are sometimes deliberately off-Sun, and `verify:arrays` recognises that by a
-  three-part signature rather than by measuring it. A defect symmetric enough to imitate a splay in
-  all three respects would pass.
+- `verify:arrays` recognises an off-Sun configuration by a three-part signature rather than by
+  measuring it, so it lets one through rather than calling a healthy station broken. A defect
+  symmetric enough to imitate a splay in all three respects passes — the beta zeros above being
+  exactly such a defect, which is why they are logged rather than assumed innocent.
 
 ## Licence
 
