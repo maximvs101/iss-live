@@ -191,6 +191,23 @@ export function findPasses(
 
   let current: PassPoint[] | null = null
 
+  /**
+   * A run of one sample is not a pass, it is the sampling grid clipping a corner.
+   *
+   * The station was above the threshold for less than one step — under 15 seconds — and only one
+   * moment of it was looked at, so rise, culmination and set all collapse onto that single point.
+   * What came out was a pass reading `12:37:24 → 12:37:24, ESE→ESE, 0 min`: a duration of zero and
+   * a set bearing identical to the rise, which is not a marginal pass reported honestly but an
+   * event with no measured extent at all.
+   *
+   * Discarding it loses nothing anyone could act on. Something grazing 11° for a few seconds is not
+   * a pass to go outside for, and its rise and set times are unknown rather than equal — the search
+   * never looked between them.
+   */
+  const record = (run: PassPoint[]) => {
+    if (run.length >= 2) passes.push(buildPass(run))
+  }
+
   for (let t = from.getTime(); t <= end; t += stepSeconds * 1000) {
     const point = sample(satrec, observer, new Date(t))
     if (!point) continue
@@ -202,12 +219,12 @@ export function findPasses(
     }
 
     if (current) {
-      passes.push(buildPass(current))
+      record(current)
       current = null
     }
   }
 
-  if (current) passes.push(buildPass(current))
+  if (current) record(current)
   return passes
 }
 
