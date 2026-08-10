@@ -1,22 +1,9 @@
+# Build only. The cache policy lives in public/_headers, which Netlify and Cloudflare Pages both
+# read from the root of the published directory — one statement of it rather than two that drift.
 [build]
   command = "npm run build"
   publish = "dist"
 
-# Vite fingerprints everything it emits, so those files can be cached forever.
-[[headers]]
-  for = "/assets/*"
-  [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
-
-# The model and the Draco decoder are copied verbatim from public/, without a hash in the
-# name — a permanent cache would pin visitors to whichever version they saw first. A week,
-# revalidated in the background, keeps the 14.9 MB download rare without that risk.
-[[headers]]
-  for = "/models/*"
-  [headers.values]
-    Cache-Control = "public, max-age=604800, stale-while-revalidate=86400"
-
-[[headers]]
-  for = "/draco/*"
-  [headers.values]
-    Cache-Control = "public, max-age=604800, stale-while-revalidate=86400"
+[build.environment]
+  # Matches .nvmrc and the CI workflow. Netlify's default is older than the toolchain expects.
+  NODE_VERSION = "22"

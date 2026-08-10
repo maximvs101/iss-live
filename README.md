@@ -129,6 +129,39 @@ picks it up. The script exists alongside it because a report is not an assertion
 nearest miss at every boundary, which is the difference between "no failures" and "no failures, and
 the closest anything came was 25 units".
 
+## Publishing
+
+Nothing here needs a server. The page talks to Lightstreamer, Celestrak, DONKI and NASA's image
+catalogue directly, all four over HTTPS, and holds its history in the browser — so any static host
+will do, with no secrets to configure and nothing to keep running.
+
+What decides the choice is weight. The build is **113 MB**, and a visit that opens the Station view
+pulls about **22** of them: the month's base map at 4.1 MB, the cloud layer at 2.2, and the model at
+14.9. A visit that stays on the map costs under one. On a host billing 100 GB a month that is
+roughly 4,500 Station visits; **Cloudflare Pages** meters no bandwidth on its free plan, which is
+why it is the one set up here. Its two hard limits are 25 MiB per file and 20,000 files, against a
+largest file of 14.9 MiB and 154 of them.
+
+```bash
+npm run build
+npx wrangler pages deploy dist --project-name iss-live
+```
+
+For a deployment driven from a repository instead, the settings are: build command `npm run build`,
+output directory `dist`, Node 22 (`.nvmrc`).
+
+`public/_headers` carries the cache policy and is copied to the root of `dist/`, where Cloudflare
+Pages and Netlify both read it — one statement of the rules rather than one per host. It matters
+more than it looks: the hashed chunks under `/assets` are cached for a year, the unhashed textures,
+model and Draco decoder for a week with background revalidation, and `index.html` not at all, since
+it is the only file naming the hashed chunks and a stale copy would point at the previous ones.
+
+`base` is left at `/`, so the site must be served from the root of a domain or subdomain. A
+deployment under a path — a project page on GitHub Pages, say — would need that set first.
+
+There is no `_redirects` file, and it would be dead weight: the application keeps its state in the
+query string rather than in paths, so there is no route for a static host to fail to resolve.
+
 ## Architecture
 
 ```
