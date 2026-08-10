@@ -6,7 +6,7 @@
  */
 import { useEffect } from 'react'
 import { create } from 'zustand'
-import { loadOrbitalElements, type OrbitalElements } from './tle'
+import { elementsAgeHours, loadOrbitalElements, type OrbitalElements } from './tle'
 import {
   betaAngle,
   groundTrack,
@@ -19,6 +19,16 @@ import {
 /** Position update rate. */
 const TICK_MS = 1000
 const TRACK_REFRESH_MS = 60_000
+
+/**
+ * How old the orbital elements may get before they are fetched again.
+ *
+ * They were loaded once, at mount, and never again — which is invisible on a page reloaded every
+ * few minutes and quietly wrong on one left open. Celestrak publishes several times a day and the
+ * position drifts by a few kilometres per day of element age, so six hours matches the cache in
+ * `tle` and asks the server no more often than it has something new to say.
+ */
+const ELEMENTS_MAX_AGE_MS = 6 * 3_600_000
 
 /**
  * The ground track: three quarters of an orbit behind, a full one ahead.
@@ -72,40 +82,76 @@ export function useOrbitEngine(): void {
     let cancelled = false
     let tickTimer: ReturnType<typeof setInterval> | null = null
     let trackTimer: ReturnType<typeof setInterval> | null = null
+    /** Replaced when the elements are refreshed, so the timers below always read the current set. */
+    let elements: OrbitalElements | null = null
+
+    const tick = () => {
+      if (!elements) return
+      const now = new Date()
+      const state = propagateIss(elements.satrec, now)
+      if (!state) {
+        useOrbitStore.getState().setError('Orbit propagation failed.')
+        return
+      }
+      useOrbitStore.getState().setState(state, betaAngle(state, now), subsolarPoint(now))
+    }
+
+    const refreshTrack = () => {
+      if (!elements) return
+      useOrbitStore
+        .getState()
+        .setTrack(groundTrack(elements.satrec, new Date(), TRACK_FROM_MINUTES, TRACK_TO_MINUTES, 30))
+    }
+
+    /** Fetches the elements if the ones in hand are older than the cache is willing to serve. */
+    const refreshElements = async () => {
+      if (elements && elementsAgeHours(elements) * 3_600_000 < ELEMENTS_MAX_AGE_MS) return
+      const fresh = await loadOrbitalElements()
+      if (cancelled) return
+      elements = fresh
+      useOrbitStore.getState().setElements(fresh)
+    }
+
+    /*
+     * Catch up the moment the tab is looked at again.
+     *
+     * Reported from use: a page left open showed the station over the Indian Ocean while it was
+     * over Saudi Arabia, and the age of the telemetry appeared frozen. Nothing was broken — the
+     * browser had been throttling and then freezing the timers of a tab nobody was watching, which
+     * is what browsers are supposed to do. What was missing is the other half: on coming back, the
+     * page went on showing the last position it had computed until the next tick came round, and a
+     * frozen tab does not necessarily resume one promptly.
+     *
+     * A tick costs a propagation — well under a millisecond — so there is nothing to weigh here.
+     * The elements are checked at the same moment, because a tab open for days is exactly the one
+     * whose orbital elements have gone stale, and nothing else would ever have refetched them.
+     */
+    const catchUp = () => {
+      if (document.visibilityState !== 'visible') return
+      tick()
+      refreshTrack()
+      void refreshElements().then(tick)
+    }
 
     const start = async () => {
-      const elements = await loadOrbitalElements()
+      await refreshElements()
       if (cancelled) return
-      useOrbitStore.getState().setElements(elements)
-
-      const tick = () => {
-        const now = new Date()
-        const state = propagateIss(elements.satrec, now)
-        if (!state) {
-          useOrbitStore.getState().setError('Orbit propagation failed.')
-          return
-        }
-        useOrbitStore.getState().setState(state, betaAngle(state, now), subsolarPoint(now))
-      }
-
-      const refreshTrack = () => {
-        useOrbitStore
-          .getState()
-          .setTrack(
-            groundTrack(elements.satrec, new Date(), TRACK_FROM_MINUTES, TRACK_TO_MINUTES, 30),
-          )
-      }
 
       tick()
       refreshTrack()
       tickTimer = setInterval(tick, TICK_MS)
-      trackTimer = setInterval(refreshTrack, TRACK_REFRESH_MS)
+      trackTimer = setInterval(() => {
+        refreshTrack()
+        void refreshElements()
+      }, TRACK_REFRESH_MS)
     }
 
     void start()
+    document.addEventListener('visibilitychange', catchUp)
 
     return () => {
       cancelled = true
+      document.removeEventListener('visibilitychange', catchUp)
       if (tickTimer) clearInterval(tickTimer)
       if (trackTimer) clearInterval(trackTimer)
     }
