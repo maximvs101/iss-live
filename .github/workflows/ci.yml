@@ -18,7 +18,10 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          # Kept in step with .nvmrc, which Cloudflare reads too. The three environments have to
+          # agree: npm 10 and npm 11 disagree about the lock file, so a version drift here shows up
+          # as a deploy that fails on `npm ci` and nowhere else.
+          node-version-file: .nvmrc
           cache: npm
 
       - run: npm ci

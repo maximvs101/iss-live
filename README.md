@@ -105,8 +105,11 @@ npm run build
 npx wrangler pages deploy dist --project-name iss-live
 ```
 
-For a deployment driven from a repository instead, the settings are: build command `npm run build`,
-output directory `dist`, Node 22 (`.nvmrc`).
+For a deployment driven from a repository instead, the settings are: build command `npm run build`
+and output directory `dist`. The Node version is not one of them: Cloudflare reads `.nvmrc`, and so
+does the CI workflow. That file is the only place the version is written, deliberately — npm 10 and
+npm 11 disagree about this project's lock file, so a version stated twice is a deploy waiting to
+fail on `npm ci` (see [technical notes](docs/technical-notes.md)).
 
 `public/_headers` carries the cache policy and is copied to the root of `dist/`, where Cloudflare
 Pages and Netlify both read it — one statement of the rules rather than one per host. It matters

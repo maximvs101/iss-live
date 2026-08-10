@@ -45,7 +45,9 @@ export default defineConfig({
         //
         // The same trap caught the glTF and Draco loaders earlier, where a `three` rule matching
         // `three/examples` reduced the emitted loader chunk to a 0.06 kB stub.
-        advancedChunks: {
+        // `advancedChunks` until rolldown renamed it; the schema is unchanged, and the emitted
+        // chunks were compared name by name across the rename to be sure of that.
+        codeSplitting: {
           groups: [
             { name: 'react', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/ },
             { name: 'lightstreamer', test: /node_modules[\\/]lightstreamer-client-web[\\/]/ },

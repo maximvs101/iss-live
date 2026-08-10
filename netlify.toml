@@ -4,6 +4,6 @@
   command = "npm run build"
   publish = "dist"
 
-[build.environment]
-  # Matches .nvmrc and the CI workflow. Netlify's default is older than the toolchain expects.
-  NODE_VERSION = "22"
+# No NODE_VERSION here on purpose. Netlify reads .nvmrc, which is the one place this project states
+# its Node version — repeating the number is how it goes stale, and a stale one means npm ci fails
+# on a lock written by a different npm.

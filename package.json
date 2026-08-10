@@ -4,9 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "engines": {
-    "node": ">=22 <25"
+    "node": ">=24"
   },
-  "packageManager": "npm@10.9.2",
+  "packageManager": "npm@11.6.2",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
