@@ -62,6 +62,10 @@ async function main() {
   let sessionId = null
   let subscribed = false
   let updates = 0
+  /** Updates that arrived after the snapshot ended, which are the only ones that mean anything. */
+  let live = 0
+  /** Item indices whose snapshot the server has declared finished. */
+  const pastSnapshot = new Set()
   const seen = new Map()
 
   while (Date.now() < deadline) {
@@ -103,14 +107,30 @@ async function main() {
         continue
       }
 
+      /*
+       * End of snapshot, per item. This is the line that makes the whole check mean something.
+       *
+       * A subscription asks for the snapshot, so the server answers with the last known value of
+       * every symbol whatever the state of the broadcast. Counting those as evidence of a live
+       * stream is how this script came to report "the stream is publishing data" during an outage
+       * that had been running for a quarter of an hour — one update per symbol, none of them new.
+       * Anything after EOS was pushed because the station said something.
+       */
+      if (line.startsWith('EOS,')) {
+        pastSnapshot.add(line.split(',')[2])
+        continue
+      }
+
       if (line.startsWith('U,')) {
         updates += 1
         // Format: U,<subId>,<itemIndex>,<pipe-separated values>
         const [, , itemIndex, ...rest] = line.split(',')
         const values = rest.join(',').split('|')
         const pui = ITEMS[Number(itemIndex) - 1] ?? `item ${itemIndex}`
+        const fresh = pastSnapshot.has(itemIndex)
+        if (fresh) live += 1
         seen.set(pui, values[1] ?? '')
-        console.log(`  ${pui} = ${values[1] ?? ''}`)
+        console.log(`  ${pui} = ${values[1] ?? ''}${fresh ? '  (pushed)' : ''}`)
       }
     }
   }
@@ -119,11 +139,23 @@ async function main() {
 
   console.log('\n--- result ---')
   console.log(`subscription accepted : ${subscribed ? 'yes' : 'no'}`)
-  console.log(`updates received      : ${updates}`)
+  console.log(`updates received      : ${updates}  (${updates - live} snapshot, ${live} pushed)`)
   console.log(`symbols with data     : ${seen.size} / ${ITEMS.length}`)
 
   if (updates === 0) {
-    console.log('\nThe server responds but the station publishes nothing: broadcast still interrupted.')
+    console.log('\nThe server responds but sends nothing at all, not even the last known values.')
+    process.exit(1)
+  }
+
+  /*
+   * The distinction this script exists for. A snapshot proves the server is up and remembers what
+   * the station last said; only a pushed update proves the station is still saying it.
+   */
+  if (live === 0) {
+    console.log(
+      `\nThe server served the last known values and pushed nothing in ${DURATION_S} s:` +
+        '\nthe session is healthy and the broadcast is interrupted.',
+    )
     process.exit(1)
   }
   console.log('\nThe stream is publishing data.')
