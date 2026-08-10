@@ -6,7 +6,7 @@
  */
 import { useEffect } from 'react'
 import { create } from 'zustand'
-import { elementsAgeHours, loadOrbitalElements, type OrbitalElements } from './tle'
+import { loadOrbitalElements, type OrbitalElements } from './tle'
 import {
   betaAngle,
   groundTrack,
@@ -84,6 +84,8 @@ export function useOrbitEngine(): void {
     let trackTimer: ReturnType<typeof setInterval> | null = null
     /** Replaced when the elements are refreshed, so the timers below always read the current set. */
     let elements: OrbitalElements | null = null
+    /** When we last took delivery of them — not their epoch, which is older on arrival. */
+    let fetchedAt = 0
 
     const tick = () => {
       if (!elements) return
@@ -103,12 +105,22 @@ export function useOrbitEngine(): void {
         .setTrack(groundTrack(elements.satrec, new Date(), TRACK_FROM_MINUTES, TRACK_TO_MINUTES, 30))
     }
 
-    /** Fetches the elements if the ones in hand are older than the cache is willing to serve. */
+    /**
+     * Fetches the elements again once ours have been in hand longer than the cache would serve them.
+     *
+     * Measured from when we fetched, not from the elements' own epoch. The first version of this
+     * compared `elementsAgeHours`, which is the age of the *epoch* — and Celestrak routinely hands
+     * over a set several hours old, while the built-in fallback is dated whenever it was pasted in.
+     * The condition was therefore almost never satisfied, so this ran on every tab return and every
+     * minute: harmless against a warm cache, a failed network request a minute against a cold one,
+     * and a re-render of everything watching `elements` either way.
+     */
     const refreshElements = async () => {
-      if (elements && elementsAgeHours(elements) * 3_600_000 < ELEMENTS_MAX_AGE_MS) return
+      if (elements && Date.now() - fetchedAt < ELEMENTS_MAX_AGE_MS) return
       const fresh = await loadOrbitalElements()
       if (cancelled) return
       elements = fresh
+      fetchedAt = Date.now()
       useOrbitStore.getState().setElements(fresh)
     }
 
