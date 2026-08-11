@@ -27,3 +27,8 @@ dist-ssr
 # github.com/nasa/NASA-3D-Resources. The 15 MB result in public/models/ *is* tracked — without it
 # a clone cannot serve the 3D view.
 data/nasa-models/iss-igoal-source.glb
+
+# Process output of the 24/7 collector. The data it gathers is the .jsonl beside it, which is
+# tracked; these two are just stdout and stderr of a long-running process.
+data/collect.out
+data/collect.err

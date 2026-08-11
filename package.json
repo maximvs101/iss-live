@@ -16,6 +16,8 @@
     "preview": "vite preview",
     "build:catalog": "node scripts/build-catalog.mjs",
     "sample:orbit": "node scripts/sample-orbit.mjs",
+    "collect": "node scripts/collect.mjs",
+    "collect:report": "node scripts/collect-report.mjs",
     "analyse:power": "node scripts/analyse-power-split.mjs",
     "check:stream": "node scripts/check-stream.mjs",
     "verify:orbit": "node scripts/verify-orbit.mjs",
