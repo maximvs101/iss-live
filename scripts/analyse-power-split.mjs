@@ -135,7 +135,14 @@ while (Date.now() < deadline) {
 await reader.cancel().catch(() => {})
 
 const at = new Date()
-const tle = await (await fetch(CELESTRAK)).text()
+/*
+ * `ISS_TLE` lets a caller supply the elements instead of fetching them.
+ *
+ * One run asking Celestrak once is fine. A burst sampling a whole orbit calls this script twenty
+ * times in ninety minutes, and twenty requests for the same object inside two hours is exactly what
+ * their guidance asks people not to do. `sample-orbit` fetches once and passes them down.
+ */
+const tle = process.env.ISS_TLE || (await (await fetch(CELESTRAK)).text())
 const [, line1, line2] = tle.trim().split('\n').map((l) => l.trim())
 const orbit = propagateIss(twoline2satrec(line1, line2), at)
 const beta = betaAngle(orbit, at)
