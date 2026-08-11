@@ -83,6 +83,7 @@ npm run dev
 | `npm run build:icons` | rasterises `favicon.svg` for the platforms that refuse SVG |
 | `npm run fix:alpha` | corrects materials the source wrongly declares transparent |
 | `npm run check:stream` | is the NASA stream publishing data? |
+| `npm run analyse:power` | the array voltage split, and whether the stalled sensors have resumed |
 | `npm run verify` | every check below, run together |
 | `npm run verify:fast` | the offline checks only, well under a second |
 | `npm run inspect:glb` | structure of a GLB file (nodes, triangles, textures) |
@@ -148,9 +149,19 @@ query string rather than in paths, so there is no route for a static host to fai
 - The four operational gyroscopes sit inside the Z1 truss and are not modelled separately, so their
   telemetry is attached to `truss-z1` rather than to parts of their own.
 - Which channels sit in the high-voltage group during sunlight, and whether membership tracks each
-  wing's own illumination. The eclipse case is settled; the sunlit one is only observed.
-- Whether the stalled atmosphere sensors ever resume. If they do, the two modules can finally be
-  compared at the same instant.
+  wing's own illumination. The split has been seen once in five captures, always in sunlight, never
+  in eclipse. `npm run analyse:power` pairs each channel with its own wing and logs the capture to
+  `data/power-split.jsonl`; a run that catches the wings converged says almost nothing, so the
+  answer has to wait for one taken while they are apart. Asked on 11/08/2026: converged at 0.36 V,
+  with all eight wings within four degrees of each other in how squarely they face the Sun — which
+  is consistent with illumination selecting the group and does not test it, there being no
+  variation to correlate against.
+- Whether the stalled atmosphere sensors ever resume. Asked on 11/08/2026, and the answer is not a
+  simple no: Destiny's pair has come back to within 3.3 days of live, from 25; Tranquility's has
+  gone further out, to 46.6 days from 33. Tranquility ppCO₂, the O₂ production rate and station mass
+  all read exactly 41.4 days old, which is one source that stopped at one instant rather than three
+  sensors failing. Cabin pressure is live at 0.4 h throughout. So the partial-pressure sum stays an
+  observation: nothing here is contemporaneous with anything else.
 - NASA's **(E) Internal** model (a multipart 7z archive of 330 MB) would allow exploring the inside
   of the modules; it has not been processed.
 - The `three` chunk is still 725 kB. Both views need it, so deferring it would only move the wait.

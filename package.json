@@ -15,6 +15,7 @@
     "test:watch": "vitest",
     "preview": "vite preview",
     "build:catalog": "node scripts/build-catalog.mjs",
+    "analyse:power": "node scripts/analyse-power-split.mjs",
     "check:stream": "node scripts/check-stream.mjs",
     "verify:orbit": "node scripts/verify-orbit.mjs",
     "verify:scene": "node scripts/verify-scene.mjs",
