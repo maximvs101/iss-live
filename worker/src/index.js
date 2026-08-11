@@ -138,7 +138,8 @@ async function collect(env) {
     seen = await listen()
   } catch (error) {
     await env.DB.prepare(
-      'INSERT OR REPLACE INTO liveness (at, state, pushes, symbols, moved, seconds, detail) VALUES (?, ?, 0, 0, 0, ?, ?)',
+      'INSERT OR REPLACE INTO liveness (at, state, pushes, symbols, moved, seconds, changed, stamps, detail)' +
+        ' VALUES (?, ?, 0, 0, 0, ?, NULL, NULL, ?)',
     )
       .bind(at, 'error', (Date.now() - started) / 1000, String(error).slice(0, 200))
       .run()
@@ -150,30 +151,47 @@ async function collect(env) {
   for (const entry of seen.values()) updates += entry.updates
   const pushes = updates - seen.size
 
-  const previous = new Map(
-    (await env.DB.prepare('SELECT pui, value FROM latest').all()).results.map((r) => [r.pui, r.value]),
-  )
+  /*
+   * One read and two writes, whatever happened.
+   *
+   * A row per changed symbol would be 79,200 writes a day once the broadcast is live, against a
+   * free-plan ceiling of 100,000 past which D1 refuses queries until midnight UTC. That failure
+   * would arrive mid-week and in silence, at exactly the moment the data started being worth
+   * having. The changed values ride as JSON on the liveness row instead.
+   */
+  const carried = await env.DB.prepare('SELECT held FROM carried WHERE id = 1').first()
+  const previous = carried ? JSON.parse(carried.held) : {}
 
-  const writes = []
+  const changed = {}
+  const stamps = {}
+  const current = {}
   let moved = 0
   for (const [pui, entry] of seen) {
-    if (previous.get(pui) === entry.value) continue
-    if (previous.has(pui)) moved += 1
-    writes.push(
-      env.DB.prepare('INSERT OR REPLACE INTO readings (at, pui, what, value, stamp) VALUES (?, ?, ?, ?, ?)')
-        .bind(at, pui, WATCH[pui], entry.value, entry.stamp || null),
-      env.DB.prepare('INSERT OR REPLACE INTO latest (pui, value, stamp, at) VALUES (?, ?, ?, ?)')
-        .bind(pui, entry.value, entry.stamp || null, at),
-    )
+    current[pui] = entry.value
+    if (previous[pui] === entry.value) continue
+    if (pui in previous) moved += 1
+    changed[pui] = entry.value
+    if (entry.stamp) stamps[pui] = entry.stamp
   }
+  const anyChange = Object.keys(changed).length > 0
 
-  writes.push(
+  await env.DB.batch([
     env.DB.prepare(
-      'INSERT OR REPLACE INTO liveness (at, state, pushes, symbols, moved, seconds, detail) VALUES (?, ?, ?, ?, ?, ?, NULL)',
-    ).bind(at, 'ok', pushes, seen.size, moved, (Date.now() - started) / 1000),
-  )
-
-  await env.DB.batch(writes)
+      'INSERT OR REPLACE INTO liveness (at, state, pushes, symbols, moved, seconds, changed, stamps, detail)' +
+        ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)',
+    ).bind(
+      at,
+      'ok',
+      pushes,
+      seen.size,
+      moved,
+      (Date.now() - started) / 1000,
+      anyChange ? JSON.stringify(changed) : null,
+      anyChange ? JSON.stringify(stamps) : null,
+    ),
+    env.DB.prepare('INSERT OR REPLACE INTO carried (id, held, at) VALUES (1, ?, ?)')
+      .bind(JSON.stringify(current), at),
+  ])
 }
 
 /** The weekly review, as a URL rather than a command to remember. */
@@ -185,15 +203,33 @@ async function report(env) {
   ).bind(since, 'ok').first()
   const total = await env.DB.prepare('SELECT COUNT(*) AS n FROM liveness WHERE at >= ?').bind(since).first()
 
-  const voltChanges = await env.DB.prepare(
-    "SELECT COUNT(*) AS n FROM readings WHERE at >= ? AND what LIKE '% volts'",
-  ).bind(since).first()
+  /*
+   * The changed values are JSON on the row rather than rows of their own, so counting them is a
+   * scan rather than a GROUP BY. At a line a minute that is ten thousand rows a week — nothing.
+   */
+  const rows = (
+    await env.DB.prepare('SELECT at, changed FROM liveness WHERE at >= ? AND changed IS NOT NULL')
+      .bind(since).all()
+  ).results
 
-  const sensors = await env.DB.prepare(
-    `SELECT what, COUNT(*) AS changes, MAX(at) AS last
-     FROM readings WHERE at >= ? AND (what LIKE '%pp%' OR what IN ('o2 production','station mass'))
-     GROUP BY what`,
-  ).bind(since).all()
+  const VOLT_PUIS = Object.entries(WATCH).filter(([, w]) => w.endsWith(' volts')).map(([p]) => p)
+  const SENSOR_PUIS = Object.entries(WATCH)
+    .filter(([, w]) => w.includes('pp') || w === 'o2 production' || w === 'station mass')
+    .map(([p]) => p)
+
+  let voltChanges = 0
+  const sensorChanges = Object.fromEntries(SENSOR_PUIS.map((p) => [WATCH[p], { changes: 0, last: null }]))
+  for (const row of rows) {
+    const changed = JSON.parse(row.changed)
+    for (const pui of Object.keys(changed)) {
+      if (VOLT_PUIS.includes(pui)) voltChanges += 1
+      const entry = sensorChanges[WATCH[pui]]
+      if (entry) {
+        entry.changes += 1
+        entry.last = row.at
+      }
+    }
+  }
 
   const recent = await env.DB.prepare(
     'SELECT at, state, pushes, symbols, moved FROM liveness ORDER BY at DESC LIMIT 30',
@@ -210,10 +246,10 @@ async function report(env) {
     voltages:
       liveMinutes < 60
         ? 'too little live data to say'
-        : voltChanges?.n
-          ? `${voltChanges.n} changes recorded — query readings for the spread`
+        : voltChanges
+          ? `${voltChanges} voltage changes recorded across ${liveMinutes} live minutes`
           : 'not one of the eight moved in all the live time recorded',
-    stalledSensors: sensors.results,
+    stalledSensors: sensorChanges,
     recent: recent.results,
   }
 }
