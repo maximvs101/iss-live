@@ -135,6 +135,33 @@ deployment under a path — a project page on GitHub Pages, say — would need t
 There is no `_redirects` file, and it would be dead weight: the application keeps its state in the
 query string rather than in paths, so there is no route for a static host to fail to resolve.
 
+## The collector
+
+The site has no server, and still does not. `worker/` is a separate Cloudflare Worker in the same
+account, deployed on its own, which the Pages project neither builds nor knows about.
+
+It exists because two of the open questions below need a week of observation rather than a clever
+idea, and sampling by hand kept producing answers to questions nobody asked. A capture every few
+minutes cannot tell a frozen value from an unchanged one, and every fresh subscription hands back a
+snapshot that looks exactly like data — convincingly, since the per-symbol timestamps are quoted
+against `TIME_000001`, which freezes with everything else, so a six-hour-old snapshot reads as
+perfectly fresh against its own clock. A sampling run across a whole orbit once reported "no split
+anywhere" when what it had recorded was ninety-eight minutes of identical numbers over a dead
+broadcast.
+
+The only sound test is arithmetic: one update per symbol is the server's memory, a second is the
+station speaking. A cron fires once a minute, listens for twenty-five seconds, and writes to D1 how
+many updates went beyond the snapshot. `latest` carries the previous value across invocations, so a
+reading is stored only when it changes — a dead broadcast leaves no trace rather than a week of
+identical rows.
+
+```
+https://iss-collector.mjoly-pm.workers.dev/report
+```
+
+The report answers against live minutes, never elapsed ones, and says "too little live data" rather
+than "no" when there is nothing behind the question. That distinction is the whole reason it exists.
+
 ## Still to do
 
 - Pin down the absolute zero of each **beta** joint. The alpha chain is settled: `best reachable` in
