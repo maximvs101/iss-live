@@ -47,14 +47,31 @@ const WATCH = {
 const ITEMS = Object.keys(WATCH)
 
 /**
- * How long to listen.
+ * How long to listen. Ten seconds, down from twenty-five.
  *
- * Cron invocations may run for fifteen minutes of wall time, but the free plan allows ten
- * milliseconds of *CPU* — and waiting on a socket costs none of it. Twenty-five seconds is long
- * enough that a symbol publishing at 1 Hz sends many updates and a silent stream is unmistakable,
- * while the parsing stays a few thousand small string operations.
+ * Waiting on a socket costs no CPU — Cloudflare bills only the parsing — so the length of this
+ * window is not free after all: it sets how much there is to parse. Against a live stream at
+ * roughly 1,400 updates a minute, ten seconds still brings in some two hundred of them, which is
+ * two orders of magnitude more than the twenty-seven needed to call the broadcast alive.
+ *
+ * What it cost at twenty-five: four thousand eight hundred and forty-four invocations out of six
+ * thousand killed at exactly ten milliseconds of CPU, and eighty per cent of the record missing.
  */
-const LISTEN_MS = 25_000
+const LISTEN_MS = 10_000
+
+/**
+ * Stop once the answer is in, rather than listening to the end regardless.
+ *
+ * The listening window bounds the work only if the stream's rate is known, and it is not: a quiet
+ * minute delivers twenty-seven updates and a busy one fourteen hundred, a fiftyfold spread on the
+ * one budget that gets this invocation killed. Counting to a fixed number instead makes the cost
+ * of a busy minute equal to the cost of a moderate one.
+ *
+ * Four hundred pushes is far past the point of diminishing returns. Twenty-seven would prove the
+ * broadcast alive; the rest exists only to catch a value changing mid-window, and the values that
+ * matter here — eight array voltages — move on the scale of minutes, not milliseconds.
+ */
+const MAX_PUSHES = 400
 
 const post = (url, body) =>
   fetch(url, {
@@ -79,20 +96,79 @@ async function listen() {
   /** pui -> { value, stamp, updates } */
   const seen = new Map()
   const until = Date.now() + LISTEN_MS
+  /** Updates beyond the first for a symbol, counted here so the loop can stop on them. */
+  let pushes = 0
+  let enough = false
 
   try {
-    while (Date.now() < until) {
-      const { value, done } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\r\n')
-      buffer = lines.pop() ?? ''
+    while (!enough && Date.now() < until) {
+      /*
+       * Raced against the deadline, because the loop condition alone does not enforce it.
+       *
+       * `await reader.read()` only returns when the server sends something. A socket that stays
+       * open and silent never wakes it, the condition above is never re-evaluated, and the
+       * invocation runs to Cloudflare's fifteen-minute ceiling. It has not happened yet — the
+       * longest recorded listen is 32.4 s — but nothing in the code prevents it.
+       */
+      const chunk = await Promise.race([
+        reader.read(),
+        new Promise((resolve) => setTimeout(() => resolve({ timedOut: true }), until - Date.now())),
+      ])
+      if (chunk.timedOut || chunk.done) break
 
-      for (const line of lines) {
-        if (!line || line.charCodeAt(0) === 78) continue // NOOP
+      buffer += decoder.decode(chunk.value, { stream: true })
 
-        if (!session && line.startsWith('CONOK,')) {
-          session = line.split(',')[1]
+      /*
+       * Scanned with indexOf rather than split, and read with slice rather than destructuring.
+       *
+       * This loop is the whole CPU budget. The free plan allows ten milliseconds per invocation and
+       * four thousand eight hundred of them were killed at exactly that figure; a minute carrying no
+       * data at all already spent half of it. The previous version allocated three arrays for every
+       * update line — `split(',')`, then `join(',')`, then `split('|')` — and one more per read for
+       * the lines themselves. None of those allocations survive here.
+       */
+      let start = 0
+      for (;;) {
+        const end = buffer.indexOf('\r\n', start)
+        if (end === -1) break
+        const from = start
+        start = end + 2
+        if (end === from) continue
+
+        const kind = buffer.charCodeAt(from)
+        if (kind === 78) continue // NOOP, the commonest line by far on a quiet stream
+
+        if (kind === 85 && buffer.charCodeAt(from + 1) === 44) {
+          // U,<subId>,<itemIndex>,<timestamp>|<value>
+          const c2 = buffer.indexOf(',', from + 2)
+          if (c2 === -1) continue
+          const c3 = buffer.indexOf(',', c2 + 1)
+          if (c3 === -1 || c3 > end) continue
+          const index = Number(buffer.slice(c2 + 1, c3))
+          const pui = ITEMS[index - 1]
+          if (!pui) continue
+
+          const bar = buffer.indexOf('|', c3 + 1)
+          const stamp = bar === -1 || bar > end ? '' : buffer.slice(c3 + 1, bar)
+          const value = bar === -1 || bar > end ? buffer.slice(c3 + 1, end) : buffer.slice(bar + 1, end)
+
+          const previous = seen.get(pui)
+          if (previous) pushes += 1
+          seen.set(pui, {
+            stamp: stamp || previous?.stamp || '',
+            value: value || previous?.value || '',
+            updates: (previous?.updates ?? 0) + 1,
+          })
+          if (pushes >= MAX_PUSHES) {
+            enough = true
+            break
+          }
+          continue
+        }
+
+        if (!session && kind === 67 && buffer.startsWith('CONOK,', from)) {
+          const c1 = buffer.indexOf(',', from + 6)
+          session = buffer.slice(from + 6, c1 === -1 || c1 > end ? end : c1)
           await post(`${BASE}/control.txt?${TLCP}&LS_session=${session}`, {
             LS_reqId: '1',
             LS_op: 'add',
@@ -105,20 +181,10 @@ async function listen() {
           continue
         }
 
-        if (line.startsWith('CONERR,')) throw new Error(line.slice(0, 80))
-        if (!line.startsWith('U,')) continue
-
-        const [, , index, ...rest] = line.split(',')
-        const parts = rest.join(',').split('|')
-        const pui = ITEMS[Number(index) - 1]
-        if (!pui) continue
-        const previous = seen.get(pui)
-        seen.set(pui, {
-          stamp: parts[0] || previous?.stamp || '',
-          value: parts[1] || previous?.value || '',
-          updates: (previous?.updates ?? 0) + 1,
-        })
+        if (kind === 67 && buffer.startsWith('CONERR,', from)) throw new Error(buffer.slice(from, from + 80))
       }
+      buffer = start === 0 ? buffer : buffer.slice(start)
+      if (enough) break
     }
   } finally {
     await reader.cancel().catch(() => {})
@@ -128,23 +194,38 @@ async function listen() {
   return seen
 }
 
-/** One invocation: listen, compare against what was last stored, write. */
+/**
+ * One invocation: listen, compare against what was last stored, write.
+ *
+ * The whole body is guarded, not just the listening. The first version wrapped `listen()` alone,
+ * which left the D1 read, the JSON parse, the final batch and the error path's own insert exposed —
+ * and since this runs under `ctx.waitUntil`, a throw from any of them became an unhandled rejection
+ * that reached Cloudflare's counters and nothing else. Measured over the first four days: fourteen
+ * exceptions against a single error row.
+ */
 async function collect(env) {
   const at = new Date().toISOString()
   const started = Date.now()
-
-  let seen
   try {
-    seen = await listen()
+    await gather(env, at, started)
   } catch (error) {
-    await env.DB.prepare(
-      'INSERT OR REPLACE INTO liveness (at, state, pushes, symbols, moved, seconds, changed, stamps, detail)' +
-        ' VALUES (?, ?, 0, 0, 0, ?, NULL, NULL, ?)',
-    )
-      .bind(at, 'error', (Date.now() - started) / 1000, String(error).slice(0, 200))
-      .run()
-    return
+    // Last resort. If this write is what failed, there is nothing further to try.
+    try {
+      await env.DB.prepare(
+        'INSERT OR REPLACE INTO liveness (at, state, pushes, symbols, moved, seconds, changed, stamps, detail)' +
+          ' VALUES (?, ?, 0, 0, 0, ?, NULL, NULL, ?)',
+      )
+        .bind(at, 'error', (Date.now() - started) / 1000, String(error).slice(0, 200))
+        .run()
+    } catch {
+      // Swallowed on purpose: an unhandled rejection here would be the very failure mode this
+      // function exists to close, and Cloudflare already counts the invocation as an error.
+    }
   }
+}
+
+async function gather(env, at, started) {
+  const seen = await listen()
 
   // One update per symbol is the snapshot. Everything beyond it is the station speaking.
   let updates = 0
