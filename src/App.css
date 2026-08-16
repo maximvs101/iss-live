@@ -77,6 +77,19 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/*
+ * The help cursor follows the tooltip, rather than being set on the line for good.
+ *
+ * It used to be unconditional, from when every sea name was a regional approximation and the line
+ * always had something to excuse. Both land and sea are looked up from real outlines now and the
+ * title is only written for the one case the data cannot name, so the cursor was offering an
+ * explanation that no longer arrived — a question mark over "Now over France", with nothing behind
+ * it. React omits the attribute entirely when the value is undefined, so this selector tracks the
+ * component without either side having to remember the other.
+ */
+.now-over[title] {
   cursor: help;
 }
 
