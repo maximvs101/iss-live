@@ -5,20 +5,24 @@
   "compatibility_date": "2026-08-11",
 
   /*
-   * Collection stopped on 16 August 2026, deliberately, with the worker left in place.
+   * Stopped on 16 August 2026 and restarted the same day, for a question the first run could not
+   * have been aimed at because it was not yet asked.
    *
-   * It was built to settle open questions rather than to run forever, and they are settled: the two
-   * voltage levels are orbital night and day, the split between arrays is a transition lag with 3A
-   * consistently last, the frozen sensors are frozen per symbol rather than per module, and the
-   * beta angle the site propagates matches the one the station reports to 0.039 degrees RMS over
-   * 186 comparisons. What remained was surveillance, not investigation.
+   * The first run settled what it was built for: the two voltage levels are orbital night and day,
+   * the split between arrays is a transition lag, the frozen sensors are frozen per symbol. Then
+   * the array-pointing residue turned out to need something the run had been collecting all along
+   * without anyone noticing — the eight gimbal angles, the two rotary joints and the measured beta
+   * are exactly `verify:arrays`'s inputs, and every one of them is already in the WATCH list.
    *
-   * An empty list rather than a deleted section, so what stopped is legible. Restoring
-   * `["* * * * *"]` and redeploying starts it again; the collector itself is unchanged and its
-   * five days of readings are still in D1.
+   * What that buys: the off-Sun offset can be computed for every recorded minute rather than for
+   * the ten samples a human happened to take by hand, and those ten fall in three clusters, which
+   * is the reason the question is still open. What would settle it is a sample above 40 degrees of
+   * beta — where the station is documented as deliberately off-pointing — and beta gets there on
+   * its own in a few weeks. A collector already running is the difference between catching that
+   * and hearing about it afterwards.
    */
   "triggers": {
-    "crons": []
+    "crons": ["* * * * *"]
   },
 
   "d1_databases": [
