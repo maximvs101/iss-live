@@ -1732,6 +1732,117 @@
   font-weight: 600;
 }
 
+/* --- Freshness grid --- */
+
+.freshness__group + .freshness__group {
+  margin-top: 12px;
+}
+
+.freshness__subsystem {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.freshness__count {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--idle);
+  letter-spacing: 0;
+}
+
+/*
+ * Cells wrap and never scroll.
+ *
+ * The widest subsystem holds 49 symbols and the side column is 285 px, so a fixed grid would
+ * either scroll sideways — the one thing the layout does not do — or shrink the cells below the
+ * size at which their colour is readable. Wrapping keeps them square at every width.
+ */
+.freshness__grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.freshness__cell {
+  width: 13px;
+  height: 13px;
+  border-radius: 2px;
+  flex: none;
+  cursor: help;
+}
+
+/*
+ * A ramp for age, and two reserved colours for the two things that are not ages.
+ *
+ * Age is a magnitude, so the ordinary run of it gets one hue going light to dark — the green the
+ * rest of the application already uses for a healthy stream. Only `stopped` takes the alert
+ * colour, because only it is a fault; `steady` takes the neutral grey, because an unchanged mode
+ * is not one. Painting all six on a red-to-green scale would have said "broken" about a computer
+ * doing its job.
+ */
+.freshness__cell--live {
+  background: var(--live);
+}
+
+.freshness__cell--minutes {
+  background: #2a9e6e;
+}
+
+.freshness__cell--hours {
+  background: #1a5c44;
+}
+
+.freshness__cell--stopped {
+  background: var(--alert);
+}
+
+.freshness__cell--steady {
+  background: var(--idle);
+}
+
+/* Nothing received is an absence, and reads as one: an outline around nothing. */
+.freshness__cell--none {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+
+/*
+ * The legend is not decoration here — it is the other half of the encoding.
+ *
+ * Six states told by colour alone would be unreadable to anyone who cannot separate the greens,
+ * and the darkest two are a step apart on purpose. Every cell also carries its state in words on
+ * its title and its accessible name.
+ */
+.freshness__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.freshness__legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.freshness__legend-count {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
 /* --- The header on a narrow screen --- */
 
 /*
