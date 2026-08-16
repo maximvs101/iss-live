@@ -140,20 +140,18 @@ query string rather than in paths, so there is no route for a static host to fai
 The site has no server, and still does not. `worker/` is a separate Cloudflare Worker in the same
 account, deployed on its own, which the Pages project neither builds nor knows about.
 
-It exists because two of the open questions below need a week of observation rather than a clever
-idea, and sampling by hand kept producing answers to questions nobody asked. A capture every few
-minutes cannot tell a frozen value from an unchanged one, and every fresh subscription hands back a
-snapshot that looks exactly like data — convincingly, since the per-symbol timestamps are quoted
-against `TIME_000001`, which freezes with everything else, so a six-hour-old snapshot reads as
-perfectly fresh against its own clock. A sampling run across a whole orbit once reported "no split
-anywhere" when what it had recorded was ninety-eight minutes of identical numbers over a dead
-broadcast.
+It existed because some questions need a week of observation rather than a clever idea, and sampling
+by hand kept producing answers to questions nobody asked. A capture every few minutes cannot tell a
+frozen value from an unchanged one, and every fresh subscription hands back a snapshot that looks
+exactly like data — convincingly, since the per-symbol timestamps are quoted against `TIME_000001`,
+which freezes with everything else, so a six-hour-old snapshot reads as perfectly fresh against its
+own clock. A sampling run across a whole orbit once reported "no split anywhere" when what it had
+recorded was ninety-eight minutes of identical numbers over a dead broadcast.
 
 The only sound test is arithmetic: one update per symbol is the server's memory, a second is the
-station speaking. A cron fires once a minute, listens for twenty-five seconds, and writes to D1 how
-many updates went beyond the snapshot. `latest` carries the previous value across invocations, so a
-reading is stored only when it changes — a dead broadcast leaves no trace rather than a week of
-identical rows.
+station speaking. A cron fired once a minute, listened for ten seconds, and wrote to D1 how many
+updates went beyond the snapshot. A reading is stored only when it changes, so a dead broadcast
+leaves no trace rather than a week of identical rows.
 
 ```
 https://iss-collector.mjoly-pm.workers.dev/report
@@ -161,6 +159,70 @@ https://iss-collector.mjoly-pm.workers.dev/report
 
 The report answers against live minutes, never elapsed ones, and says "too little live data" rather
 than "no" when there is nothing behind the question. That distinction is the whole reason it exists.
+
+**It ran from 11 to 16 August 2026 and is now stopped.** The questions it was built for are settled,
+and what remained was surveillance rather than investigation. The cron list in `wrangler.jsonc` is
+emptied rather than deleted so the stop is legible; restoring `["* * * * *"]` and redeploying starts
+it again. The worker, the report endpoint and all **1,454 readings** stay where they are.
+
+### What it settled
+
+**The two voltage levels are orbital night and day.** Every one of the 141 readings taken in
+Earth's shadow sits below 155 V, without a single exception, averaging 151.2 V across a range of
+0.7 V. In sunlight only 53 % do, spread from 151.4 to 160.6 V. The asymmetry is the interesting
+half: with no light there is nothing the arrays can do, but a lit array is not necessarily charging
+— once the batteries are full the regulation shunts and the bus falls back to the same 151 V. The
+shadow is computed from the orbital elements with `shadowFraction()`, so the two sides of that
+correlation share nothing.
+
+**The split between array voltages is a transition lag, not a state.** The eight channels do not
+cross between the two levels at the same instant, and **3A is consistently last** — in the low group
+in 13 of the 15 readings that caught a split, against 2 of 15 for 1A and 4A. Widest spread seen:
+9.28 V. This is why membership never tracked each wing's pointing: there is no steady configuration
+to correlate against, only who has arrived and who has not.
+
+**The beta angle the application propagates matches the one the station publishes**, over 186
+comparisons spanning 15° of excursion: mean difference −0.001°, median 0.002°, **RMS 0.039°**, worst
+case 0.53°. The error does not grow when the orbital elements are extrapolated five days backwards
+(−0.005° against −0.000°), which places it in neither the propagation nor the epoch handling.
+`propagator.ts` had carried this comparison as a promise since the first commit; a silent broadcast
+was what made it impossible.
+
+**The frozen sensors are frozen per symbol, not per module.** Destiny's and Tranquility's partial
+pressures, the O₂ production rate and station mass have not moved since 11/08 16:45 — five days
+during which the joint angles and array voltages changed every minute. Cabin pressure, in the same
+module and the same discipline as the ppO₂ that is stuck, is live throughout at 752.3 mmHg with 81
+distinct changes. So this is not a subsystem failing aboard; it is symbol-by-symbol in the
+broadcast chain.
+
+### What it cost to make it honest
+
+The collector spent most of its life recording 16 % of the minutes it was asked to, in blocks: runs
+of 40 to 94 consecutive minutes where every invocation was killed as `exceededResources` and wrote
+nothing at all. That failure mode is the worst available here, since an hour of missing rows and an
+hour of dead broadcast look identical.
+
+The cause was not the parsing, which a synthetic bench measures flat at 0.3 µs a line and 0.57 ms
+for 3,200 of them. It was the **number of times the stream is read**: 219 of them for ten seconds of
+a busy broadcast. The bill follows: a busy minute cost 169, 316 and 167 ms of CPU where a quiet one,
+reading a handful of keep-alives, cost 4.7. Cloudflare's free plan tolerates that in bursts and then
+clamps for an hour, which is what produced the blocks.
+
+The fix is to ask the server for less rather than drain what it offers: `LS_requested_max_frequency`
+at 0.2 Hz brings the same ten seconds down to **17 reads**, keeping all 27 symbols and 25 pushes —
+the broadcast is still visibly alive. Verified against the real server rather than assumed, because
+a subscription that had silently failed would report zero pushes forever and read exactly like an
+outage. Measured after: **81 invocations, 81 successes, no kills**, median 7.7 ms.
+
+Worth recording alongside it: the first attempt at this fix was reported as working on the strength
+of 36 clean minutes, and was not. The full record showed 147 successes in 916. A window that short
+cannot see a failure whose period is an hour, and the honest figure only appeared from measuring
+across the whole interval.
+
+One trap for anything reading this broadcast: when the feed resumed on 11/08 at 16:44:45, **all
+eight array voltages read exactly 0.00 V for one minute** before returning to 159–160 V. Eight
+arrays at exactly zero simultaneously is not a measurement, it is the initial value pushed on
+reconnection — and a display taking it at face value would announce a station without power.
 
 ## Still to do
 
@@ -175,20 +237,21 @@ than "no" when there is nothing behind the question. That distinction is the who
   of beta — a handful of runs across a week.
 - The four operational gyroscopes sit inside the Z1 truss and are not modelled separately, so their
   telemetry is attached to `truss-z1` rather than to parts of their own.
-- Which channels sit in the high-voltage group during sunlight, and whether membership tracks each
-  wing's own illumination. The split has been seen once in five captures, always in sunlight, never
-  in eclipse. `npm run analyse:power` pairs each channel with its own wing and logs the capture to
-  `data/power-split.jsonl`; a run that catches the wings converged says almost nothing, so the
-  answer has to wait for one taken while they are apart. Asked on 11/08/2026: converged at 0.36 V,
-  with all eight wings within four degrees of each other in how squarely they face the Sun — which
-  is consistent with illumination selecting the group and does not test it, there being no
-  variation to correlate against.
-- Whether the stalled atmosphere sensors ever resume. Asked on 11/08/2026, and the answer is not a
-  simple no: Destiny's pair has come back to within 3.3 days of live, from 25; Tranquility's has
-  gone further out, to 46.6 days from 33. Tranquility ppCO₂, the O₂ production rate and station mass
-  all read exactly 41.4 days old, which is one source that stopped at one instant rather than three
-  sensors failing. Cabin pressure is live at 0.4 h throughout. So the partial-pressure sum stays an
-  observation: nothing here is contemporaneous with anything else.
+- Whether a value of exactly zero is ever displayed as one. The broadcast pushed 0.00 V on all eight
+  array channels for a single minute on reconnection (see [the collector](#the-collector)), and
+  nothing in the application currently distinguishes that from a reading. It is the same class of
+  problem as a frozen value read as a fresh one, and it has not been looked at.
+- Whether the stalled atmosphere sensors ever resume, which nothing is watching now that the
+  collector is stopped. As of 16/08/2026 they had not: Destiny's and Tranquility's partial
+  pressures, the O₂ production rate and station mass were unchanged since 11/08 16:45. The question
+  that used to sit here — whether the partial pressures could be summed — is answered and the answer
+  is no, but for a plainer reason than the ages suggested: they are not contemporaneous with
+  anything, cabin pressure included, and cabin pressure is live.
+- How long the broadcast is actually up over a week. This is the one question the collector was
+  meant to answer and did not, because for most of its run it was itself absent 84 % of the time in
+  hour-long blocks — a record of the collector's health, not the broadcast's. It ran correctly for
+  roughly ninety minutes before being stopped, which is not a week. Answering it means restarting
+  the cron and leaving it alone.
 - NASA's **(E) Internal** model (a multipart 7z archive of 330 MB) would allow exploring the inside
   of the modules; it has not been processed.
 - The `three` chunk is still 725 kB. Both views need it, so deferring it would only move the wait.
