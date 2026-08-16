@@ -12,7 +12,7 @@
  *     node scripts/audit-photos.mjs            # every part with a query
  *     node scripts/audit-photos.mjs cupola destiny   # just these
  */
-import { PHOTO_QUERY, findPhotos } from '../src/media/imagery.ts'
+import { PHOTO_QUERY, photosForPart } from '../src/media/imagery.ts'
 
 const wanted = process.argv.slice(2)
 const parts = Object.keys(PHOTO_QUERY).filter((p) => wanted.length === 0 || wanted.includes(p))
@@ -22,7 +22,7 @@ console.log(`part\trank\ttitle\turl`)
 for (const part of parts) {
   let photos = []
   try {
-    photos = await findPhotos(PHOTO_QUERY[part], TOP)
+    photos = await photosForPart(part, TOP)
   } catch (error) {
     console.log(`${part}\t-\tERREUR ${String(error).slice(0, 60)}\t`)
     continue

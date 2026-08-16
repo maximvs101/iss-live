@@ -94,6 +94,62 @@ export const PHOTO_QUERY: Partial<Record<PartId, string | string[]>> = {
   ams: ['AMS-2', 'AMS-02'],
 }
 
+/**
+ * The frame to show first, chosen by looking at it.
+ *
+ * Everything above this reads titles, because a browser cannot do otherwise, and titles were
+ * measured and found unequal to the question. *View in the Node 1/Unity module after docking* is
+ * three crew members waving; *Food Stowage in Node 2 Harmony* is an astronaut holding lunch. No
+ * arrangement of words separates a wide view of a module from a portrait taken inside one.
+ *
+ * So the candidates were rendered as contact sheets and opened — four per part, thirty-seven parts
+ * — and where the ranking's first choice was not the best picture of the hardware, the better one
+ * is named here by its `nasa_id`. Twenty-one of the thirty-seven moved. The rest were already
+ * right and are deliberately absent: a list that repeats what the ranking already does would have
+ * to be maintained for no gain.
+ *
+ * Four parts are not here and cannot be. Unity, Zvezda, Harmony and Kibo have nothing in the
+ * catalogue under their titles but crew photographs, so the entries for them pick the widest one
+ * rather than a good one — the module is at least the larger part of the frame.
+ *
+ * This is a judgement, and it is one person's. It is written down rather than inferred so that it
+ * can be disagreed with: `npm run audit:photos` prints what is being shown, and the contact sheets
+ * can be rebuilt from it.
+ */
+const PREFERRED: Partial<Record<PartId, string>> = {
+  // Every candidate here has people in it; these are the ones where the module wins the frame.
+  unity: 'sts112-316-008', // CDR Ashby in entrance to the Node 1/Unity module
+  harmony: 's119e006432', // STS-119 Crew in Node 2 Harmony — crew distant, the node full width
+  tranquility: 's130e007594', // Node 3 Hatch Opening
+  'kibo-pm': 's133e006731', // Kibo — the module in orbit, against Earth
+  quest: 'S112E05101', // Quest airlock
+  // The only picture of the article there is: it never flew assembled to be photographed in place.
+  leonardo: 'KSC-04pd0209', // The Multi-Purpose Logistics Module in the processing facility
+  beam: 'iss063e028476', // BEAM — looking in through the hatch
+  poisk: 'iss021e030653', // View of the MRM2/Poisk
+  'pma-1': 's114e5944', // Stowage bags in PMA 1 — the adapter tunnel itself
+  'pma-3': 'iss022e066403', // PMA-3 Transfer during Joint Operations
+  'truss-z1': 'sts111-310-022', // View of the MLI on the CMG on the Z1 truss
+  'truss-s0': 'S113E05127', // View of the S0 and S1 Trusses for STS-113
+  'truss-s1': 's119e006616', // S1 Truss Segment
+  'truss-s3': 's134e007532', // View of the AMS-2 mounted on the S3 Truss
+  'truss-s4': 's117e07258', // Forrester moves to the S3/S4 Truss — the wings fill it, he does not
+  'truss-s6': 's119e006673', // STS-119 EVA 1, S6 truss with its wings deployed
+  'truss-p1': 's114e6378', // P1 truss seen during EVA 3
+  // One wing looks like another; all eight point at the same frame, as their query already does.
+  'saw-1a': 'iss018e042659',
+  'saw-1b': 'iss018e042659',
+  'saw-2a': 'iss018e042659',
+  'saw-2b': 'iss018e042659',
+  'saw-3a': 'iss018e042659',
+  'saw-3b': 'iss018e042659',
+  'saw-4a': 'iss018e042659',
+  'saw-4b': 'iss018e042659',
+  canadarm: 'iss071e361950', // The Canadarm2 above the Mozambique Channel, full length
+  dextre: 'iss041e049091', // SPDM Dextre carrying the Rapidsat instrument assembly
+  ams: 's134e007381', // View of AMS-2 stowed in the Endeavour payload bay
+}
+
 export interface Photo {
   /** `nasa_id`, and the reason the gallery is not the same frame four times over. */
   id: string
@@ -351,6 +407,36 @@ async function search(query: string, signal?: AbortSignal): Promise<Photo[]> {
  * Never throws. A photograph is an illustration: if the search fails, the part's description and
  * its telemetry are still the point of the panel.
  */
+/**
+ * Photographs for a part: the ranking, with the verified pick moved to the front.
+ *
+ * The pool is deliberately deeper than the gallery. A chosen frame ranked fourth would fall off a
+ * list of five the moment the catalogue shifted under it, and the failure would be silent — the
+ * panel would simply show something else.
+ *
+ * A named frame that is not in the pool at all changes nothing, which is the right behaviour: the
+ * ranking's answer is still an answer, and an empty gallery would be a worse one. `verify:media`
+ * is where a stale identifier should be caught, not here.
+ */
+export async function photosForPart(
+  part: PartId,
+  limit = 5,
+  signal?: AbortSignal,
+): Promise<Photo[]> {
+  const query = PHOTO_QUERY[part]
+  if (!query) return []
+
+  const photos = await findPhotos(query, Math.max(limit, 8), signal)
+  const wanted = PREFERRED[part]
+  const at = wanted
+    ? photos.findIndex((photo) => photo.id.toLowerCase() === wanted.toLowerCase())
+    : -1
+
+  const ordered =
+    at > 0 ? [photos[at], ...photos.slice(0, at), ...photos.slice(at + 1)] : photos
+  return ordered.slice(0, limit)
+}
+
 export async function findPhotos(
   query: string | string[],
   limit = 5,

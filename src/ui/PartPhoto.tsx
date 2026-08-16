@@ -11,7 +11,7 @@
  * there is no match, rather than a placeholder announcing its own absence.
  */
 import { useEffect, useState } from 'react'
-import { PHOTO_QUERY, findPhotos, type Photo } from '../media/imagery'
+import { PHOTO_QUERY, photosForPart, type Photo } from '../media/imagery'
 import type { PartId } from '../scene/parts'
 
 /** Enough to escape a bad first pick, few enough that stepping through is not a chore. */
@@ -30,11 +30,11 @@ export function PartPhoto({ part }: { part: PartId }) {
     // Aborted on change, so clicking quickly through parts cannot land an earlier, slower response
     // on a later selection — the classic way a panel ends up captioned with the wrong module.
     const controller = new AbortController()
-    findPhotos(query, COUNT, controller.signal).then((found) => {
+    photosForPart(part, COUNT, controller.signal).then((found) => {
       if (!controller.signal.aborted) setPhotos(found)
     })
     return () => controller.abort()
-  }, [query])
+  }, [part, query])
 
   const photo = photos[shown]
   if (!photo) return null
