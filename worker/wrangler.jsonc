@@ -4,10 +4,21 @@
   "main": "src/index.js",
   "compatibility_date": "2026-08-11",
 
-  // Once a minute: the floor Cloudflare allows, and the granularity the local collector already
-  // proved sufficient — a broadcast interruption shorter than a minute is not one worth naming.
+  /*
+   * Collection stopped on 16 August 2026, deliberately, with the worker left in place.
+   *
+   * It was built to settle open questions rather than to run forever, and they are settled: the two
+   * voltage levels are orbital night and day, the split between arrays is a transition lag with 3A
+   * consistently last, the frozen sensors are frozen per symbol rather than per module, and the
+   * beta angle the site propagates matches the one the station reports to 0.039 degrees RMS over
+   * 186 comparisons. What remained was surveillance, not investigation.
+   *
+   * An empty list rather than a deleted section, so what stopped is legible. Restoring
+   * `["* * * * *"]` and redeploying starts it again; the collector itself is unchanged and its
+   * five days of readings are still in D1.
+   */
   "triggers": {
-    "crons": ["* * * * *"]
+    "crons": []
   },
 
   "d1_databases": [
