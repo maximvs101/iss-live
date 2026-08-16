@@ -26,6 +26,33 @@ Everything below was checked against something outside the application itself.
 altitude, period 92.96 min. And against the station's own telemetry: the computed beta angle read
 −11.89° while `USLAB000040` published **−11.88°**.
 
+That last comparison was a spot check at one instant, which cannot tell agreement from coincidence.
+Five days of collected readings turn it into a distribution — **186 comparisons across 15° of
+excursion**, from −32.3° to −17.5°:
+
+| | |
+|---|---|
+| mean difference | −0.001° |
+| median | 0.002° |
+| RMS | **0.039°** |
+| worst single case | 0.53° |
+
+The error also does not grow with distance from the orbital elements' epoch: readings extrapolated
+five days backwards differ by −0.005°, those taken near the epoch by −0.000°. So what residual there
+is belongs neither to the propagation nor to the epoch handling — which is worth knowing, because
+those are the two places an error of this kind normally hides.
+
+**Eclipse, against the station's own power bus.** The application computes when the station is in
+Earth's shadow; the station reports what its arrays are doing. Nothing connects the two, so they can
+be crossed. Of 141 collected readings taken in shadow, **every one** has the array voltages below
+155 V, averaging 151.2 V across a range of 0.7 V. Of 298 taken in sunlight, only 53 % do, spread
+from 151.4 to 160.6 V.
+
+The asymmetry is what makes it a check rather than a coincidence: shadow forces the low state and
+admits no exception, while sunlight merely permits the high one — a lit array whose batteries are
+full is shunted, and the bus falls back to the same 151 V. A shadow model that were wrong in either
+direction would show up as exceptions on the side that has none.
+
 **Passes**, against Heavens-Above for the same coordinates: identical maximum elevations (56°, 54°,
 11°, 76°), identical rise and set bearings, identical daylight classification. Only the timezone
 differed.

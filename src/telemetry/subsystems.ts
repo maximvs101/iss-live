@@ -105,9 +105,25 @@ export const SUBSYSTEMS: Subsystem[] = [
         // The voltage is live and tracks the primary bus (151-161 V observed). The current is
         // not: every one of the eight channels sits at exactly zero, and stayed there through
         // five minutes of gimbal motion, so the public stream is not publishing it.
+        //
+        // The two levels the hint describes are measured, not textbook. Across five days of
+        // collected readings, all 141 taken in Earth's shadow are below 155 V without a single
+        // exception, averaging 151.2 V over a range of 0.7 V; of 298 taken in sunlight only 53 %
+        // are, spread from 151.4 to 160.6 V. The shadow comes from the orbital elements, so
+        // nothing links the two sides of that. The asymmetry is the substance of it: shadow
+        // forces the low state, sunlight only permits the high one.
+        //
+        // The eight channels also do not cross between the levels together — 3A arrives last in
+        // 13 of the 15 readings that caught them apart, up to 9.28 V behind. That transient is
+        // why the wings appear to disagree, and it is not a pointing difference.
         label: 'Photovoltaic control units',
         channels: [
-          { pui: 'S4000001', label: 'Array 1A drive voltage', part: 'saw-1a' },
+          {
+            pui: 'S4000001',
+            label: 'Array 1A drive voltage',
+            hint: 'This sits at one of two levels, and which one says whether the station is in daylight. In Earth’s shadow it is always about 151 V — the batteries are carrying the station and there is nothing the arrays can do. In sunlight it rises to about 160 V while they charge, and drops back to 151 V once they are full and the surplus is shunted away. So a low reading in daylight is normal: it means the batteries are already topped up.',
+            part: 'saw-1a',
+          },
           {
             pui: 'S4000002',
             label: 'Array 1A drive current',

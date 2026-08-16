@@ -573,13 +573,68 @@ if (betaSpread < 8) {
     `\n  low |beta| (${low.length} samples): offset ${lowMean.toFixed(1)}°` +
       `\n  high |beta| (${high.length} samples): offset ${highMean.toFixed(1)}°`,
   )
-  console.log(
-    Math.abs(highMean - lowMean) < 4
-      ? '\n  The offset does not follow beta. That is the signature of a zero error in the beta\n' +
-          '  joints, not of a deliberate off-point — the mapping needs correcting by that amount.'
-      : '\n  The offset follows beta, which is what a deliberate off-point does and a constant zero\n' +
-          '  error cannot. The joint zeros are exonerated.',
+
+  /*
+   * Fitted rather than thresholded, because "the offset varies with beta" does not settle this.
+   *
+   * The first version answered yes or no on whether the two groups differed by more than 4°, and
+   * declared the joint zeros exonerated when they did. That lets through the one case worth
+   * catching: a constant zero error *plus* a deliberate off-point on top of it varies with beta
+   * exactly like a pure off-point, and differs only in where the relation lands at beta zero.
+   *
+   * So the line is fitted and its intercept reported. A deliberate off-point has nothing to
+   * off-point from when the Sun lies in the orbital plane, so the honest reading is: slope says
+   * how much follows the Sun, intercept says how much does not — and it is the intercept that a
+   * zero error would produce.
+   */
+  const n = history.length
+  const xs = history.map((s) => Math.abs(s.beta))
+  const ys = history.map((s) => s.medianOffset)
+  const meanX = xs.reduce((a, b) => a + b, 0) / n
+  const meanY = ys.reduce((a, b) => a + b, 0) / n
+  let sxy = 0
+  let sxx = 0
+  for (let i = 0; i < n; i += 1) {
+    sxy += (xs[i] - meanX) * (ys[i] - meanY)
+    sxx += (xs[i] - meanX) ** 2
+  }
+  const slope = sxx === 0 ? 0 : sxy / sxx
+  const intercept = meanY - slope * meanX
+  const residual = Math.sqrt(
+    ys.reduce((sum, y, i) => sum + (y - (slope * xs[i] + intercept)) ** 2, 0) / n,
   )
+
+  console.log(
+    `\n  fitted over ${n} samples: offset = ${slope.toFixed(2)} x |beta| + ${intercept.toFixed(1)}°` +
+      `  (residual ${residual.toFixed(2)}°)`,
+  )
+
+  if (Math.abs(highMean - lowMean) < 4) {
+    console.log(
+      '\n  The offset does not follow beta. That is the signature of a zero error in the beta\n' +
+        '  joints, not of a deliberate off-point — the mapping needs correcting by that amount.',
+    )
+  } else if (Math.abs(intercept) < 2) {
+    console.log(
+      '\n  The offset follows beta and goes to nothing as beta does, which is what a deliberate\n' +
+        '  off-point looks like and a constant zero error cannot. The joint zeros are exonerated.',
+    )
+  } else {
+    console.log(
+      `\n  The offset follows beta, so it is not a constant zero error alone. But the fit does not\n` +
+        `  pass through the origin: ${Math.abs(intercept).toFixed(1)}° remains at beta zero, where a deliberate off-point\n` +
+        '  would have nothing left to do. That residue is the size a zero error would have to be.',
+    )
+    // Two clusters can fit any straight line; only spread-out samples can tell one from a curve.
+    const clusters = new Set(xs.map((x) => Math.round(x / 5))).size
+    if (clusters < 4) {
+      console.log(
+        `\n  Not conclusive: these ${n} samples fall in ${clusters} groups of |beta|, and a line through\n` +
+          '  two groups extrapolates rather than measures. The intercept is only real if it survives\n' +
+          '  samples spread across the range — keep running this as beta moves.',
+      )
+    }
+  }
 }
 
 console.log(

@@ -81,3 +81,29 @@
 - **Ray casting goes through a BVH** (`<Bvh>` from drei). Testing the ray against the raw triangles
   of 555 meshes measured 3.8 ms on average and 21 ms at worst — enough to drop frames as the cursor
   sweeps the station. With the bounding volume hierarchy: 1.3 ms on average, 4.4 ms at worst.
+- **Reading a stream costs more than parsing it.** The collector was being killed on Cloudflare's
+  CPU allowance and the parser looked like the obvious suspect, so it was rewritten to scan with
+  `indexOf` and read with `slice` instead of allocating arrays per line. That was not the cost: a
+  synthetic bench puts the parse loop at **0.3 µs a line**, flat, 0.57 ms for 3,200 lines. What
+  costs is how many times the stream has to be read — **219 reads** for ten seconds of a busy
+  broadcast, and a busy minute burned 169 to 316 ms of CPU where a quiet one burned 4.7. The fix is
+  upstream of the code entirely: `LS_requested_max_frequency` at 0.2 Hz brings the same window to
+  **17 reads** while still delivering all 27 symbols and 25 pushes. Ask the server for less before
+  optimising the loop that drains it.
+- **A guard against a hang can be the leak.** The same listen loop raced `reader.read()` against a
+  deadline, and built a fresh `setTimeout` on every iteration without ever clearing one — two
+  hundred live timers on a busy minute, all queued to fire at the same instant. One timer for the
+  whole listen, cleared in `finally`.
+- **A short clean window cannot clear a fault whose period is an hour.** The first attempt at the
+  CPU fix was reported as working on 36 consecutive successes. The full record showed **147 in
+  916**: the failures came in runs of 40 to 94 minutes, so any window shorter than that could land
+  entirely inside a good run. Where the failure is bursty, the measurement has to outlast the burst,
+  and the honest figure only appears from the whole interval.
+- **The broadcast pushes zeros when it reconnects.** On 11/08/2026 at 16:44:45, **22 of the 25
+  symbols under observation published exactly `0` in the same instant** — all eight array voltages,
+  all eight BGA angles, both SARJs, station mass — and were back to normal values a minute later,
+  the arrays at 159–160 V. Cabin pressure, the measured beta angle and the onboard clock carried
+  real values throughout, so it is not a blanket reset of everything. Nothing in the application
+  distinguishes that from a reading, and nothing here proposes a rule: this has been seen **once**,
+  and a heuristic fitted to a single occurrence is how a display starts hiding real data. It is
+  recorded so the second occurrence is recognised rather than rediscovered.

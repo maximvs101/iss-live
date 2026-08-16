@@ -226,15 +226,29 @@ reconnection — and a display taking it at face value would announce a station 
 
 ## Still to do
 
-- Pin down the absolute zero of each **beta** joint. The alpha chain is settled: `best reachable` in
-  `verify:arrays` is the residual no beta angle can remove, so it belongs to the alpha joints alone,
-  and it reads one to two degrees. The beta zeros are not, and they are confounded with the station's
-  own off-pointing — both put every wing the same distance off the Sun, and a constant zero error
-  even wears the splay's signature, since the model's rest orientations are already mirrored between
-  the two wings of a mast. What separates them is beta: a zero error is constant, a deliberate
-  off-point follows the Sun out of the orbital plane. Each run of `verify:arrays` now appends its
-  measurement to `data/array-offsets.jsonl`, and the answer falls out once the samples span about 8°
-  of beta — a handful of runs across a week.
+- Pin down the absolute zero of each **beta** joint — now half-answered, and the half that arrived
+  is not the reassuring one. The alpha chain is settled: `best reachable` in `verify:arrays` is the
+  residual no beta angle can remove, so it belongs to the alpha joints alone, and it reads one to
+  two degrees. The beta zeros are confounded with the station's own off-pointing — both put every
+  wing the same distance off the Sun, and a constant zero error even wears the splay's signature,
+  since the model's rest orientations are already mirrored between the two wings of a mast. What
+  separates them is beta: a zero error is constant, a deliberate off-point follows the Sun out of
+  the orbital plane. Each run of `verify:arrays` appends its measurement to
+  `data/array-offsets.jsonl`.
+
+  Nine samples now span 15.9° of beta, and the offset does follow it — 19.6° at |beta| 32.6°,
+  14.5° at |beta| 17.4°, with 0.5° of scatter within each group. So it is **not a constant zero
+  error alone**. But the fitted line is `offset = 0.33 × |beta| + 8.9°` (residual 0.46°), and that
+  intercept is the problem: at beta zero a deliberate off-point has nothing left to point away
+  from, so **8.9° is unaccounted for**, and it is exactly the size a zero error would have to be.
+  The samples fall in two clusters, which can fit any straight line, so the intercept is an
+  extrapolation rather than a measurement. What settles it is samples spread across the range as
+  beta moves, not more samples at these two values.
+
+  The script used to declare the zeros exonerated as soon as the offset varied at all, which is
+  the one wrong answer available here: a constant error *plus* an off-point on top varies exactly
+  like a pure off-point and differs only in where the relation lands at beta zero. It now fits the
+  line and reports the intercept instead of thresholding the difference.
 - The four operational gyroscopes sit inside the Z1 truss and are not modelled separately, so their
   telemetry is attached to `truss-z1` rather than to parts of their own.
 - Whether a value of exactly zero is ever displayed as one. The broadcast pushed 0.00 V on all eight

@@ -1,14 +1,22 @@
 /**
- * Two open questions, asked of the live stream rather than of the documentation.
+ * Two questions, asked of the live stream rather than of the documentation. The first is answered;
+ * the second is not.
  *
- * **What selects the high voltage group.** The eight array drive voltages sometimes sit together
- * and sometimes split into two groups about 9 V apart. Three captures so far said only that being
- * in sunlight permits the split without causing it, and eclipse had never been seen split. What
- * has never been checked is whether membership follows each wing's *own* illumination — the eight
- * wings do not face the Sun equally, and the ones that do should be the ones delivering.
+ * **What selects the high voltage group — answered, and the question was wrong.** The eight array
+ * drive voltages sometimes sit together and sometimes split into two groups up to 9.28 V apart, and
+ * this looked for what put a wing in one group or the other: whether membership followed each
+ * wing's own illumination, since the eight do not face the Sun equally.
  *
- * The test is a correlation, not an eyeball: each channel is paired with the beta angle of its own
- * wing, and the two voltage groups are compared on that.
+ * There is no membership to explain. Five days of minute-by-minute collection show the two levels
+ * are orbital night and day — 141 readings in shadow, every one below 155 V, against 53 % of 298 in
+ * sunlight — and the split is the *crossing* between them, not a state. The channels do not arrive
+ * together, and 3A is last in 13 of the 15 readings that caught them apart. Correlating membership
+ * against pointing was therefore measuring a transient with no steady configuration behind it,
+ * which is why three captures could say only that sunlight permits it.
+ *
+ * The correlation below is kept because it still measures something real — it just answers a
+ * narrower question than it was built for, and a run that catches the wings converged says nothing
+ * either way.
  *
  * **Whether the stalled sensors have resumed.** Thirteen continuous sensors were re-sending
  * readings weeks old — the partial pressures 25 and 33 days behind, station mass 28. Their onboard
