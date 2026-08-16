@@ -78,6 +78,7 @@ npm run dev
 | `npm run preview` | serves the built `dist/` as a static host would |
 | `npm run build:catalog` | regenerates `src/data/pui-catalog.json` from `data/PUIList.xml` |
 | `npm run build:marine` | regenerates the named sea outlines used to say what the station is over |
+| `npm run audit:photos` | prints the photograph ranked first for every part, with its URL, so the images can be opened and judged |
 | `npm run build:model` | prepares the NASA 3D model for the web |
 | `npm run build:earth` | cuts the monthly Blue Marble base maps from NASA's originals |
 | `npm run build:detail` | cuts the high-resolution surface tiles the globe overlays |
@@ -259,6 +260,16 @@ reconnection — and a display taking it at face value would announce a station 
   Deliberately not fixed: it has been seen **once**, and a rule fitted to a single occurrence is how
   a display starts hiding real data. What would settle it is a second occurrence, or a plausible
   range per symbol taken from enough observation to be worth trusting.
+- Whether the photograph shown first for a part has people in it, which **cannot be decided from the
+  catalogue's text** and is now measured rather than assumed. `npm run audit:photos` prints the top
+  pick per part; opening them settles it, and opening them is what found this. Two rules did survive
+  the images — Kennedy cleanroom captions and a surname in front of a verb are both reliable marks
+  of a photograph nobody clicked a module to see — but the words give out well before the job is
+  done: *View in the Node 1/Unity module after docking* is three crew members waving, and *Food
+  Stowage in Node 2 Harmony* is an astronaut holding lunch. For Unity, Zvezda, Harmony and Kibo
+  every title-searchable frame is a crew photograph, so no ranking can help; for the rest, the only
+  method left is to look at the candidates once and record the verified `nasa_id` per part. That
+  list does not exist yet.
 - How far the drawn orientation of the solar arrays can be from the real one. The angles are
   telemetry, but the mapping from them into the model carries **8.9° that nothing accounts for** —
   see the beta-joint entry above. Until that resolves, the wings on screen are right to within an

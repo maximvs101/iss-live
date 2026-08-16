@@ -36,7 +36,6 @@ export const PHOTO_QUERY: Partial<Record<PartId, string | string[]>> = {
   cupola: 'Cupola',
   columbus: 'Columbus module',
   'kibo-pm': 'Kibo',
-  'kibo-ef': 'Kibo Exposed Facility',
   'kibo-elm': 'Experiment Logistics Module',
   quest: 'Quest airlock',
   bishop: 'Bishop airlock',
@@ -81,8 +80,13 @@ export const PHOTO_QUERY: Partial<Record<PartId, string | string[]>> = {
   'saw-3b': 'solar array wing',
   'saw-4a': 'solar array wing',
   'saw-4b': 'solar array wing',
-  'sarj-port': 'Solar Alpha Rotary Joint',
-  'sarj-stbd': 'Solar Alpha Rotary Joint',
+  // The two rotary joints and the Kibo Exposed Facility are deliberately absent, having been tried
+  // and removed. Every one of the twenty-four results for `Solar Alpha Rotary Joint` is a Kennedy
+  // cleanroom photograph that matches only because the phrase appears in a pasted press release
+  // about a different piece of hardware — the top one is four people talking in a hangar with no
+  // joint anywhere in frame. `Kibo Exposed Facility` returns six copies of the same release about
+  // the *Pressurised* Module, the best of which is a man in a hairnet. Both were looked at, not
+  // inferred. No photograph beats a confident photograph of the wrong thing.
   'mobile-transporter': 'Mobile Transporter',
   canadarm: 'Canadarm2 robotic arm',
   dextre: 'Dextre',
@@ -119,10 +123,44 @@ export interface Photo {
  * Center crew collection — *Wilson in Node 1 Unity*, *Krikalev in Zvezda*, *Hire in the Cupola*.
  * Fine photographs, and not what someone who has just clicked on a module wants to see first.
  */
-const CREW = /\b(in|with|during|aboard|floats?|works?|poses?|holds?|uses?)\b/i
+const CREW = /\b(with|during|aboard|floats?|works?|poses?|holds?|uses?)\b/i
 
-/** Words that mark a picture *of* the thing rather than one taken inside it. */
+/**
+ * A name in front of a verb — the crew collection's own filing convention.
+ *
+ * This is the signal that separates *Helms in Node 1/Unity module* from *View in the Node 1/Unity
+ * module after docking*, and it had to be found by looking at the images: both were scoring −4, the
+ * tie broke on catalogue order, and the astronaut won. The bare word `in` used to carry the penalty
+ * and it cannot — half the titles worth having contain it.
+ */
+const NAMED_PERSON = /^[A-ZÀ-Þ][a-zà-ÿ]+(?:\s+and\s+[A-ZÀ-Þ][a-zà-ÿ]+)?\s+(?:in|at|on|checks?|talks?|looks?|gets?|takes?|gives?|holds?|works?|poses?|floats?|uses?)\b/
+
+/**
+ * Words that mark a picture *of* the thing rather than one taken inside it.
+ *
+ * Weak, and known to be weak. A bonus for a title *opening* on "View" was tried on the strength of
+ * NASA's own phrasing and removed after looking at what it promoted: *View in the Node 1/Unity
+ * module after docking* is three crew members waving at the camera. The word describes the framing
+ * no more reliably than any other. What survives here is the mild signal it always was.
+ */
 const SUBJECT = /\b(view|exterior|overview|installed|module)\b/i
+
+/**
+ * A ground-processing photograph, taken years before the part flew.
+ *
+ * Kennedy files these with the facility as a dateline and then pastes an entire press release in
+ * behind it, so a search on any term the release happens to mention returns a cleanroom portrait.
+ * Looked at rather than assumed: the top result for both rotary joints is four people talking in a
+ * hangar with no joint in frame, and for the Kibo Exposed Facility it is a man in a hairnet — and
+ * every one of those captions is about a different piece of hardware.
+ *
+ * Demoted rather than dropped, because for a part that never flew assembled — the Logistics Module
+ * — the cleanroom shot is the only picture of the article there is.
+ */
+const GROUND = /^[A-Z][A-Z\s.]+,\s*(FLA|CALIF|TEXAS|ALA|MD)\b/
+
+/** Past this a "title" is a pasted caption, and the subject it names is incidental. */
+const CAPTION_LENGTH = 120
 
 /**
  * Does this photograph actually have anything to do with the ISS?
@@ -171,6 +209,13 @@ export function photoScore(query: string, title: string, description = ''): numb
   if (CREW.test(title)) score -= 3
   if (words.length <= 3) score += 1
   if (/\bview\b/i.test(description.slice(0, 200))) score += 1
+
+  // A surname in front of a verb is the crew collection filing its own photographs.
+  if (NAMED_PERSON.test(title)) score -= 6
+  // A cleanroom years before launch, with a press release for a title.
+  if (GROUND.test(title)) score -= 8
+  if (title.length > CAPTION_LENGTH) score -= 4
+
   return score
 }
 
