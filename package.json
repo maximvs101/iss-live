@@ -17,6 +17,7 @@
     "build:catalog": "node scripts/build-catalog.mjs",
     "build:marine": "node scripts/build-marine.mjs",
     "audit:photos": "node --experimental-strip-types scripts/audit-photos.mjs",
+    "analyse:offset": "node --experimental-strip-types scripts/analyse-array-offset.mjs",
     "sample:orbit": "node scripts/sample-orbit.mjs",
     "collect": "node scripts/collect.mjs",
     "collect:report": "node scripts/collect-report.mjs",

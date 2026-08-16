@@ -79,6 +79,7 @@ npm run dev
 | `npm run build:catalog` | regenerates `src/data/pui-catalog.json` from `data/PUIList.xml` |
 | `npm run build:marine` | regenerates the named sea outlines used to say what the station is over |
 | `npm run audit:photos` | prints the photograph ranked first for every part, with its URL, so the images can be opened and judged |
+| `npm run analyse:offset` | replays the collector's record through the array geometry — where every wing pointed, for every minute recorded |
 | `npm run build:model` | prepares the NASA 3D model for the web |
 | `npm run build:earth` | cuts the monthly Blue Marble base maps from NASA's originals |
 | `npm run build:detail` | cuts the high-resolution surface tiles the globe overlays |
@@ -238,19 +239,26 @@ reconnection — and a display taking it at face value would announce a station 
   the orbital plane. Each run of `verify:arrays` appends its measurement to
   `data/array-offsets.jsonl`.
 
-  Ten samples now span 16.8° of beta, and the offset does follow it — 19.6° at |beta| 32.6°, 13.8°
-  in the low group. So it is **not a constant zero error alone**. But the fitted line is
-  `offset = 0.37 × |beta| + 7.4°`, and that intercept is the problem: at beta zero a deliberate
-  off-point has nothing left to point away from, so **7.4° is unaccounted for**, and it is exactly
-  the size a zero error would have to be.
+  **Settled, and the answer is that there was never much of an error.** Thirteen samples taken by
+  hand fell in three clusters of beta, a straight line through them extrapolated to an intercept of
+  4° to 9° at beta zero, and that intercept was the whole of the worry.
 
-  Two things narrow it since. The model was cleared: composing all four transforms from the scene
-  root, the eight beta joints agree to **0.00°** on their rotation axes and **0.00°** on their
-  blanket normals at the published zero, so the odd-looking rest orientations on four of them are
-  absorbed by their parents and the single `zero: 90` is right. And NASA states that the wings only
-  stop following the Sun **above 40° of beta** (NTRS 20180007791) — every sample here sits below
-  that, so backtracking cannot be what is being measured, and the residue is more likely ours than
-  the station's. What would settle it is a sample above 40°, which is a matter of waiting.
+  `npm run analyse:offset` replays the collector's record through the same geometry — 494 minutes
+  instead of thirteen — and the curve is not a line: the off-Sun angle dips to a **closest approach
+  of 0.6°** at |beta| 21.7°. That number is the bound that matters, because a zero wrong by *k*
+  degrees puts every wing at least *k* off the Sun always, with no geometry that recovers it. **Any
+  constant error in the mapping is therefore under 0.6°**, and the intercepts were an artefact of
+  fitting a line to three clusters.
+
+  Two supporting findings. Composing all four transforms from the scene root, the eight beta joints
+  agree to **0.00°** on their rotation axes and **0.00°** on their blanket normals at the published
+  zero — the odd-looking rest orientations on four of them are absorbed by their parents. And NASA
+  states the wings only stop following the Sun **above 40° of beta** (NTRS 20180007791), which every
+  sample so far sits below, so none of the spread is backtracking.
+
+  What is left is the spread itself: 0.6° to 19.6°, varying over the record. Beta and the calendar
+  moved together across those five days, so a trend against one cannot yet be told from a trend
+  against the other. The collector is running again for exactly that.
 
   The script used to declare the zeros exonerated as soon as the offset varied at all, which is
   the one wrong answer available here: a constant error *plus* an off-point on top varies exactly
