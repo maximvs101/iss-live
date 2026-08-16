@@ -238,14 +238,19 @@ reconnection — and a display taking it at face value would announce a station 
   the orbital plane. Each run of `verify:arrays` appends its measurement to
   `data/array-offsets.jsonl`.
 
-  Nine samples now span 15.9° of beta, and the offset does follow it — 19.6° at |beta| 32.6°,
-  14.5° at |beta| 17.4°, with 0.5° of scatter within each group. So it is **not a constant zero
-  error alone**. But the fitted line is `offset = 0.33 × |beta| + 8.9°` (residual 0.46°), and that
-  intercept is the problem: at beta zero a deliberate off-point has nothing left to point away
-  from, so **8.9° is unaccounted for**, and it is exactly the size a zero error would have to be.
-  The samples fall in two clusters, which can fit any straight line, so the intercept is an
-  extrapolation rather than a measurement. What settles it is samples spread across the range as
-  beta moves, not more samples at these two values.
+  Ten samples now span 16.8° of beta, and the offset does follow it — 19.6° at |beta| 32.6°, 13.8°
+  in the low group. So it is **not a constant zero error alone**. But the fitted line is
+  `offset = 0.37 × |beta| + 7.4°`, and that intercept is the problem: at beta zero a deliberate
+  off-point has nothing left to point away from, so **7.4° is unaccounted for**, and it is exactly
+  the size a zero error would have to be.
+
+  Two things narrow it since. The model was cleared: composing all four transforms from the scene
+  root, the eight beta joints agree to **0.00°** on their rotation axes and **0.00°** on their
+  blanket normals at the published zero, so the odd-looking rest orientations on four of them are
+  absorbed by their parents and the single `zero: 90` is right. And NASA states that the wings only
+  stop following the Sun **above 40° of beta** (NTRS 20180007791) — every sample here sits below
+  that, so backtracking cannot be what is being measured, and the residue is more likely ours than
+  the station's. What would settle it is a sample above 40°, which is a matter of waiting.
 
   The script used to declare the zeros exonerated as soon as the offset varied at all, which is
   the one wrong answer available here: a constant error *plus* an off-point on top varies exactly

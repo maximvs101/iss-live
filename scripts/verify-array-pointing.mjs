@@ -557,6 +557,20 @@ for (const s of history.slice(-8)) {
 const betas = history.map((s) => Math.abs(s.beta))
 const betaSpread = betas.length ? Math.max(...betas) - Math.min(...betas) : 0
 
+/**
+ * Above this the station off-points its wings on purpose; below it, they follow the Sun.
+ *
+ * Not a figure of ours. NASA's own account of the analysis code that models this system states it
+ * plainly: "At solar beta angles above 40°, the beta gimbals are no longer Sun-pointing to prevent
+ * solar array-to-solar array shadowing", and defines the manoeuvre as "off-pointing adjacent SAWs
+ * to reduce shadowing on the rear wing" — *Development and Use of the SPACE Computer Code for
+ * Analyzing the Space Station Electrical Power System*, NTRS 20180007791, 2018.
+ *
+ * It matters here because it says when a deliberate off-point is available as an explanation and
+ * when it is not. Every sample taken so far sits below it.
+ */
+const BACKTRACK_BETA = 40
+
 if (betaSpread < 8) {
   console.log(
     `\n  Not settled yet: these samples span ${betaSpread.toFixed(1)}° of |beta|, and it takes about` +
@@ -634,6 +648,24 @@ if (betaSpread < 8) {
           '  samples spread across the range — keep running this as beta moves.',
       )
     }
+  }
+
+  /*
+   * The one thing that decides whether "deliberate off-point" is even on the table.
+   *
+   * Below 40° of beta the station is documented as Sun-pointing its wings; the off-pointing that
+   * this whole log exists to distinguish from a zero error only begins above it. So a slope
+   * measured entirely under that threshold is not evidence of a deliberate manoeuvre — it is an
+   * offset that varies with beta for some other reason, and the most likely other reason is ours.
+   */
+  const belowThreshold = betas.filter((b) => b < BACKTRACK_BETA).length
+  if (belowThreshold === betas.length) {
+    console.log(
+      `\n  And every one of these ${n} samples sits below |beta| ${BACKTRACK_BETA}°, where the station is\n` +
+        '  documented as Sun-pointing its wings (NTRS 20180007791). Beta-backtracking cannot be what\n' +
+        `  the offset is, in this range. Whatever the ${Math.abs(intercept).toFixed(1)}° and the slope are, they are more likely\n` +
+        '  to be ours than the station\'s — a sample above 40° is what would settle it.',
+    )
   }
 }
 
