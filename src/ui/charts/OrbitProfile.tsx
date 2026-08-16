@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react'
 import { useOrbitStore } from '../../orbit/useOrbit'
 import { propagateIss } from '../../orbit/propagator'
 import { LineChart, type Band, type Point } from './LineChart'
+import { useElementWidth } from '../useElementWidth'
 
 /** Window covered: one full orbit, a little over 92 minutes. */
 const HORIZON_MINUTES = 95
@@ -66,6 +67,28 @@ export function OrbitProfile() {
   const elements = useOrbitStore((store) => store.elements)
   const [profile, setProfile] = useState<Profile | null>(null)
 
+  /*
+   * Drawn at the number of units it occupies, the way `TelemetryChart` already is.
+   *
+   * These two took `LineChart`'s default resolution instead, and the default was authored for the
+   * width they get on a desktop. On a phone the same 900-unit drawing is laid out 343 px wide, a
+   * scale of 0.38, and the 8-unit axis labels reach the screen at **3.0 px** — measured, not
+   * estimated. Nothing was wrong with the type size; it was being shrunk under the reader.
+   *
+   * The floor is 200 and not the 340 `TelemetryChart` uses, because these two live in the side
+   * column and that column is **285 px** wide at 1280 — a 340 floor sits above the real width and
+   * puts the scale back at 0.838, which is most of the fault reintroduced. The axes actually cost
+   * 98 units (46 left, 52 right), so 200 still leaves the series a hundred to draw in, and it is
+   * only ever reached if the measurement fails outright.
+   *
+   * Measured after: scale 1.000 on a phone and 0.949 in the desktop side column, where the box
+   * read 300 against the 285 the figure inside it takes. Labels land at 7.6 px instead of 8.0 —
+   * five per cent, against the 0.317 and 3.0 px they were at. Closing that last gap means moving
+   * the measurement inside `LineChart`, which is a change to every chart and not this one.
+   */
+  const [box, measured] = useElementWidth<HTMLDivElement>()
+  const width = Math.max(measured, 200)
+
   useEffect(() => {
     if (!elements) return
     const refresh = () => setProfile(computeProfile(elements.satrec, new Date()))
@@ -75,44 +98,59 @@ export function OrbitProfile() {
     return () => clearInterval(timer)
   }, [elements])
 
-  if (!profile) {
-    return (
-      <section className="panel">
-        <h2 className="panel__title">Next orbit</h2>
-        <p className="panel__empty">Computing orbital profile…</p>
-      </section>
-    )
-  }
-
+  /*
+   * One return, and the measured box never unmounts.
+   *
+   * Written as an early return for the "computing" state, the box mounted only once a profile
+   * existed — after `useElementWidth`'s layout effect had already run and found nothing to observe.
+   * The measurement stayed at 0, the width fell back to its 340 floor, and the fix read as working
+   * because 340 is close enough to a phone's 343 to hide it. It would not have been close on a
+   * desktop.
+   */
   return (
     <section className="panel">
       <h2 className="panel__title">Next orbit</h2>
-      <p className="panel__summary">
-        Over the next {HORIZON_MINUTES} minutes the station will spend{' '}
-        {profile.eclipseMinutes.toFixed(0)} minutes in Earth’s shadow — the shaded bands on the
-        charts.
-      </p>
 
-      <LineChart
-        points={profile.altitude}
-        title="Altitude"
-        unit="km"
-        bands={profile.shadowBands}
-        precision={1}
-      />
+      {profile ? (
+        <p className="panel__summary">
+          Over the next {HORIZON_MINUTES} minutes the station will spend{' '}
+          {profile.eclipseMinutes.toFixed(0)} minutes in Earth’s shadow — the shaded bands on the
+          charts.
+        </p>
+      ) : (
+        <p className="panel__empty">Computing orbital profile…</p>
+      )}
 
-      <LineChart
-        points={profile.latitude}
-        title="Latitude overflown"
-        unit="°"
-        bands={profile.shadowBands}
-        precision={1}
-      />
+      <div ref={box}>
+        {profile && (
+          <>
+            <LineChart
+              points={profile.altitude}
+              title="Altitude"
+              unit="km"
+              bands={profile.shadowBands}
+              precision={1}
+              width={width}
+            />
 
-      <p className="panel__footnote">
-        Profile computed by SGP4 propagation. The orbit is near-circular: the altitude variation
-        seen here comes from the shape of the Earth, which is flattened at the poles.
-      </p>
+            <LineChart
+              points={profile.latitude}
+              title="Latitude overflown"
+              unit="°"
+              bands={profile.shadowBands}
+              precision={1}
+              width={width}
+            />
+          </>
+        )}
+      </div>
+
+      {profile && (
+        <p className="panel__footnote">
+          Profile computed by SGP4 propagation. The orbit is near-circular: the altitude variation
+          seen here comes from the shape of the Earth, which is flattened at the poles.
+        </p>
+      )}
     </section>
   )
 }

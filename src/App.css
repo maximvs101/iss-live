@@ -1826,4 +1826,42 @@
     flex: 1 1 100%;
     text-align: left;
   }
+
+  /*
+   * Everything a finger has to hit, brought up to size.
+   *
+   * Measured at 375 before this: the subsystem tabs stood 28 px tall, the panel toggles 23, the
+   * plot selector 27, the location field and its button 29 and 28. A pointer lands on 23 px; a
+   * fingertip is about 45 across and lands on whatever was underneath it. `min-height` rather than
+   * padding, so a control that is already tall enough is left alone.
+   */
+  .tabs__item,
+  .panel__toggle,
+  .plot__select,
+  .coords input,
+  .coords button,
+  .button {
+    min-height: 44px;
+  }
+
+  /*
+   * SVG labels are drawn in user units, and on a phone the drawing is shrunk under them.
+   *
+   * Measured at 375: the map has a 720-unit viewBox rendered 351 px wide, so its 8 px graticule
+   * labels reach the screen at **3.9 px**; the orbit profile is worse at 900 units in 343 px and
+   * lands at **3.0**. Both were legible on the desktop this was built on and neither has been
+   * readable on a phone at any point.
+   *
+   * Only the map is treated here, and 22 units at 0.49 is 10.7 px on screen — measured after the
+   * change, with the nine graticule labels checked for collisions and finding none.
+   *
+   * The charts are not a CSS problem and are not fixed here. Their drawing resolution is a prop,
+   * and the answer is to draw at the width they occupy, which `TelemetryChart` already did and
+   * `OrbitProfile` did not. The map cannot do the same: its viewBox *is* its coordinate system,
+   * with a fixed 2:1 shape and a projection built on it.
+   */
+  .map-graticule text {
+    font-size: 22px;
+    stroke-width: 5px;
+  }
 }
