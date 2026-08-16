@@ -109,6 +109,8 @@
   }
 }
 
+/* The header on a narrow screen is rebuilt in one block at the end of this file — see there. */
+
 .app__controls {
   display: flex;
   gap: 10px;
@@ -1728,4 +1730,100 @@
 .frozen-joints strong {
   color: var(--accent);
   font-weight: 600;
+}
+
+/* --- The header on a narrow screen --- */
+
+/*
+ * Last in the file on purpose.
+ *
+ * Every rule here overrides one written earlier, and the cascade takes the last of equal
+ * specificity. Written up beside the header section — which is where it belongs by subject — three
+ * of these silently lost to definitions further down: the status kept a 22 px indent and a left
+ * rule against an edge it was already flush with, its width declaration did nothing at all, and
+ * the buttons kept their original height. Two of the three still *looked* right at 375, because
+ * there was no width left to give away and the layout collapsed the way it was wanted to for the
+ * wrong reason. Subject grouping is worth less than being sure a rule applies.
+ *
+ * The breakpoint is measured, not chosen. At 701 px the single row holds with **one pixel** to
+ * spare — the status box is 161 px against 160 of content, and nothing is clipped. Below that it
+ * starts taking the difference out of the status, and at 375 it took all of it: the header asked
+ * for 435 px in a 375 px window, the page scrolled sideways, and the status was crushed to 23 px
+ * against 160 of content, squeezing out the one element that says whether the numbers on screen
+ * are real.
+ *
+ * Wrapping is the wrong answer on a desktop, where it cost three lines and a quarter of the
+ * viewport. Here the viewport is tall and narrow, so a line is cheap and a sideways scrollbar is
+ * not. Three rows, ordered by what is needed first rather than by source order: the title with the
+ * view switch beside it, then whether the stream is live, then what the station is passing over.
+ *
+ *     375, live          145 px, no overflow, nothing clipped
+ *     375, interrupted   203 px, the message 351 px wide
+ *     320                the controls take a fourth row, still no overflow
+ *     701 and above      untouched — 68 px live, one row, as before
+ */
+@media (max-width: 700px) {
+  .app__header {
+    flex-wrap: wrap;
+    gap: 10px 12px;
+    padding: 10px 12px;
+  }
+
+  .app__brand {
+    order: 1;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .app__controls {
+    order: 2;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+  }
+
+  /*
+   * Big enough for a thumb. The view buttons measured 63x35 and 82x35, which clears the 24 px WCAG
+   * minimum and misses the 44 px both Apple and Google ask for — and this is the control a reader
+   * uses most. Vertical padding buys it, and the header carries the difference.
+   */
+  .view-switch__item {
+    padding-block: 11px;
+  }
+
+  .stream-status {
+    order: 3;
+    flex: 1 1 100%;
+    /* The indent and the rule it carries separated this from a neighbour it no longer has. */
+    padding-left: 0;
+    border-left: 0;
+    flex-wrap: wrap;
+    /* 22 px is right between two blocks side by side and wrong once one sits under the other. */
+    row-gap: 4px;
+  }
+
+  /*
+   * The interruption message takes its own line rather than the space left beside the state.
+   *
+   * It costs height, which the first attempt at this had backwards: sharing the row, the message
+   * overlaps the state block instead of adding to it. All three measured at 375 with the message
+   * showing, against a 145 px header when the stream is live:
+   *
+   *     on the same row          header 185    191 px wide, 4 lines
+   *     own line, 22 px gap      header 221    351 px wide, 3 lines
+   *     own line, 4 px gap       header 203    351 px wide, 3 lines
+   *
+   * Eighteen pixels buys a measure that goes from about 32 characters to 58. This is the text
+   * explaining why the screen has no numbers on it, and a column half as wide as the screen it
+   * sits on reads as an accident.
+   */
+  .stream-status__explanation {
+    flex: 1 1 100%;
+    margin-top: 0;
+  }
+
+  .now-over {
+    order: 4;
+    flex: 1 1 100%;
+    text-align: left;
+  }
 }
