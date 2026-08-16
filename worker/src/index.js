@@ -49,29 +49,40 @@ const ITEMS = Object.keys(WATCH)
 /**
  * How long to listen. Ten seconds, down from twenty-five.
  *
- * Waiting on a socket costs no CPU — Cloudflare bills only the parsing — so the length of this
- * window is not free after all: it sets how much there is to parse. Against a live stream at
- * roughly 1,400 updates a minute, ten seconds still brings in some two hundred of them, which is
- * two orders of magnitude more than the twenty-seven needed to call the broadcast alive.
- *
- * What it cost at twenty-five: four thousand eight hundred and forty-four invocations out of six
- * thousand killed at exactly ten milliseconds of CPU, and eighty per cent of the record missing.
+ * Waiting on a socket costs nothing; what the window really sets is how many times the stream gets
+ * read, and reading is what gets billed. With the frequency throttle below, ten seconds is roughly
+ * seventeen reads whether the broadcast is busy or quiet, so the window can be chosen for what it
+ * observes rather than for what it costs — and observing liveness across ten seconds says more than
+ * stopping the moment the count is reached.
  */
 const LISTEN_MS = 10_000
 
 /**
- * Stop once the answer is in, rather than listening to the end regardless.
+ * Ask the server to send less, rather than draining everything it offers.
  *
- * The listening window bounds the work only if the stream's rate is known, and it is not: a quiet
- * minute delivers twenty-seven updates and a busy one fourteen hundred, a fiftyfold spread on the
- * one budget that gets this invocation killed. Counting to a fixed number instead makes the cost
- * of a busy minute equal to the cost of a moderate one.
+ * What costs CPU here is the number of times the stream has to be read, not the parsing: a
+ * synthetic bench puts the parse loop at 0.3 µs a line, 0.57 ms for three thousand two hundred of
+ * them, and it is flat. Against the live stream the same ten seconds cost 219 reads unthrottled
+ * and 17 at this setting — the same twenty-seven symbols, the broadcast still visibly alive at
+ * twenty-five pushes, for a thirteenth of the reading.
  *
- * Four hundred pushes is far past the point of diminishing returns. Twenty-seven would prove the
- * broadcast alive; the rest exists only to catch a value changing mid-window, and the values that
- * matter here — eight array voltages — move on the scale of minutes, not milliseconds.
+ * One update per item per five seconds. MERGE mode conflates what it withholds, so each update
+ * that does arrive carries the current value; nothing is lost that this collector looks at, which
+ * samples once a minute anyway. Verified against the real server rather than assumed — it answers
+ * `SUBOK,1,27,2` with the parameter present, and a subscription that had silently failed would
+ * report zero pushes forever and read exactly like an outage.
  */
-const MAX_PUSHES = 400
+const MAX_HZ = 0.2
+
+/**
+ * A ceiling on pushes, kept only as a guard now that the throttle does the work.
+ *
+ * Twenty-seven items at 0.2 Hz over ten seconds cannot exceed fifty-four, and measures twenty-five.
+ * Sixty therefore never fires while the server honours the frequency — it exists for the case
+ * where it stops honouring it, and bounds that minute to roughly fifty reads instead of the two
+ * hundred and nineteen that used to blow the CPU allowance.
+ */
+const MAX_PUSHES = 60
 
 const post = (url, body) =>
   fetch(url, {
@@ -101,33 +112,39 @@ async function listen() {
   let enough = false
   /** Lines carrying a TLCP field-compression marker, which this parser does not decode. */
   let odd = 0
+  /** Recorded because this, not the parsing, is what the CPU allowance is actually spent on. */
+  let reads = 0
+
+  /*
+   * Raced against the deadline, because the loop condition alone does not enforce it.
+   *
+   * `await reader.read()` only returns when the server sends something. A socket that stays open
+   * and silent never wakes it, the condition below is never re-evaluated, and the invocation runs
+   * to Cloudflare's fifteen-minute ceiling.
+   *
+   * One timer for the whole listen, not one per read. The first version built a fresh `setTimeout`
+   * inside the loop and never cleared any of them, so a busy minute left two hundred-odd live
+   * timers queued to fire at the same instant.
+   */
+  let fire
+  const deadline = new Promise((resolve) => {
+    fire = setTimeout(() => resolve({ timedOut: true }), LISTEN_MS)
+  })
 
   try {
     while (!enough && Date.now() < until) {
-      /*
-       * Raced against the deadline, because the loop condition alone does not enforce it.
-       *
-       * `await reader.read()` only returns when the server sends something. A socket that stays
-       * open and silent never wakes it, the condition above is never re-evaluated, and the
-       * invocation runs to Cloudflare's fifteen-minute ceiling. It has not happened yet — the
-       * longest recorded listen is 32.4 s — but nothing in the code prevents it.
-       */
-      const chunk = await Promise.race([
-        reader.read(),
-        new Promise((resolve) => setTimeout(() => resolve({ timedOut: true }), until - Date.now())),
-      ])
+      const chunk = await Promise.race([reader.read(), deadline])
       if (chunk.timedOut || chunk.done) break
+      reads += 1
 
       buffer += decoder.decode(chunk.value, { stream: true })
 
       /*
        * Scanned with indexOf rather than split, and read with slice rather than destructuring.
        *
-       * This loop is the whole CPU budget. The free plan allows ten milliseconds per invocation and
-       * four thousand eight hundred of them were killed at exactly that figure; a minute carrying no
-       * data at all already spent half of it. The previous version allocated three arrays for every
-       * update line — `split(',')`, then `join(',')`, then `split('|')` — and one more per read for
-       * the lines themselves. None of those allocations survive here.
+       * Kept for the allocations it avoids, not because it is where the time goes — measured, this
+       * loop is flat at 0.3 µs a line and could not account for the kills on its own. The cost that
+       * matters is upstream, in how many times the stream has to be read at all.
        */
       let start = 0
       for (;;) {
@@ -202,6 +219,7 @@ async function listen() {
             LS_group: ITEMS.join(' '),
             LS_schema: 'TimeStamp Value',
             LS_snapshot: 'true',
+            LS_requested_max_frequency: String(MAX_HZ),
           })
           continue
         }
@@ -212,11 +230,13 @@ async function listen() {
       if (enough) break
     }
   } finally {
+    clearTimeout(fire)
     await reader.cancel().catch(() => {})
   }
 
   if (!session) throw new Error('no session')
   seen.odd = odd
+  seen.reads = reads
   return seen
 }
 
@@ -295,8 +315,9 @@ async function gather(env, at, started) {
       (Date.now() - started) / 1000,
       anyChange ? JSON.stringify(changed) : null,
       anyChange ? JSON.stringify(stamps) : null,
-      // Null on every row so far. If it ever isn't, the parser is dropping lines it cannot read.
-      seen.odd ? `skipped ${seen.odd} compressed` : null,
+      // Reads are the cost driver, so they are recorded rather than inferred. The skipped count is
+      // null on every row so far; if it ever isn't, the parser is dropping lines it cannot read.
+      `reads ${seen.reads}${seen.odd ? ` skipped ${seen.odd} compressed` : ''}`,
     ),
     env.DB.prepare('INSERT OR REPLACE INTO carried (id, held, at) VALUES (1, ?, ?)')
       .bind(JSON.stringify(current), at),
