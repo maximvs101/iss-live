@@ -10,44 +10,61 @@
  * than the 110 m country outlines resolve and coarse enough that the answer only changes when it
  * means something.
  */
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useOrbitStore } from '../orbit/useOrbit'
-import { overflightAt } from '../orbit/overflight'
+import { marineReady, overflightAt } from '../orbit/overflight'
 
 export function NowOver() {
   const state = useOrbitStore((store) => store.state)
 
+  // The sea outlines come as their own chunk, so the first answer over water would be "not known
+  // yet". Re-render once when they land instead of waiting for the position to move.
+  const [seasLoaded, setSeasLoaded] = useState(false)
+  useEffect(() => {
+    let live = true
+    marineReady.then(() => live && setSeasLoaded(true))
+    return () => {
+      live = false
+    }
+  }, [])
+
   const latitudeKey = state ? Math.round(state.latitude * 10) : null
   const longitudeKey = state ? Math.round(state.longitude * 10) : null
-  const overflight = useMemo(
-    () =>
-      latitudeKey === null || longitudeKey === null
-        ? null
-        : overflightAt(latitudeKey / 10, longitudeKey / 10),
-    [latitudeKey, longitudeKey],
-  )
+  const overflight = useMemo(() => {
+    if (latitudeKey === null || longitudeKey === null) return null
+    // Read so this recomputes when the outlines land: until they do, the lookup answers null over
+    // water and the line stays off rather than naming the sea wrongly for a moment.
+    void seasLoaded
+    return overflightAt(latitudeKey / 10, longitudeKey / 10)
+  }, [latitudeKey, longitudeKey, seasLoaded])
 
   if (!overflight) return null
 
   /*
-   * Sea areas are named by region rather than looked up from geometry, and the line has to say so —
-   * but it says it in the title rather than on screen.
+   * No caveat any more, because there is nothing left to excuse.
    *
-   * A visible "(approximate)" was tried at three lengths and two breakpoints. The header is exactly
-   * full at 1280 before this line is added at all, and it gains a whole sentence of explanation
-   * whenever the stream is interrupted, so the marker was never affordable: what it bought was an
-   * ellipsis eating the place name, which is the part worth reading. The title carries the whole
-   * sentence instead of one abbreviated word.
+   * This line used to carry a tooltip saying the sea names were regional approximations — which was
+   * generous, since they were assigning the Gulf of Mexico to the Pacific. Both land and sea are now
+   * point-in-polygon against real outlines, and the one case the data cannot name says so in the
+   * words themselves rather than in a hover a touchscreen never shows.
+   *
+   * "the" for water and not for land: "over the Black Sea", "over France".
    */
-  const caveat =
-    overflight.kind === 'ocean'
-      ? 'Sea areas are named by region rather than looked up from geometry, so this is approximate'
+  const label =
+    overflight.kind === 'country'
+      ? overflight.name
+      : overflight.kind === 'water'
+        ? 'open water'
+        : `the ${overflight.name}`
+
+  const source =
+    overflight.kind === 'water'
+      ? 'Real water, but no named area in Natural Earth’s marine set covers this point'
       : undefined
 
   return (
-    <p className="now-over" title={caveat}>
-      <span className="now-over__label">Now over</span>{' '}
-      <strong>{overflight.name}</strong>
+    <p className="now-over" title={source}>
+      <span className="now-over__label">Now over</span> <strong>{label}</strong>
     </p>
   )
 }

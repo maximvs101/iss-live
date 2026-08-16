@@ -33,10 +33,20 @@ function describe(): string {
   const under = overflightAt(state.latitude, state.longitude)
   // Spelled out — "43.4° N" is read as "43.4 N" by most screen readers, which is not a latitude.
   const where = `${coordinate(state.latitude, 'north', 'south')}, ${coordinate(state.longitude, 'east', 'west')}`
-  const over = under.kind === 'country' ? `over ${under.name}` : `over the ${under.name}`
+  // Null while the sea outlines are still loading. The clause is dropped rather than filled with a
+  // placeholder: a screen reader hearing "over open water" over the Black Sea is worse than one
+  // hearing a position and nothing else.
+  const over =
+    under === null
+      ? null
+      : under.kind === 'country'
+        ? `over ${under.name}`
+        : under.kind === 'water'
+          ? 'over open water'
+          : `over the ${under.name}`
   const lit = state.shadow < 0.5 ? 'in sunlight' : 'in the Earth’s shadow'
 
-  const parts = [`Station at ${where}, ${over}, ${lit}.`]
+  const parts = [`Station at ${where}${over ? `, ${over}` : ''}, ${lit}.`]
   if (observer) {
     const up = withinFootprint(observer, state, state.footprintKm)
     parts.push(

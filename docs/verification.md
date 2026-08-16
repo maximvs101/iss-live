@@ -57,6 +57,25 @@ direction would show up as exceptions on the side that has none.
 11°, 76°), identical rise and set bearings, identical daylight classification. Only the timezone
 differed.
 
+**What the station is flying over**, against the places themselves. Land was always a
+point-in-polygon test and was always right; the sea was a partition of the globe by longitude and
+latitude, written by hand and labelled "approximate" — which flattered it. Measured:
+
+| position | said | says |
+|---|---|---|
+| Black Sea | Indian Ocean | Black Sea |
+| Baltic Sea | Indian Ocean | Baltic Sea |
+| Sea of Japan | Indian Ocean | Sea of Japan |
+| Gulf of Mexico | North Pacific | Gulf of Mexico |
+| Caribbean Sea | North Pacific | Caribbean Sea |
+| English Channel | North Atlantic | English Channel |
+
+The first five are water the station crosses on most orbits. Both halves of the lookup are now
+point-in-polygon against Natural Earth outlines, and the twelve seas above are pinned by name in
+`overflight.test.ts`. Where no named area covers the point — Natural Earth punches a hole in the
+North Atlantic and leaves coastal margins unclaimed — the answer is "open water" rather than the
+nearest guess: over the band the station flies, 4.5 % of positions.
+
 **Units and enumerations**, once the stream returned on 28/07/2026. The corrections marked
 `inferred` were confirmed by the live values: partial pressures really are in mmHg (ppO₂ 168,
 ppN₂ 580, ppCO₂ 2.65 — and their sum matches the cabin pressure), tank quantities in per cent,

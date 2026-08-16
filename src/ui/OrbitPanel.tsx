@@ -58,7 +58,9 @@ export function OrbitPanel() {
       {elements && (
         <p className="panel__footnote">
           Position computed by SGP4 propagation of orbital elements from{' '}
-          {elements.epoch.toLocaleString('en-GB', { timeZone: 'UTC' })} UTC.
+          {elements.epoch.toLocaleString('en-GB', { timeZone: 'UTC' })} UTC. Checked against an
+          independent propagation of the same elements, it agrees to about a kilometre on the
+          ground — which is why the coordinates stop at two decimals.
         </p>
       )}
     </section>
@@ -84,10 +86,19 @@ function Metric({
   )
 }
 
+/*
+ * Two decimals, not three, because the third was never a measurement.
+ *
+ * A thousandth of a degree is about 110 m. What this position is actually worth is 0.79 km, which
+ * is how far it sits from `api.wheretheiss.at` given the same elements — and that is agreement
+ * between two SGP4 propagations, not accuracy against the station, which is looser still and grows
+ * with the age of the elements. Printing a digit worth 110 m on a figure uncertain by 800 claims a
+ * precision nothing here has. Two decimals is 1.1 km, which is honestly the resolution available.
+ */
 function formatLatitude(value: number): string {
-  return `${Math.abs(value).toFixed(3)}° ${value >= 0 ? 'N' : 'S'}`
+  return `${Math.abs(value).toFixed(2)}° ${value >= 0 ? 'N' : 'S'}`
 }
 
 function formatLongitude(value: number): string {
-  return `${Math.abs(value).toFixed(3)}° ${value >= 0 ? 'E' : 'W'}`
+  return `${Math.abs(value).toFixed(2)}° ${value >= 0 ? 'E' : 'W'}`
 }

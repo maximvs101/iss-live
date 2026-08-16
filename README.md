@@ -77,6 +77,7 @@ npm run dev
 | `npm test` | unit tests (`npm run test:watch` to keep them running) |
 | `npm run preview` | serves the built `dist/` as a static host would |
 | `npm run build:catalog` | regenerates `src/data/pui-catalog.json` from `data/PUIList.xml` |
+| `npm run build:marine` | regenerates the named sea outlines used to say what the station is over |
 | `npm run build:model` | prepares the NASA 3D model for the web |
 | `npm run build:earth` | cuts the monthly Blue Marble base maps from NASA's originals |
 | `npm run build:detail` | cuts the high-resolution surface tiles the globe overlays |
@@ -251,10 +252,17 @@ reconnection — and a display taking it at face value would announce a station 
   line and reports the intercept instead of thresholding the difference.
 - The four operational gyroscopes sit inside the Z1 truss and are not modelled separately, so their
   telemetry is attached to `truss-z1` rather than to parts of their own.
-- Whether a value of exactly zero is ever displayed as one. The broadcast pushed 0.00 V on all eight
-  array channels for a single minute on reconnection (see [the collector](#the-collector)), and
-  nothing in the application currently distinguishes that from a reading. It is the same class of
-  problem as a frozen value read as a fresh one, and it has not been looked at.
+- Whether a value of exactly zero is ever displayed as one. The broadcast pushed `0` on **22 of the
+  25 symbols under observation at the same instant** on reconnection — all eight array voltages, all
+  eight gimbal angles, both rotary joints, station mass — and was back to normal a minute later (see
+  [the collector](#the-collector)). Nothing in the application distinguishes that from a reading.
+  Deliberately not fixed: it has been seen **once**, and a rule fitted to a single occurrence is how
+  a display starts hiding real data. What would settle it is a second occurrence, or a plausible
+  range per symbol taken from enough observation to be worth trusting.
+- How far the drawn orientation of the solar arrays can be from the real one. The angles are
+  telemetry, but the mapping from them into the model carries **8.9° that nothing accounts for** —
+  see the beta-joint entry above. Until that resolves, the wings on screen are right to within an
+  amount nobody has bounded.
 - Whether the stalled atmosphere sensors ever resume, which nothing is watching now that the
   collector is stopped. As of 16/08/2026 they had not: Destiny's and Tranquility's partial
   pressures, the O₂ production rate and station mass were unchanged since 11/08 16:45. The question

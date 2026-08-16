@@ -5,11 +5,19 @@
  * family as the coastlines already used for the globe. A point-in-polygon test against 177
  * countries answers the land case exactly.
  *
- * The sea is a different matter: there is no ocean geometry in that dataset, and adding one for
- * a caption would cost more than it is worth. Ocean names are therefore assigned by region — a
- * coarse division by longitude and latitude, accurate enough to say "South Pacific" but not to
- * name a sea. The distinction is stated in the returned value so the interface can be honest
- * about which it is.
+ * The sea is answered the same way, and used not to be. Ocean names came from a partition of the
+ * globe by longitude and latitude, written by hand and described as approximate. It was not
+ * approximate, it was wrong: the Black Sea and the Baltic came back as "Indian Ocean", the Gulf of
+ * Mexico and the Caribbean as "North Pacific", the Sea of Japan as "Indian Ocean" — and the
+ * station crosses the last three on most orbits. A caption that names the wrong ocean is worse
+ * than one that names none, and no tuning of the cuts repairs a method with no geometry in it.
+ *
+ * So the sea now comes from Natural Earth's marine areas: seven ocean basins and twenty-two named
+ * seas and gulfs, prepared by `npm run build:marine` (49 kB gzipped). Seas are tested before
+ * basins, so the answer is the most specific one that contains the point.
+ *
+ * Those polygons do not tile the ocean — the Baltic, the North Sea and the Channel are in none of
+ * them — and the gaps are answered "open water" rather than guessed at from a neighbour.
  */
 import { feature } from 'topojson-client'
 import type { Topology } from 'topojson-specification'
@@ -19,11 +27,42 @@ import type { Feature, FeatureCollection, MultiPolygon, Polygon } from 'geojson'
 import countriesTopology from 'world-atlas/countries-110m.json' with { type: 'json' }
 
 export interface Overflight {
-  /** What to show: a country name, or the name of a stretch of ocean. */
+  /** What to show: a country, a named sea or ocean, or open water with no name in the set. */
   name: string
-  /** `country` is exact; `ocean` is a regional approximation. */
-  kind: 'country' | 'ocean'
+  /**
+   * `country` and `marine` are both point-in-polygon against real outlines. `water` means no
+   * polygon claimed the point — it is a gap in the marine set, not a guess.
+   */
+  kind: 'country' | 'marine' | 'water'
 }
+
+interface MarineArea {
+  name: string
+  /** 0 is an ocean basin, 1 a named sea within one. */
+  rank: number
+  polygons: number[][][][]
+}
+
+let marine: MarineArea[] | null = null
+
+/*
+ * Fetched as its own chunk rather than bundled into the entry.
+ *
+ * Measured: imported statically it landed in the entry file and put 65 kB gzipped in front of the
+ * first paint, against 34 kB for the whole of the application code. Nothing on screen needs it
+ * until an orbital position exists, and that waits on a network call to Celestrak — so by the time
+ * there is anything to name, this has long since arrived.
+ *
+ * Started here at module load, never awaited by the lookup. A failure leaves an empty set, which
+ * answers "open water" everywhere: the wrong amount of information, never the wrong information.
+ */
+export const marineReady: Promise<void> = import('../data/marine-areas.json')
+  .then((module) => {
+    marine = module.default as MarineArea[]
+  })
+  .catch(() => {
+    marine = []
+  })
 
 type CountryFeature = Feature<Polygon | MultiPolygon, { name?: string }>
 
@@ -115,28 +154,45 @@ function pointInFeature(longitude: number, latitude: number, entry: CountryFeatu
 }
 
 /**
- * Name of the stretch of ocean at a position.
+ * Name of the sea at a position, or null where the marine set has nothing.
  *
- * Boundaries are conventional and deliberately coarse. The poles come first because they cut
- * across every longitude; the rest divides the globe into the three great ocean basins.
+ * The areas arrive sorted with the seas first, so the first polygon that contains the point is
+ * already the most specific one — the Gulf of Mexico rather than the North Atlantic that encloses
+ * it.
  */
-function oceanName(latitude: number, longitude: number): string {
-  if (latitude > 66) return 'Arctic Ocean'
-  if (latitude < -60) return 'Southern Ocean'
-
-  const north = latitude >= 0
-  // The Americas separate Pacific from Atlantic; Africa and Australia bracket the Indian Ocean.
-  if (longitude >= 20 && longitude < 147) return 'Indian Ocean'
-  if (longitude >= 147 || longitude < -70) return north ? 'North Pacific' : 'South Pacific'
-  return north ? 'North Atlantic' : 'South Atlantic'
+function marineName(latitude: number, longitude: number): string | null {
+  for (const area of marine ?? []) {
+    for (const polygon of area.polygons) {
+      const [outer, ...holes] = polygon
+      if (!outer || !pointInRing(longitude, latitude, outer)) continue
+      if (holes.some((hole) => pointInRing(longitude, latitude, hole))) continue
+      return area.name
+    }
+  }
+  return null
 }
 
-/** What lies directly beneath a point on the ground. */
-export function overflightAt(latitude: number, longitude: number): Overflight {
+/**
+ * What lies directly beneath a point on the ground, or null while the sea outlines are still
+ * arriving — a caller that has nothing to say should say nothing rather than guess for a second.
+ *
+ * Only meaningful within about 56° of the equator. The marine set is cut to the band the station
+ * can actually fly over, and both callers read a position that cannot leave it.
+ */
+export function overflightAt(latitude: number, longitude: number): Overflight | null {
   for (const entry of loadCountries()) {
     if (pointInFeature(longitude, latitude, entry)) {
       return { name: entry.properties?.name ?? 'Land', kind: 'country' }
     }
   }
-  return { name: oceanName(latitude, longitude), kind: 'ocean' }
+
+  if (marine === null) return null
+
+  const sea = marineName(latitude, longitude)
+  if (sea) return { name: sea, kind: 'marine' }
+
+  // Named nothing rather than named wrongly. The gaps are real water — a scatter of coastal
+  // margins and the hole Natural Earth punches in the North Atlantic — and the previous version's
+  // answer for them was an ocean on the far side of the planet.
+  return { name: 'open water', kind: 'water' }
 }

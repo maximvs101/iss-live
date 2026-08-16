@@ -80,8 +80,19 @@ export function PartPhoto({ part }: { part: PartId }) {
         entry — caption, keywords, every size they hold — and the second fetches the frame itself
         at full resolution. Its dimensions are printed so nobody opens a 3 MB JPEG blind.
       */}
+      {/*
+        The title is the caption NASA filed the frame under, and it is shown rather than a label of
+        ours for a reason: these come back from a search of the image catalogue, ranked, not from
+        anything that certifies the frame shows the selected part. A reader who can see what NASA
+        called it can judge the match; one shown "Cupola" under our own byline cannot.
+      */}
       <figcaption>
-        <a href={photo.page} target="_blank" rel="noreferrer noopener">
+        <a
+          href={photo.page}
+          target="_blank"
+          rel="noreferrer noopener"
+          title="NASA’s own caption. These frames are the best matches from a search of the image catalogue, not a verified identification."
+        >
           {photo.title}
         </a>
         <span className="part-photo__credit">
