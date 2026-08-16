@@ -99,6 +99,8 @@ async function listen() {
   /** Updates beyond the first for a symbol, counted here so the loop can stop on them. */
   let pushes = 0
   let enough = false
+  /** Lines carrying a TLCP field-compression marker, which this parser does not decode. */
+  let odd = 0
 
   try {
     while (!enough && Date.now() < until) {
@@ -149,8 +151,31 @@ async function listen() {
           if (!pui) continue
 
           const bar = buffer.indexOf('|', c3 + 1)
-          const stamp = bar === -1 || bar > end ? '' : buffer.slice(c3 + 1, bar)
-          const value = bar === -1 || bar > end ? buffer.slice(c3 + 1, end) : buffer.slice(bar + 1, end)
+          const split = bar === -1 || bar > end ? -1 : bar
+
+          /*
+           * A field section carrying '^' is TLCP saying "the next N fields are unchanged", and
+           * neither this parser nor the one before it decodes that. The old one read the marker
+           * itself as a timestamp; this one skips the line and counts it.
+           *
+           * Recording nothing beats recording a marker as though it were a measurement, which is
+           * the standing rule here. Nothing in four days of capture has contained one — but every
+           * capture examined was of a quiet stream, and field compression is precisely what a busy
+           * one would use, so the counter exists to say if that assumption ever breaks.
+           */
+          if (buffer.charCodeAt(c3 + 1) === 94) {
+            odd += 1
+            continue
+          }
+
+          /*
+           * With one field and no separator, that field is the FIRST one — TimeStamp — not the
+           * value. The rewrite had this inverted, assigning a lone field to Value; caught by a
+           * differential test against the previous parser rather than by reading, and never
+           * triggered in production because this server always sends both fields.
+           */
+          const stamp = split === -1 ? buffer.slice(c3 + 1, end) : buffer.slice(c3 + 1, split)
+          const value = split === -1 ? '' : buffer.slice(split + 1, end)
 
           const previous = seen.get(pui)
           if (previous) pushes += 1
@@ -191,6 +216,7 @@ async function listen() {
   }
 
   if (!session) throw new Error('no session')
+  seen.odd = odd
   return seen
 }
 
@@ -259,7 +285,7 @@ async function gather(env, at, started) {
   await env.DB.batch([
     env.DB.prepare(
       'INSERT OR REPLACE INTO liveness (at, state, pushes, symbols, moved, seconds, changed, stamps, detail)' +
-        ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)',
+        ' VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
     ).bind(
       at,
       'ok',
@@ -269,6 +295,8 @@ async function gather(env, at, started) {
       (Date.now() - started) / 1000,
       anyChange ? JSON.stringify(changed) : null,
       anyChange ? JSON.stringify(stamps) : null,
+      // Null on every row so far. If it ever isn't, the parser is dropping lines it cannot read.
+      seen.odd ? `skipped ${seen.odd} compressed` : null,
     ),
     env.DB.prepare('INSERT OR REPLACE INTO carried (id, held, at) VALUES (1, ?, ?)')
       .bind(JSON.stringify(current), at),
