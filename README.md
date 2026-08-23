@@ -81,6 +81,7 @@ npm run dev
 | `npm run audit:photos` | prints the photograph ranked first for every part, with its URL, so the images can be opened and judged |
 | `npm run analyse:offset` | replays the collector's record through the array geometry — where every wing pointed, for every minute recorded |
 | `npm run build:model` | prepares the NASA 3D model for the web |
+| `npm run build:model:mobile` | derives the reduced build a phone can hold in memory |
 | `npm run build:earth` | cuts the monthly Blue Marble base maps from NASA's originals |
 | `npm run build:detail` | cuts the high-resolution surface tiles the globe overlays |
 | `npm run build:icons` | rasterises `favicon.svg` for the platforms that refuse SVG |
@@ -107,7 +108,29 @@ Nothing here needs a server. The page talks to Lightstreamer, Celestrak, DONKI a
 catalogue directly, all four over HTTPS, and holds its history in the browser — so any static host
 will do, with no secrets to configure and nothing to keep running.
 
-What decides the choice is weight. The build is **113 MB**, and a visit that opens the Station view
+### Two builds of the station, and why
+
+The 3D view crashed the tab on an iPhone, and the cause was not the download. Decoded, the desktop
+model occupies about **739 MB**: 108 textures at 1024×1024 become 577 MB of RGBA once mipmapped,
+and 4.8 M vertices carry 162 MB of float32 positions, normals and UVs. Every browser on iOS is
+WebKit underneath — Chrome included — and WebKit ends a tab's renderer somewhere between 250 and
+400 MB. It was not a slow load; it was an execution that could not finish.
+
+`npm run build:model:mobile` derives a second file from the first with its textures at 256, which
+is **37 MB instead of 577** and brings the total to 199. The geometry does not follow and cannot:
+the model is CAD-derived and hard-edged, 2.5 vertices per triangle because every face owns its
+normals, so `weld` finds nothing identical to merge and the simplifier has no shared edges to
+collapse — asked for a third of the triangles it returned 97 % of them. Meshopt would have carried
+quantization through to the GPU and was rejected on measurement: the file grew to 30 MB and the
+node count went from 580 to 751, because quantizing shared meshes inserts scaling nodes, and those
+nodes are the clickable modules and the twelve driven joints.
+
+A phone-sized touch screen also gets a pixel ratio of 1 rather than up to 2 — the framebuffer and
+its soft-shadow map are the one cost that scales with the square of it — and no hover acceleration
+structure, which exists for a pointer that moves every frame and buys nothing under a finger.
+`?model=light` and `?model=full` override the choice, on any device.
+
+What decides the choice for the rest is weight. The build is **113 MB**, and a visit that opens the Station view
 pulls about **22** of them: the month's base map at 4.1 MB, the cloud layer at 2.2, and the model at
 14.9. A visit that stays on the map costs under one. On a host billing 100 GB a month that is
 roughly 4,500 Station visits; **Cloudflare Pages** meters no bandwidth on its free plan, which is

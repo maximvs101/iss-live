@@ -9,8 +9,23 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { Group } from 'three'
+import { deviceBudget } from '../deviceBudget'
 
-export const ISS_MODEL_URL = '/models/iss-igoal.glb'
+/**
+ * Two builds of the same station, and which one is fetched is a memory decision.
+ *
+ * They differ only in texture size — 1024 against 256 — which is 577 MB of decoded RGBA against
+ * 37. The geometry is identical in both and cannot be reduced: the model is CAD-derived and
+ * hard-edged, 2.5 vertices per triangle because every face owns its normals, so nothing welds and
+ * the simplifier has no shared edges to collapse. See `scripts/build-iss-model-mobile.mjs`.
+ */
+const FULL_MODEL_URL = '/models/iss-igoal.glb'
+const LIGHT_MODEL_URL = '/models/iss-igoal-mobile.glb'
+
+export const ISS_MODEL_URL = deviceBudget().light ? LIGHT_MODEL_URL : FULL_MODEL_URL
+
+/** True when the reduced build is being used, so the interface can say so rather than imply parity. */
+export const ISS_MODEL_IS_LIGHT = ISS_MODEL_URL === LIGHT_MODEL_URL
 
 /**
  * Draco decoder served by the application itself: by default three would fetch it from a Google
@@ -19,7 +34,7 @@ export const ISS_MODEL_URL = '/models/iss-igoal.glb'
 const DRACO_DECODER_PATH = '/draco/'
 
 /** Compressed size of the model, used to report progress when the server sends no length. */
-const MODEL_BYTES = 14.9 * 1024 * 1024
+const MODEL_BYTES = (ISS_MODEL_IS_LIGHT ? 11.5 : 14.9) * 1024 * 1024
 
 let pending: Promise<Group> | null = null
 /** Progress of the shared download, so a second mount does not restart from zero. */

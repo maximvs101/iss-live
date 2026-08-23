@@ -27,6 +27,7 @@
     "verify:scene": "node scripts/verify-scene.mjs",
     "build:icons": "node scripts/build-icons.mjs",
     "build:model": "node scripts/build-iss-model.mjs",
+    "build:model:mobile": "node scripts/build-iss-model-mobile.mjs",
     "build:earth": "node scripts/build-earth-textures.mjs",
     "fix:alpha": "node scripts/fix-alpha-modes.mjs",
     "verify:model": "node scripts/verify-model-mapping.mjs",

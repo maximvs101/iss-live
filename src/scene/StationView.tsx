@@ -8,10 +8,11 @@
  * simplified station, the view reports what it is doing and how far along it is: a placeholder
  * shape would be indistinguishable from the real thing at a glance, and worse than an honest wait.
  */
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Stars } from '@react-three/drei'
 import { AdditiveBlending, CanvasTexture, SRGBColorSpace, Vector3 } from 'three'
+import { deviceBudget } from './deviceBudget'
 import type { DirectionalLight, Group } from 'three'
 import { useOrbitStore } from '../orbit/useOrbit'
 import { sunDirectionLvlh } from '../orbit/propagator'
@@ -260,6 +261,8 @@ const CANVAS_DESCRIPTION =
 
 export function StationView() {
   const { scene, loading, progress, error, retry } = useIssModel()
+  // Read once: it decides the pixel ratio, and a canvas cannot change it mid-life anyway.
+  const [budget] = useState(deviceBudget)
   // Mutated every frame from inside the Canvas; see SunPointer.
   const sunMarker = useRef<HTMLDivElement>(null)
 
@@ -297,7 +300,16 @@ export function StationView() {
         shadows="soft"
         gl={{ toneMappingExposure: 1.15 }}
         camera={{ position: [60, 34, 78], fov: 42, near: 0.5, far: farPlane(MAX_CAMERA_DISTANCE) }}
-        dpr={[1, 2]}
+        /*
+          Capped at 1 on a phone, where the device pixel ratio is 3.
+          
+          The framebuffer is the one cost that scales with the square of this number, and it is
+          paid on top of the 199 MB the reduced model already occupies. A 390-point iPhone screen
+          at dpr 3 renders 1170 pixels across and holds colour, depth and the soft-shadow map for
+          every one of them; at dpr 1 that is a ninth of the pixels. Shadows are what makes it
+          matter — `shadows="soft"` keeps its own buffer at the same resolution.
+        */
+        dpr={budget.light ? 1 : [1, 2]}
       >
         {/*
           Almost no fill, because there is almost none up there.

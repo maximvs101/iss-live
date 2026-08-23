@@ -8,7 +8,7 @@
  * With no data, the joints stay in their original position — the one the model was built in — and
  * nothing moves.
  */
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame, type ThreeEvent } from '@react-three/fiber'
 import { Bvh } from '@react-three/drei'
 import {
@@ -26,6 +26,7 @@ import { readNumber } from '../../telemetry/store'
 import { useSelectionStore } from '../../ui/selection'
 import type { PartId } from '../parts'
 import { JOINT_BINDINGS, jointAngle, partOfNode, type JointBinding } from './nodeMapping'
+import { deviceBudget } from '../deviceBudget'
 
 /**
  * Real span of the station across the truss, in metres — the model's longest axis.
@@ -130,6 +131,9 @@ export function IssGltf({ scene, rotation = [0, -Math.PI / 2, 0] }: IssGltfProps
   )
 
   /** Scale factor bringing the model to the real dimensions of the station. */
+  // Read once per mount: it decides whether the hover acceleration structure is worth building.
+  const [budget] = useState(deviceBudget)
+
   const scale = useMemo(() => {
     const box = new Box3().setFromObject(model)
     const size = box.getSize(new Vector3())
@@ -303,8 +307,14 @@ export function IssGltf({ scene, rotation = [0, -Math.PI / 2, 0] }: IssGltfProps
      *
      * `firstHitOnly` is safe here because the interface only ever needs the nearest surface under
      * the cursor.
+     *
+     * Off on a phone, where it buys nothing and costs what the device has least of. It exists for
+     * hover, and a finger does not hover — there is one raycast per tap, where a mouse fires one
+     * per frame. Building it means a tree over 555 meshes and holding it alongside a model that
+     * already occupies 199 MB there; paying for that to make an occasional tap 1.5 ms faster is
+     * the wrong trade on the one device that dies of memory.
      */
-    <Bvh firstHitOnly>
+    <Bvh firstHitOnly enabled={!budget.light}>
       <primitive
         object={model}
         scale={scale}
