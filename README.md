@@ -279,31 +279,19 @@ reconnection — and a display taking it at face value would announce a station 
   states the wings only stop following the Sun **above 40° of beta** (NTRS 20180007791), which every
   sample so far sits below, so none of the spread is backtracking.
 
-  What is left is the spread itself: 0.6° to 19.6°, varying over the record. Beta and the calendar
-  moved together across those five days, so a trend against one cannot yet be told from a trend
-  against the other. The collector is running again for exactly that.
+  **The confound is now broken.** Beta fell to zero on 21 August and rose again with the opposite
+  sign, so the same |beta| is reached twice, days apart — and `analyse:offset` splits the record on
+  the sign to compare them. Over nine shared values of |beta|, across 5,053 descending minutes and
+  1,983 ascending, the two halves agree to a **mean 1.6°**. The offset is a function of beta, not
+  of the calendar.
 
-  The script used to declare the zeros exonerated as soon as the offset varied at all, which is
-  the one wrong answer available here: a constant error *plus* an off-point on top varies exactly
-  like a pure off-point and differs only in where the relation lands at beta zero. It now fits the
-  line and reports the intercept instead of thresholding the difference.
-- The four operational gyroscopes sit inside the Z1 truss and are not modelled separately, so their
-  telemetry is attached to `truss-z1` rather than to parts of their own.
-- Whether a value of exactly zero is ever displayed as one. The broadcast pushed `0` on **22 of the
-  25 symbols under observation at the same instant** on reconnection — all eight array voltages, all
-  eight gimbal angles, both rotary joints, station mass — and was back to normal a minute later (see
-  [the collector](#the-collector)). Nothing in the application distinguishes that from a reading.
-  Deliberately not fixed: it has been seen **once**, and a rule fitted to a single occurrence is how
-  a display starts hiding real data. What would settle it is a second occurrence, or a plausible
-  range per symbol taken from enough observation to be worth trusting.
-- Keeping the curated photographs curated. The frame shown first for each part was chosen by
-  **looking at it** — the catalogue's text cannot answer whether a picture is a wide view of a
-  module or a portrait taken inside one, which was measured rather than assumed: *View in the Node
-  1/Unity module after docking* is three crew members waving, and *Food Stowage in Node 2 Harmony*
-  is an astronaut holding lunch. Candidates were rendered as contact sheets, four per part across
-  thirty-seven parts, and 21 of them now name a better frame by `nasa_id` in `PREFERRED`. The debt
-  that creates: those identifiers are somebody else's catalogue, `npm run audit:photos` is what
-  shows whether they still resolve, and nothing runs it automatically.
+  Getting there needed one more filter, and the record is what supplied it. A single bin — |beta|
+  21° — read 45.5° on the way up against 4.3° on the way down, and that one bin reversed the
+  verdict of the whole comparison. Minute by minute it was the starboard SARJ frozen at exactly
+  124.8° for hours on 25 August: the arrays were parked, not mispointed. A tracking joint turns 4°
+  a minute, so consecutive readings settle it — which the live check has always done by reading
+  twice, and which the stored record already contained.
+
 - How far the drawn orientation of the solar arrays can be from the real one. The angles are
   telemetry, but the mapping from them into the model carries **8.9° that nothing accounts for** —
   see the beta-joint entry above. Until that resolves, the wings on screen are right to within an

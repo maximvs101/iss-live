@@ -53,6 +53,22 @@ const SWEEP_STEP = 1
  */
 const ALPHA_TOLERANCE = 15
 
+/**
+ * A tracking rotary joint turns about 4° a minute. Below this between two consecutive readings it
+ * is parked, and the wings are wherever the crew left them.
+ *
+ * The irreducible residual alone does not catch this, and it was measured not caught: on 25 August
+ * the starboard SARJ sat at exactly 124.8° for hours while the orbit carried the geometry around
+ * it, so `irreducible` dipped under its threshold every few minutes and let the period through. It
+ * landed in the |beta| 21° bin as 45.5° off the Sun against 4.3° on the way down — one bin out of
+ * nine, and enough on its own to reverse the verdict of the whole comparison.
+ *
+ * The live check has always guarded this by reading the telemetry twice and seeing whether the
+ * joints moved. Here the record already holds both readings.
+ */
+const SARJ_MOVED_MIN = 0.5
+const STBD_SARJ = 'S0000003'
+
 const file = process.argv[2]
 if (!file) {
   console.error('usage: npm run analyse:offset -- rows.json')
@@ -83,6 +99,9 @@ const held = new Map()
 const samples = []
 let skippedIncomplete = 0
 let notTracking = 0
+let parked = 0
+let previousSarj = null
+let previousAt = null
 
 for (const row of rows) {
   for (const [pui, value] of Object.entries(JSON.parse(row.changed))) {
@@ -110,6 +129,19 @@ for (const row of rows) {
   const worstIrreducible = Math.max(...measured.map((wing) => wing.irreducible))
   if (worstIrreducible > ALPHA_TOLERANCE) {
     notTracking += 1
+    continue
+  }
+
+  // Did the truss actually turn since the previous reading? Gaps in the record are not evidence
+  // either way, so only consecutive minutes can answer it.
+  const sarj = held.get(STBD_SARJ)
+  const minutesSince = previousAt === null ? Infinity : (at.getTime() - previousAt) / 60_000
+  const turned = Math.abs(((sarj - previousSarj + 540) % 360) - 180)
+  const consecutive = minutesSince <= 2 && previousSarj !== null
+  previousSarj = sarj
+  previousAt = at.getTime()
+  if (consecutive && turned < SARJ_MOVED_MIN) {
+    parked += 1
     continue
   }
   samples.push({
@@ -202,17 +234,52 @@ if (betas.every((b) => b < BACKTRACK_BETA)) {
 }
 
 /*
- * Beta and date are confounded here, and saying so is not optional.
+ * The comparison the whole record was collected for.
  *
- * |beta| fell monotonically across the record, so every beta value belongs to one stretch of one
- * day. A curve read off these bins cannot tell "the offset depends on beta" from "the offset was
- * different on Tuesday", and the dip in the middle is as consistent with one as the other. Only a
- * record spanning a beta cycle in both directions separates them, which is what the collector is
- * running for.
+ * Beta falls to zero and rises again with the opposite sign, so the same |beta| is reached twice,
+ * days apart. Binned on |beta| alone the two halves are averaged together and the question cannot
+ * be asked; split by sign, it answers itself. If a given |beta| gives the same off-Sun angle on the
+ * way down and on the way up, the offset is a function of beta. If it does not, it was a function
+ * of the date and the curve was a coincidence.
  */
-const span = (samples[samples.length - 1].at.slice(0, 10) === samples[0].at.slice(0, 10))
-console.log(
-  `\nCaveat: |beta| and the calendar move together over this record (${samples[0].at.slice(0, 10)} to ` +
-    `${samples[samples.length - 1].at.slice(0, 10)}${span ? ', one day' : ''}), so a trend against beta` +
-    '\nand a trend against the date are the same trend here. Only a longer record separates them.',
-)
+const descending = samples.filter((sample) => sample.beta < 0)
+const ascending = samples.filter((sample) => sample.beta > 0)
+const median = (list) => {
+  const values = list.map((x) => x.medianOff).sort((a, b) => a - b)
+  return values.length ? values[Math.floor(values.length / 2)] : null
+}
+
+if (descending.length > 20 && ascending.length > 20) {
+  const span = (list) => `${list[0].at.slice(0, 10)} to ${list[list.length - 1].at.slice(0, 10)}`
+  console.log(`\ndescending (beta < 0): ${descending.length} minutes, ${span(descending)}`)
+  console.log(`ascending  (beta > 0): ${ascending.length} minutes, ${span(ascending)}`)
+  console.log(`\n|beta|   descending   ascending   difference`)
+
+  const gaps = []
+  for (let key = 0; key <= 60; key += 1) {
+    const down = descending.filter((x) => Math.round(Math.abs(x.beta)) === key)
+    const up = ascending.filter((x) => Math.round(Math.abs(x.beta)) === key)
+    if (down.length < 5 || up.length < 5) continue
+    const a = median(down)
+    const b = median(up)
+    gaps.push(Math.abs(a - b))
+    console.log(
+      `${String(key).padStart(5)}°   ${a.toFixed(1).padStart(9)}°   ${b.toFixed(1).padStart(8)}°   ${(b - a).toFixed(1).padStart(9)}°`,
+    )
+  }
+
+  if (gaps.length) {
+    const mean = gaps.reduce((x, y) => x + y, 0) / gaps.length
+    console.log(`\nmean difference over ${gaps.length} shared values of |beta|: ${mean.toFixed(1)}°`)
+    console.log(
+      mean < 3
+        ? 'The two halves agree: the offset is a function of beta, not of the date.'
+        : 'The two halves disagree: beta alone does not explain this offset.',
+    )
+  }
+} else {
+  console.log(
+    `\nCaveat: ${descending.length} minutes at negative beta against ${ascending.length} at positive,` +
+      `\nso beta and the calendar still move together and no trend can be attributed to either.`,
+  )
+}
