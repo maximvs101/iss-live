@@ -61,6 +61,22 @@ const WATCH = {
    */
   USLAB000032: 'j2000 x', USLAB000033: 'j2000 y', USLAB000034: 'j2000 z',
   USLAB000035: 'j2000 vx', USLAB000036: 'j2000 vy', USLAB000037: 'j2000 vz',
+  /*
+   * The five states that say whether a reading may be interpreted at all, added 30/08/2026.
+   *
+   * Every conclusion about where the arrays point rests on premises nobody wrote down until they
+   * were violated: that the station is flying its nominal attitude, that it is not manoeuvring,
+   * that no spacewalk or docking has the arrays somewhere deliberate, and that the rotary joints
+   * are tracking rather than parked. Twice now those premises have failed silently and been caught
+   * only by arithmetic — a starboard joint sitting at exactly 124.8° for hours, discovered because
+   * one bin out of nine disagreed and reversed the verdict of an entire comparison.
+   *
+   * The station publishes all of it and it was never being recorded. These are enumerated, so they
+   * change perhaps twice a week: they cost a snapshot update each and nothing after.
+   */
+  S0000008: 'sarj port mode', S0000009: 'sarj stbd mode',
+  USLAB000017: 'attitude frame', USLAB000081: 'manoeuvre in progress',
+  USLAB000086: 'station mode',
   [CLOCK]: 'station clock',
 }
 
@@ -97,12 +113,31 @@ const MAX_HZ = 0.2
 /**
  * A ceiling on pushes, kept only as a guard now that the throttle does the work.
  *
- * Thirty-three items at 0.2 Hz over ten seconds cannot exceed sixty-six. Eighty therefore never
+ * Thirty-eight items at 0.2 Hz over ten seconds cannot exceed seventy-six. Eighty therefore never
  * fires while the server honours the frequency — it exists for the case
  * where it stops honouring it, and bounds that minute to roughly fifty reads instead of the two
  * hundred and nineteen that used to blow the CPU allowance.
  */
-const MAX_PUSHES = 80
+const MAX_PUSHES = 90
+
+/**
+ * Stop once the minute's work is actually done, rather than listening to the end regardless.
+ *
+ * What a minute has to produce is one reading of every symbol — the snapshot gives that — and
+ * enough updates beyond it to show the station is speaking. Both arrive in the first seconds; the
+ * rest of the window is spent reading a stream nobody is going to look at.
+ *
+ * The reason for caring is margin. With thirty-three symbols the invocation measured 7.5 to 9.3 ms
+ * of CPU against a ceiling of 10, and a fortnight of collection is twenty thousand invocations —
+ * a tail that never showed in six samples will certainly show in twenty thousand. Overshooting is
+ * not a lost minute but an hour: it drains the burst allowance and every invocation after it is
+ * killed at exactly 10 ms until the allowance refills, which is how eighty per cent of an earlier
+ * run was lost.
+ *
+ * Fifteen is well past the point of proof. A quiet stream reaches neither condition and listens to
+ * the end, which is both correct and cheap — there is nothing arriving to read.
+ */
+const LIVENESS_PUSHES = 15
 
 const post = (url, body) =>
   fetch(url, {
@@ -221,7 +256,9 @@ async function listen() {
             value: value || previous?.value || '',
             updates: (previous?.updates ?? 0) + 1,
           })
-          if (pushes >= MAX_PUSHES) {
+          // Everything the minute is for: every symbol seen once, and the station demonstrably
+          // speaking. Or the guard, if the server ever stops honouring the frequency.
+          if ((seen.size >= ITEMS.length && pushes >= LIVENESS_PUSHES) || pushes >= MAX_PUSHES) {
             enough = true
             break
           }

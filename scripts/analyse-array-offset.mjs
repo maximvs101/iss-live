@@ -115,6 +115,7 @@ let previousSarj = null
 let previousAt = null
 
 for (const row of rows) {
+  const stamps = row.stamps ? JSON.parse(row.stamps) : {}
   for (const [pui, value] of Object.entries(JSON.parse(row.changed))) {
     if (PUIS.has(pui) || pui === BETA_PUI || STATE_PUIS.includes(pui)) {
       const numeric = Number(value)
@@ -128,7 +129,22 @@ for (const row of rows) {
     continue
   }
 
-  const at = new Date(row.at)
+  /*
+   * The station's clock, not ours, whenever the row carries it.
+   *
+   * `at` is when the invocation started; the reading it holds was taken some seconds earlier, and
+   * the station stamps every value it sends. Seconds matter here in a way they do not elsewhere:
+   * the local frame turns with the orbit at about 3.9° a minute, so ten seconds of staleness is
+   * 0.6° of frame rotation applied to every angle measured against it.
+   *
+   * The stamp is hours since the start of the year, hour 24 being 1 January — the same origin the
+   * application's `onboardTimestampToDate` uses, transcribed rather than imported because this
+   * script has no business pulling in the browser's telemetry module.
+   */
+  const stampHours = Number(stamps[STATE_PUIS[0]] ?? stamps[STBD_SARJ])
+  const at = Number.isFinite(stampHours) && stampHours > 0
+    ? new Date(Date.UTC(new Date(row.at).getUTCFullYear(), 0, 1) + (stampHours - 24) * 3_600_000)
+    : new Date(row.at)
   const hasState = STATE_PUIS.every((pui) => held.has(pui))
   const geometry = hasState
     ? geometryFromState(
@@ -136,7 +152,9 @@ for (const row of rows) {
         STATE_PUIS.slice(3).map((pui) => held.get(pui)),
         at,
       )
-    : geometryAt(satrec, at)
+    : satrec
+      ? geometryAt(satrec, at)
+      : null
   if (!geometry) continue
   if (hasState) fromStation += 1
   else propagated += 1
