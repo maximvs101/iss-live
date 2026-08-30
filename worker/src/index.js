@@ -41,6 +41,26 @@ const WATCH = {
   NODE3000001: 'tranquility ppO2', NODE3000003: 'tranquility ppCO2',
   NODE3000011: 'o2 production', USLAB000039: 'station mass',
   USLAB000058: 'cabin pressure', USLAB000040: 'beta measured',
+  /*
+   * The station's own position and velocity, added 30/08/2026 for a reason worth writing down.
+   *
+   * The array-pointing analysis needs the Sun's direction in the station's own frame, and until
+   * now it built that frame by propagating a Celestrak element set to the moment of each reading.
+   * Beta survives that perfectly — propagated and published agree to 0.04° nineteen days out — but
+   * the frame does not: it turns with the station's position along the orbit, and along-track error
+   * is exactly what a stale element set accumulates.
+   *
+   * Measured, and it is not subtle. The residual that no gimbal angle can remove, which should be
+   * a couple of degrees whenever the arrays are tracking, ran 2.3° on the day of the element set's
+   * epoch and 34.2° nineteen days before it, decreasing monotonically in between. None of that is
+   * the station; all of it is the propagation. The analysis was quietly getting worse at reading
+   * its own oldest data, every day.
+   *
+   * With these six the frame comes from the station and the Sun from the date, and nothing has to
+   * be propagated at all.
+   */
+  USLAB000032: 'j2000 x', USLAB000033: 'j2000 y', USLAB000034: 'j2000 z',
+  USLAB000035: 'j2000 vx', USLAB000036: 'j2000 vy', USLAB000037: 'j2000 vz',
   [CLOCK]: 'station clock',
 }
 
@@ -77,12 +97,12 @@ const MAX_HZ = 0.2
 /**
  * A ceiling on pushes, kept only as a guard now that the throttle does the work.
  *
- * Twenty-seven items at 0.2 Hz over ten seconds cannot exceed fifty-four, and measures twenty-five.
- * Sixty therefore never fires while the server honours the frequency — it exists for the case
+ * Thirty-three items at 0.2 Hz over ten seconds cannot exceed sixty-six. Eighty therefore never
+ * fires while the server honours the frequency — it exists for the case
  * where it stops honouring it, and bounds that minute to roughly fifty reads instead of the two
  * hundred and nineteen that used to blow the CPU allowance.
  */
-const MAX_PUSHES = 60
+const MAX_PUSHES = 80
 
 const post = (url, body) =>
   fetch(url, {

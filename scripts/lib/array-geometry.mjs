@@ -123,6 +123,33 @@ export function geometryAt(satrec, date) {
   }
 }
 
+/**
+ * The same, from the station's own position instead of a propagated one.
+ *
+ * Preferred wherever the record holds it, because propagation is where this analysis was quietly
+ * going wrong. Beta survives a stale element set — propagated and published agree to 0.04° after
+ * nineteen days — but the local frame does not: it turns with the station's place along its orbit,
+ * and along-track drift is exactly what accumulates. Measured over the collector's record, the
+ * residual no gimbal can remove ran 2.3° on the day of the element set's epoch and 34.2° nineteen
+ * days before it, decreasing monotonically in between. That is not the station moving; it is the
+ * propagation, and nothing in the output said so.
+ *
+ * The published vector is J2000 and SGP4's is TEME, which differ by the precession since 2000 —
+ * about 0.37°. Irrelevant here and worth naming: it is a rotation of the frame, not a drift, and
+ * it does not grow.
+ */
+export function geometryFromState(position, velocity, date) {
+  const state = {
+    eci: { x: position[0], y: position[1], z: position[2] },
+    velocity: { x: velocity[0], y: velocity[1], z: velocity[2] },
+  }
+  return {
+    orbit: state,
+    beta: betaAngle(state, date),
+    sun: new Vector3(...sunDirectionLvlh(state, date)).normalize(),
+  }
+}
+
 /** Angle between a normal and the Sun, taking the blanket as two-sided. */
 export const offSunOf = (normal, sun) =>
   (Math.acos(Math.min(1, Math.abs(normal.dot(sun)))) * 180) / Math.PI

@@ -27,7 +27,7 @@
 import { readFileSync } from 'node:fs'
 import { twoline2satrec } from 'satellite.js'
 import { JOINT_BINDINGS } from '../src/scene/nasa/nodeMapping.ts'
-import { WINGS, geometryAt, measureAll } from './lib/array-geometry.mjs'
+import { WINGS, geometryAt, geometryFromState, measureAll } from './lib/array-geometry.mjs'
 
 const CELESTRAK = 'https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=TLE'
 
@@ -94,18 +94,29 @@ const REQUIRED = new Set(
 const PUIS = new Set(JOINT_BINDINGS.map((binding) => binding.pui))
 const BETA_PUI = 'USLAB000040'
 
+/**
+ * The station's own J2000 state vector, when the record has it.
+ *
+ * Recorded from 30/08/2026. Before that the frame had to be propagated, and the results degrade
+ * with the age of the element set used — see `geometryFromState`. Rows without it are still
+ * measured, and counted separately so the split is visible rather than assumed away.
+ */
+const STATE_PUIS = ['USLAB000032', 'USLAB000033', 'USLAB000034', 'USLAB000035', 'USLAB000036', 'USLAB000037']
+
 /** Carried forward: a symbol absent from a row is a symbol that did not move. */
 const held = new Map()
 const samples = []
 let skippedIncomplete = 0
 let notTracking = 0
 let parked = 0
+let fromStation = 0
+let propagated = 0
 let previousSarj = null
 let previousAt = null
 
 for (const row of rows) {
   for (const [pui, value] of Object.entries(JSON.parse(row.changed))) {
-    if (PUIS.has(pui) || pui === BETA_PUI) {
+    if (PUIS.has(pui) || pui === BETA_PUI || STATE_PUIS.includes(pui)) {
       const numeric = Number(value)
       if (Number.isFinite(numeric)) held.set(pui, numeric)
     }
@@ -118,8 +129,17 @@ for (const row of rows) {
   }
 
   const at = new Date(row.at)
-  const geometry = geometryAt(satrec, at)
+  const hasState = STATE_PUIS.every((pui) => held.has(pui))
+  const geometry = hasState
+    ? geometryFromState(
+        STATE_PUIS.slice(0, 3).map((pui) => held.get(pui)),
+        STATE_PUIS.slice(3).map((pui) => held.get(pui)),
+        at,
+      )
+    : geometryAt(satrec, at)
   if (!geometry) continue
+  if (hasState) fromStation += 1
+  else propagated += 1
 
   const measured = measureAll(held, geometry.sun, SWEEP_STEP)
   if (measured.length < WINGS.length) continue
