@@ -203,13 +203,23 @@ export interface FormattedValue {
  * Formats a raw value received from the stream.
  * Missing data stays missing: never a placeholder zero.
  */
-export function formatValue(symbol: PuiSymbol, raw: string | null | undefined): FormattedValue {
+/**
+ * @param year the station's own published year, for the one symbol that needs it. It is a
+ * parameter rather than a lookup so this stays a function of its arguments: the clock names a day
+ * of the year and nothing else, and the year it belongs to is a second reading, not a guess from
+ * this machine's calendar.
+ */
+export function formatValue(
+  symbol: PuiSymbol,
+  raw: string | null | undefined,
+  year?: number | null,
+): FormattedValue {
   const unit = resolveUnit(symbol)
   if (raw === null || raw === undefined || raw === '') {
     return { text: null, unit, state: null }
   }
 
-  if (symbol.pui === 'TIME_000001') return formatOnboardTime(raw)
+  if (symbol.pui === 'TIME_000001') return formatOnboardTime(raw, year ?? null)
 
   if (symbol.values) {
     // States arrive sometimes as "2" and sometimes as "2.00", depending on the sensor.
@@ -228,13 +238,21 @@ export function formatValue(symbol: PuiSymbol, raw: string | null | undefined): 
 }
 
 /**
- * Onboard GMT, published as milliseconds elapsed since the start of the year.
+ * Onboard GMT, published as milliseconds — but not from the start of the year.
  *
  * Raw, it reads "18126959000 ms", which tells a reader nothing. Divided by the length of a day
- * it gives the day of the year and the time within it — checked against this machine's UTC
- * clock and agreeing to within six seconds.
+ * it gives the day of the year and the time within it, which is all this function does.
+ *
+ * The origin is 31 December 00:00 UTC of the *previous* year, the same convention the stream's
+ * `TimeStamp` field uses where hour 24 is 1 January — see `onboardTimestampToDate`. That is why
+ * a plain `floor` lands on the ordinal date rather than one short of it, and it is worth stating
+ * because the obvious reading costs a day: measured on 31 August 2026, 21044500918 ms read as
+ * elapsed since 1 January gives **1 September**, and read from 31 December gives 31 August,
+ * 2.9 s behind this machine's clock, which is the broadcast lag.
  */
-function formatOnboardTime(raw: string): FormattedValue {
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+export function formatOnboardTime(raw: string, year: number | null): FormattedValue {
   const milliseconds = Number.parseFloat(raw)
   if (Number.isNaN(milliseconds)) return { text: raw, unit: null, state: null }
 
@@ -243,10 +261,40 @@ function formatOnboardTime(raw: string): FormattedValue {
   const secondsIntoDay = (days - dayOfYear) * 86_400
   const hh = Math.floor(secondsIntoDay / 3600)
   const mm = Math.floor((secondsIntoDay % 3600) / 60)
-  const ss = Math.floor(secondsIntoDay % 60)
   const pad = (n: number) => String(n).padStart(2, '0')
+  const clock = `${pad(hh)}:${pad(mm)}`
 
-  return { text: `Day ${dayOfYear} · ${pad(hh)}:${pad(mm)}:${pad(ss)}`, unit: 'GMT', state: null }
+  /*
+   * No seconds, deliberately.
+   *
+   * This symbol arrives **twenty times a second** — measured over 40 s on the live stream — and it
+   * is 2.9 s behind the wall clock by the time it gets here, so the seconds digit was a number
+   * nobody could read, changing faster than the eye, and wrong by three anyway. That the stream is
+   * alive is already said in the header, in the words a reader would use for it.
+   */
+  /*
+   * No unit either, once the text carries a date.
+   *
+   * `GMT` sat after the value and again in the label, and the row is the widest in its tab: at a
+   * 309 px track — three columns on a 1366 laptop — label, gap and value came to 359 and the date
+   * wrapped onto a second line, which spent the row that removing the year had just saved.
+   */
+  if (year === null) return { text: `Day ${dayOfYear} · ${clock}`, unit: null, state: null }
+
+  /*
+   * The calendar date, from the year the station publishes beside the clock.
+   *
+   * Built by adding the raw value to the origin rather than by adding days to 1 January, which is
+   * the same arithmetic the origin comment above describes and gets leap years right for nothing:
+   * day 60 of 2028 comes out 29 February because the Date arithmetic knows that February had one.
+   *
+   * The year printed is the one the instant lands in rather than the one that was passed, so that
+   * the date and the day of the year cannot disagree at the turn of a year.
+   */
+  const at = new Date(Date.UTC(year - 1, 11, 31) + milliseconds)
+  const date = `${at.getUTCDate()} ${MONTHS[at.getUTCMonth()]} ${at.getUTCFullYear()}`
+
+  return { text: `Day ${dayOfYear} · ${date} · ${clock}`, unit: null, state: null }
 }
 
 function defaultPrecision(value: number): number {

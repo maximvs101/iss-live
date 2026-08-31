@@ -86,27 +86,55 @@ describe('formatValue', () => {
 })
 
 describe('onboard time', () => {
-  // TIME_000001 publishes milliseconds elapsed since the start of the year. Raw, it reads
-  // "18126959000 ms", which tells a reader nothing. The Lightstreamer reference client renders
-  // the same field as "209/19:39:25", which is the decomposition reproduced here.
+  /*
+   * TIME_000001 publishes milliseconds, and *not* from the start of the year: the origin is
+   * 31 December 00:00 UTC of the year before, the same convention the stream's `TimeStamp` field
+   * uses where hour 24 is 1 January. Read the obvious way it lands a day late, which is why the
+   * live reading below is pinned rather than described.
+   */
   const clock = symbol({ pui: 'TIME_000001', units: 'MS' })
 
-  it('renders milliseconds-into-year as a day and a time', () => {
+  it('renders the day of the year and the time within it', () => {
     // 209.8446 days = day 209 at 20:16:15 UTC.
     const result = formatValue(clock, String(209.844618 * 86_400_000))
 
-    expect(result.text).toMatch(/^Day 209 · \d{2}:\d{2}:\d{2}$/)
-    expect(result.unit).toBe('GMT')
+    expect(result.text).toBe('Day 209 · 20:16')
+    // No unit badge: the label says GMT, and the row is the widest in its subsystem.
+    expect(result.unit).toBeNull()
   })
 
   it('places midnight at the start of a day', () => {
-    expect(formatValue(clock, String(210 * 86_400_000)).text).toBe('Day 210 · 00:00:00')
+    expect(formatValue(clock, String(210 * 86_400_000)).text).toBe('Day 210 · 00:00')
   })
 
-  it('pads hours, minutes and seconds', () => {
-    // Day 5 at 01:02:03.
+  it('pads hours and minutes', () => {
+    // Day 5 at 01:02:03 — the seconds are computed and not shown.
     const ms = (5 + (1 * 3600 + 2 * 60 + 3) / 86_400) * 86_400_000
-    expect(formatValue(clock, String(ms)).text).toBe('Day 5 · 01:02:03')
+    expect(formatValue(clock, String(ms)).text).toBe('Day 5 · 01:02')
+  })
+
+  it('names the date once the station has said which year it is', () => {
+    // Read off the live stream on 31 August 2026 at 13:41:43 UTC, arriving 2.9 s behind it.
+    expect(formatValue(clock, '21044500918', 2026).text).toBe('Day 243 · 31 Aug 2026 · 13:41')
+  })
+
+  it('reads the same value a day late if the origin is taken as 1 January', () => {
+    // The mistake this convention invites, pinned so the fix is not undone by someone tidying it.
+    const naive = new Date(Date.UTC(2026, 0, 1) + 21044500918)
+    expect(naive.toISOString().slice(0, 10)).toBe('2026-09-01')
+    expect(formatValue(clock, '21044500918', 2026).text).toContain('31 Aug')
+  })
+
+  it('gets February right in a leap year, for nothing', () => {
+    // Day 60 of 2028 is 29 February; of 2026, 1 March. The arithmetic is a Date, not a table.
+    expect(formatValue(clock, String(60.5 * 86_400_000), 2028).text).toBe('Day 60 · 29 Feb 2028 · 12:00')
+    expect(formatValue(clock, String(60.5 * 86_400_000), 2026).text).toBe('Day 60 · 1 Mar 2026 · 12:00')
+  })
+
+  it('says the day and the time when the year has not arrived', () => {
+    // The year is a second subscription and may be missing; the clock still reads.
+    expect(formatValue(clock, '21044500918').text).toBe('Day 243 · 13:41')
+    expect(formatValue(clock, '21044500918', null).text).toBe('Day 243 · 13:41')
   })
 
   it('does not crash on a value that is not a number', () => {

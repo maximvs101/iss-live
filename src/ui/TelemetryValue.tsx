@@ -6,7 +6,7 @@
  */
 import { getSymbol } from '../data/catalog'
 import { getChannel } from '../telemetry/subsystems'
-import { useSample } from '../telemetry/store'
+import { useSample, useTelemetryStore } from '../telemetry/store'
 import { formatValue, isUnitInferred, unitNote } from '../telemetry/units'
 import { LIVE_THRESHOLD_MS, formatAge, onboardTimestampToDate } from '../telemetry/health'
 
@@ -28,11 +28,21 @@ export function TelemetryValue({ pui, showLabel = true, showHint = false }: Tele
   const symbol = getSymbol(pui)
   const channel = getChannel(pui)
   const sample = useSample(pui)
+  /*
+   * The station's own year, for the one row that needs a second reading to be legible.
+   *
+   * Selected as `null` for every other row so the 163 of them do not re-render when it arrives,
+   * and read from the stream rather than from this machine's calendar: the clock names a day of
+   * the year, and which year that is belongs to the station.
+   */
+  const year = useTelemetryStore((state) =>
+    pui === 'TIME_000001' ? Number(state.samples['TIME_000002']?.value) || null : null,
+  )
 
   if (!symbol) return null
 
   const label = channel?.label ?? symbol.description
-  const formatted = formatValue(symbol, sample?.value)
+  const formatted = formatValue(symbol, sample?.value, year)
   // Age is measured from the station's own timestamp, not from when the packet reached us.
   // Several channels re-send month-old readings continuously; timing from arrival would present
   // them as fresh. Arrival time is the fallback for the rare sample with no usable timestamp.

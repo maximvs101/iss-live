@@ -22,6 +22,14 @@ export interface Channel {
   hint?: string
   /** Part of the 3D twin this channel describes. */
   part?: PartId
+  /**
+   * Subscribed, but not given a row of its own.
+   *
+   * For a symbol another reading needs and no one wants to read on its own line. The
+   * subscription list is built from these channels, so deleting the entry would stop the value
+   * arriving at all — which is the trap this flag exists to avoid.
+   */
+  hidden?: boolean
 }
 
 interface Section {
@@ -561,10 +569,21 @@ export const SUBSYSTEMS: Subsystem[] = [
         channels: [
           {
             pui: 'TIME_000001',
-            label: 'Onboard GMT',
-            hint: 'The station runs on Greenwich time — the compromise between Houston and Moscow.',
+            // Three letters because the value beside it is the widest in this subsystem: the day
+            // of the year, the date and the clock. `Onboard GMT` cost 57 px the date needed.
+            label: 'GMT',
+            hint: 'The station runs on Greenwich time — the compromise between Houston and Moscow. It counts days from 1 January, so day 243 is 31 August; the year comes from a second reading, TIME_000002.',
           },
-          { pui: 'TIME_000002', label: 'Year' },
+          /*
+           * The year is read and not shown.
+           *
+           * It had a row of its own, and in thirty seconds of listening it sent exactly one
+           * update — the subscription snapshot. A constant does not earn a line in a strip where
+           * the line is the scarce thing. But the clock beside it names a day of the year, which
+           * is ambiguous without it, so the value is still subscribed and now reads inside that
+           * clock: `Day 243 · 31 Aug 2026 · 13:41`.
+           */
+          { pui: 'TIME_000002', label: 'Year', hidden: true },
         ],
       },
       {

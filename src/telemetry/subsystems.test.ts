@@ -32,6 +32,20 @@ describe('subscribed symbols', () => {
     const subscribed = new Set(SUBSCRIBED_PUIS)
     for (const channel of ALL_CHANNELS) expect(subscribed.has(channel.pui)).toBe(true)
   })
+
+  /*
+   * The one a tidy-up would break.
+   *
+   * A hidden channel has no row, so it looks like dead weight in the declaration — and deleting it
+   * would stop the value arriving, because this list *is* the subscription. The onboard clock names
+   * a day of the year and reads the year from exactly such a channel.
+   */
+  it('include the channels that are read without being shown', () => {
+    const hidden = ALL_CHANNELS.filter((channel) => channel.hidden)
+    expect(hidden.length).toBeGreaterThan(0)
+    for (const channel of hidden) expect(SUBSCRIBED_PUIS).toContain(channel.pui)
+    expect(hidden.map((channel) => channel.pui)).toContain('TIME_000002')
+  })
 })
 
 describe('channel declarations', () => {

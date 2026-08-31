@@ -33,7 +33,8 @@ export function SubsystemPanel() {
         (subsystem?.sections ?? []).map((section) => ({
           id: section.id,
           label: section.label,
-          channels: section.channels.map((channel) => channel.pui),
+          // A hidden channel is subscribed and read by another row; it gets no line of its own.
+          channels: section.channels.filter((c) => !c.hidden).map((channel) => channel.pui),
         })),
         columnCount(stripWidth),
       ),
