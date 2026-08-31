@@ -5,9 +5,10 @@
  * and nothing says which. So every case here asserts the readings come out complete and in order,
  * whatever the split did, and only then looks at how the split reads.
  *
- * The column *counts* are pinned against the browser: `columns: 260px` with an 18 px gutter drew 7,
- * 5, 3 and 2 columns at the four widths measured on the live page, and `columnCount` has to agree
- * or the headings would be repeated in places the browser never breaks.
+ * The column *counts* are pinned at the four strip widths measured on the live page. They are a
+ * choice now rather than an imitation of `columns: 260px` — see `COLUMN_WIDTH` for the sweep that
+ * chose 300 — so the test exists to catch the width being changed without the consequence being
+ * looked at.
  */
 import { describe, expect, it } from 'vitest'
 import { COLUMN_GAP, COLUMN_WIDTH, columnCount, distribute, type ColumnSection } from './telemetryColumns'
@@ -26,10 +27,10 @@ const laid = (columns: ReturnType<typeof distribute>) =>
   columns.flatMap((column) => column.flatMap((block) => [...block.channels]))
 
 describe('how many columns the width affords', () => {
-  it('agrees with what the browser drew at the widths that were measured', () => {
-    // Widths of `.telemetry__sections` itself, read off the live page beside the column count.
-    expect(columnCount(2128)).toBe(7)
-    expect(columnCount(1473)).toBe(5)
+  it('draws the counts the sweep was run against', () => {
+    // Widths of `.telemetry__sections` itself, read off the live page at 2560, 1920, 1366 and 1024.
+    expect(columnCount(2128)).toBe(6)
+    expect(columnCount(1473)).toBe(4)
     expect(columnCount(964)).toBe(3)
     expect(columnCount(677)).toBe(2)
   })

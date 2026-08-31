@@ -15,13 +15,36 @@
  * A printed table solves this by repeating the heading over the continuation, and that is what this
  * does — which means knowing where the breaks fall, which means placing them here.
  *
- * The column *count* is still the browser's rule, reproduced exactly: `columns: 260px` with an
- * 18 px gutter fits `floor((width + gap) / (width + gap))` columns, and that formula returns 7, 5,
- * 3 and 2 for the four widths above, which is what the browser did.
+ * The count keeps the browser's arithmetic — `floor((width + gap) / (column + gap))` — because it
+ * is the right arithmetic, but the column width it is applied to is now a measured choice rather
+ * than the inherited 260. See `COLUMN_WIDTH`.
  */
 
-/** Narrowest a column may be, and the gutter between two. Both are also stated in the stylesheet. */
-export const COLUMN_WIDTH = 260
+/**
+ * Narrowest a column may be, and the gutter between two. Both are also stated in the stylesheet.
+ *
+ * 300 rather than the 260 this inherited, and the difference is not taste. A block needs
+ * `widest label + 10 + widest value` to set a reading on one line; measured with wrapping
+ * suppressed, across all six subsystems, that comes to 314 px for the worst section of Power, 322
+ * for Life support, 363 Thermal, 391 Communications, 398 Attitude & orbit and 425 for Command &
+ * data. At 260 the track came out 280 px wide and labels wrapped by the dozen.
+ *
+ * Swept at 1920 x 1080 over the six subsystems, counting every wrapped label and the total height
+ * of the six strips:
+ *
+ *     minimum   columns   track    strips     wrapped
+ *        200        6      231 px   2105 px     123
+ *        260        5      280      1849         33
+ *        300        4      355      1828          3
+ *        320        4      355      1828          3
+ *
+ * Which settles the question the other way round from the guess: packing more columns in makes
+ * the strip *taller*, because a wrapped label costs a whole line and buys nothing. 300 is where
+ * the wrapping stops and the height is at its lowest; 320 draws the same layout at 1920 and costs
+ * a column at 1366, where 300 still fits three. Below 1366 nothing changes — 1024 and 1366 draw
+ * the same two and three columns at either setting.
+ */
+export const COLUMN_WIDTH = 300
 export const COLUMN_GAP = 18
 
 export interface ColumnSection {

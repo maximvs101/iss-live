@@ -1311,9 +1311,10 @@
  * columns on a 2560-wide screen, three of five at 1920. The browser cannot repeat a heading it
  * broke, so the break is decided in TypeScript and the heading comes with it.
  *
- * 260 with an 18 px gutter is kept, and the two go together: a column needs
- * `n × width + (n − 1) × gap` to fit. `columnCount` restates exactly that arithmetic, and is
- * pinned against the four counts the browser actually drew.
+ * The width and the gutter go together — a column needs `n × width + (n − 1) × gap` to fit — and
+ * both live in `telemetryColumns`, which restates that arithmetic and is pinned against the four
+ * counts measured on the page. The width itself moved from 260 to 300 on a sweep: see that file
+ * for why more columns turned out to make the strip taller rather than shorter.
  *
  * Equal tracks, not content-sized ones. Sizing each column to its own content packs it tighter —
  * measured at 178 px against 279 for the widest — and moves every column boundary whenever the

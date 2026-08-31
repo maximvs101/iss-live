@@ -165,12 +165,28 @@ headless at 2560, 3 of 5 at 1920, 2 of 3 at 1366 — which is the wrong way roun
 
 A printed table answers this by repeating the heading over the continuation, and repeating it means
 knowing where the break falls, which means placing it. `telemetryColumns` cuts the columns instead
-of `columns: 260px`, reproducing the browser's own count — `floor((width + gap) / (width + gap))`,
-pinned in a test against the four counts it actually drew — and repeating any heading a break
-interrupts, marked with a leading ellipsis. It refuses to leave fewer than two readings under a
-heading, since two lines of furniture for one number is not a group. The cost is one line on the
-tallest column, 224 px against 270 at 1920; every column now opens with a heading, at every width
-and on all six subsystems.
+of `columns: 260px`, keeping the browser's arithmetic — `floor((width + gap) / (column + gap))` —
+and repeating any heading a break interrupts, marked with a leading ellipsis. It refuses to leave
+fewer than two readings under a heading, since two lines of furniture for one number is not a
+group. Every column now opens with a heading, at every width and on all six subsystems.
+
+**And then the column width turned out to be wrong, in the direction nobody guesses.** A block needs
+`widest label + 10 + widest value` to set a reading on one line: measured with wrapping suppressed,
+314 px for the worst section of Power and 425 for Command & data. At 260 the track came out 280 px
+and labels wrapped by the dozen — and a wrapped label costs a whole line. Swept at 1920 × 1080
+across the six subsystems, counting wrapped labels and the total height of the six strips:
+
+| minimum | columns | track | six strips | wrapped labels |
+|---|---|---|---|---|
+| 200 px | 6 | 231 px | 2105 px | 123 |
+| 260 px | 5 | 280 px | 1849 px | 33 |
+| **300 px** | **4** | **355 px** | **1828 px** | **3** |
+| 320 px | 4 | 355 px | 1828 px | 3 |
+
+So packing more columns in makes the strip *taller*, which is the opposite of the intuition that
+asked the question. 300 is where the wrapping stops and the height is lowest; 320 draws the same
+layout at 1920 and costs a column at 1366, where 300 still fits three. At 1366 and 1024 both
+settings draw the same three and two columns, so nothing below 1920 moves at all.
 
 **The value moved to its label.** The row was `1fr auto`, which stretches the label cell and pins
 the value to the far edge of the column — 199 px of nothing between `BGA 1A` and the angle it
