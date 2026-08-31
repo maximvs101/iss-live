@@ -2,12 +2,14 @@
  * Telemetry browsing by subsystem, in the spirit of the mission control consoles: power, life
  * support, thermal, attitude, communications, onboard computers.
  */
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { SUBSYSTEMS, getChannel, type SubsystemId } from '../telemetry/subsystems'
 import { PLOTTABLE, defaultPlot } from '../telemetry/plottable'
 import { getSymbol } from '../data/catalog'
 import { TelemetryValue } from './TelemetryValue'
 import { TelemetryChart } from './charts/TelemetryChart'
+import { columnCount, distribute } from './telemetryColumns'
+import { useElementWidth } from './useElementWidth'
 
 export function SubsystemPanel() {
   const [active, setActive] = useState<SubsystemId>('eps')
@@ -17,6 +19,26 @@ export function SubsystemPanel() {
 
   const choices = PLOTTABLE[active]
   const pui = plotted[active] ?? defaultPlot(active)
+
+  /*
+   * The columns are cut here rather than by `columns: 260px`, for one reason: a section that runs
+   * past the foot of a column resumed at the top of the next one with no heading over it. On a
+   * 2560-wide screen that was six of the seven columns. The browser cannot repeat a heading it
+   * broke; whoever decides the break can. See `telemetryColumns` for the split and its cost.
+   */
+  const [strip, stripWidth] = useElementWidth<HTMLDivElement>()
+  const columns = useMemo(
+    () =>
+      distribute(
+        (subsystem?.sections ?? []).map((section) => ({
+          id: section.id,
+          label: section.label,
+          channels: section.channels.map((channel) => channel.pui),
+        })),
+        columnCount(stripWidth),
+      ),
+    [subsystem, stripWidth],
+  )
 
   return (
     <section className="panel panel--telemetry">
@@ -77,14 +99,22 @@ export function SubsystemPanel() {
             </p>
           )}
 
-          {/* Column *flow*, not a grid: in a grid the tallest section sets the height of its whole
-              row, and a sixteen-channel block left half the strip empty beside it. */}
-          <div className="telemetry__sections">
-            {subsystem.sections.map((section) => (
-              <div key={section.id} className="panel__section">
-                <h3 className="panel__subtitle">{section.label}</h3>
-                {section.channels.map((channel) => (
-                  <TelemetryValue key={channel.pui} pui={channel.pui} />
+          <div className="telemetry__sections" ref={strip}>
+            {columns.map((column, index) => (
+              // Position is the only identity a column has, and the layout is recomputed whole
+              // whenever the width changes, so there is nothing for a better key to preserve.
+              <div key={index} className="telemetry__column">
+                {column.map((block) => (
+                  <div key={block.key} className="panel__section">
+                    <h3
+                      className={`panel__subtitle${block.continued ? ' panel__subtitle--continued' : ''}`}
+                    >
+                      {block.label}
+                    </h3>
+                    {block.channels.map((channel) => (
+                      <TelemetryValue key={channel} pui={channel} />
+                    ))}
+                  </div>
                 ))}
               </div>
             ))}

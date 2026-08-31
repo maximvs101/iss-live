@@ -157,6 +157,29 @@ quarters of the strip stood empty. Letting the content flow and protecting only 
 split — a heading from the rows it introduces, a row from itself — packs the readings into the
 height of the longest *column* rather than the longest section: 287 px instead of 543.
 
+**And then the flow lost the headings.** Balancing the columns is the browser's strength and
+grouping is not: a section that ran past the foot of one column resumed at the top of the next with
+no heading over it, so a reader scanning that column met `Array 3A drive voltage` with nothing to
+say it was a photovoltaic control unit. It got worse as the screen got bigger — 6 of 7 columns
+headless at 2560, 3 of 5 at 1920, 2 of 3 at 1366 — which is the wrong way round for a fault.
+
+A printed table answers this by repeating the heading over the continuation, and repeating it means
+knowing where the break falls, which means placing it. `telemetryColumns` cuts the columns instead
+of `columns: 260px`, reproducing the browser's own count — `floor((width + gap) / (width + gap))`,
+pinned in a test against the four counts it actually drew — and repeating any heading a break
+interrupts, marked with a leading ellipsis. It refuses to leave fewer than two readings under a
+heading, since two lines of furniture for one number is not a group. The cost is one line on the
+tallest column, 224 px against 270 at 1920; every column now opens with a heading, at every width
+and on all six subsystems.
+
+**The value moved to its label.** The row was `1fr auto`, which stretches the label cell and pins
+the value to the far edge of the column — 199 px of nothing between `BGA 1A` and the angle it
+names, and a *different* distance on every line: measured across the strip, 19 px to 199. The
+section now owns the two tracks and each row borrows them through `subgrid`, so the label column is
+as wide as the longest label in that block and every value in the block starts at the same x. The
+worst gap fell to 63 px and the median to 10. Where `subgrid` is not supported the row keeps its
+old `1fr auto` and reads as it always did, which is the right way for this to degrade.
+
 The chart went the same way. Beside the readings it was 640 px wide and 226 tall, and those 640 px
 were a whole column of values that could not be shown; a single trace needs time on the horizontal,
 not depth. It now runs the full width at 96 units tall. Measured at the same viewport, every

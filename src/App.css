@@ -1304,37 +1304,75 @@
 }
 
 /*
- * Column *flow* rather than grid tracks.
+ * Columns as tracks, cut in `telemetryColumns` rather than flowed by the browser.
  *
- * A grid gives every item in a row the height of the tallest, so the sixteen-channel photovoltaic
- * block sat alone on its own row with half the strip blank beside it. Flowing into columns lets
- * each section start wherever the previous one ended.
+ * `columns: 260px` balanced them beautifully and lost the grouping: a section that ran past the
+ * foot of one column resumed at the top of the next with no heading over it — six of seven
+ * columns on a 2560-wide screen, three of five at 1920. The browser cannot repeat a heading it
+ * broke, so the break is decided in TypeScript and the heading comes with it.
  *
- * 260 with an 18 px gutter, and the two are chosen together: a column needs
- * `n × column-width + (n − 1) × gap` to fit, and picking the width alone once left the browser one
- * column short of what the space allowed, silently doubling the strip's height.
+ * 260 with an 18 px gutter is kept, and the two go together: a column needs
+ * `n × width + (n − 1) × gap` to fit. `columnCount` restates exactly that arithmetic, and is
+ * pinned against the four counts the browser actually drew.
+ *
+ * Equal tracks, not content-sized ones. Sizing each column to its own content packs it tighter —
+ * measured at 178 px against 279 for the widest — and moves every column boundary whenever the
+ * reader changes tab, because the widths then depend on which labels happen to be showing. A
+ * panel that is tabbed through wants its columns where they were a moment ago, and the slack an
+ * equal track leaves now falls after the values instead of between a label and its own number,
+ * which is the place it was doing harm.
  */
 .telemetry__sections {
   margin-top: 8px;
-  columns: 260px;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   column-gap: 18px;
+  align-items: start;
+}
+
+.telemetry__column {
+  min-width: 0;
 }
 
 /*
- * Sections may run across a column boundary; a heading and a row may not.
+ * The value sits against its label, not against the far edge of the column.
  *
- * Keeping whole sections together sounds tidier and costs more than it is worth: the
- * sixteen-channel photovoltaic block is 543 px on its own, so it set the height of every column
- * beside it and three quarters of the strip stood empty. Letting the content flow and protecting
- * only what must not be split — a heading from the rows it introduces, a row from itself — packs
- * the same readings into the height of the longest *column* instead of the longest section.
+ * The row was `1fr auto`, which stretches the label cell and pins the value to the right. On a
+ * 282 px column with a six-character label that put 199 px of nothing between `BGA 1A` and the
+ * angle it names — measured across the strip, the distance ranged from 19 px to 199, so the eye
+ * had to cross a different void on every line with only a hairline to follow.
+ *
+ * The section owns the two tracks now and each row borrows them through `subgrid`, so the label
+ * column is as wide as the longest label *in this block* and every value in the block starts at
+ * the same x. Both alignments at once: labels ragged right against a straight left edge, values
+ * on a straight edge of their own, and the gap between them the width of one word rather than
+ * half a column.
  */
+.telemetry__sections .panel__section {
+  display: grid;
+  grid-template-columns: minmax(0, max-content) auto;
+}
+
 .telemetry__sections .panel__subtitle {
-  break-after: avoid;
+  grid-column: 1 / -1;
+}
+
+/* The mark that says this heading is a repeat, not a new section. */
+.telemetry__sections .panel__subtitle--continued::before {
+  content: '… ';
+  color: var(--idle);
 }
 
 .telemetry__sections .telemetry-row {
-  break-inside: avoid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+}
+
+/* The gap above a section is a gap *between* sections. At the top of a column there is nothing
+   above it, and five columns each opening with 16 px of nothing cost the strip a line. */
+.telemetry__column > .panel__section:first-child {
+  margin-top: 0;
 }
 
 /* --- Part photograph --- */
