@@ -940,6 +940,29 @@ disagree about what is on screen.
 It pairs with the deep link: choosing Zvezda updates the panel, the photograph and the address bar,
 without the canvas being involved at all.
 
+### The phone build was half a build
+
+`deviceBudget` swaps the station for a 256-texture copy on a phone-sized touch screen, which took
+the model from 739 MB of decoded texture to about 200. It said nothing about the planet, and the
+planet is the larger half of the bill: the day map alone is 10800 x 5400, **297 MB** decoded with
+mipmaps, and it was loaded at that size on every device. With the clouds and the night lights the
+planet came to 444 MB — so a phone brought down to 200 MB of station was still asked for more than
+twice that in ground underneath it.
+
+`build:earth:mobile` halves the three images that are looked at rather than read: 297 + 74 + 33
+becomes 74 + 19 + 8, which is **303 MB saved** — more than the entire station reduction saved. The
+roughness map keeps its size on purpose. It decides where the Sun glints, so it is read as data,
+and blurring it moves coastlines in the glint for 14 MB; the detail tile keeps its size for the
+opposite reason, since being sharper than the map beneath it is the whole of its job.
+
+Measured in the browser afterwards, with `?model=light`: **148 MB** of texture in the live scene
+against 968 on the full path, and the three light copies fetched by name — the roughness map and
+the detail tile still at full size, as intended.
+
+Derived from `public/textures/` rather than from NASA's originals, for the same reason the mobile
+model is derived from the desktop one: everything needed is already in the repository, and a build
+that needs the network is a build that stops working. It costs 15 MB of repository for 14 files.
+
 ### Sized for tablets and desktops, and not for phones
 
 A decision, stated so it is not mistaken for an oversight: the target is tablet and desktop.

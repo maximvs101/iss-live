@@ -36,6 +36,7 @@ import sharp from 'sharp'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const args = process.argv.slice(2).filter((a) => !a.startsWith('--'))
 const DRY_RUN = process.argv.includes('--dry-run')
+const FORCE = process.argv.includes('--force')
 const TARGET = args[0] ?? resolve(root, 'public/models/iss-igoal.glb')
 
 /**
@@ -47,6 +48,23 @@ const TARGET = args[0] ?? resolve(root, 'public/models/iss-igoal.glb')
  * comparison, has a run of 9,705: its windows.
  */
 const MIN_TRANSLUCENT_BLOB = 100
+
+/**
+ * Below this width the criterion above stops meaning what it says, so the script refuses to run.
+ *
+ * `MIN_TRANSLUCENT_BLOB` counts pixels, and a region of a surface covers sixteen times fewer of
+ * them at a quarter of the width. Run against the 256-pixel textures of `iss-igoal-mobile.glb`,
+ * this file reclassifies **6 of its 13 candidates** — Zvezda, both Node materials, Zarya and two
+ * of the ELC payload sets all move — and every one of those verdicts is worse than the one it
+ * would overwrite, because it was reached from less evidence.
+ *
+ * Nothing had ever gone wrong, and nothing was stopping it either: the mobile build happens to
+ * derive from an already-corrected file and so inherits the right modes, which is an ordering
+ * this script neither knew about nor enforced. Now it does. `--force` exists for a future file
+ * whose textures are genuinely small and genuinely uncorrected; it does not exist for
+ * convenience.
+ */
+const MIN_TEXTURE_WIDTH = 512
 
 const JSON_CHUNK = 0x4e4f534a
 const BIN_CHUNK = 0x004e4942
@@ -96,6 +114,48 @@ function writeGlb(path, json, bin) {
 }
 
 const { json, bin } = readGlb(TARGET)
+
+/**
+ * The widest base colour texture in the file, from the image headers alone.
+ *
+ * The widest rather than the narrowest: one small atlas among large ones is not a downscaled
+ * file, and refusing on it would be a false alarm on the very build this protects.
+ */
+function widestBaseTexture() {
+  let widest = 0
+  for (const material of json.materials ?? []) {
+    const reference = material.pbrMetallicRoughness?.baseColorTexture
+    if (!reference) continue
+    const entry = json.textures[reference.index]
+    const source = entry.extensions?.EXT_texture_webp?.source ?? entry.source
+    const view = json.bufferViews[json.images[source].bufferView]
+    const bytes = bin.subarray(view.byteOffset ?? 0, (view.byteOffset ?? 0) + view.byteLength)
+    if (bytes.subarray(0, 4).toString('ascii') !== 'RIFF') continue
+    const kind = bytes.subarray(12, 16).toString('ascii')
+    let width = 0
+    if (kind === 'VP8X') width = 1 + (bytes[24] | (bytes[25] << 8) | (bytes[26] << 16))
+    else if (kind === 'VP8L') width = (bytes.readUInt32LE(21) & 0x3fff) + 1
+    else if (kind === 'VP8 ') width = bytes.readUInt16LE(26) & 0x3fff
+    if (width > widest) widest = width
+  }
+  return widest
+}
+
+const widest = widestBaseTexture()
+if (widest > 0 && widest < MIN_TEXTURE_WIDTH && !FORCE) {
+  console.error(
+    [
+      TARGET,
+      '',
+      `  [refused] its base colour textures are ${widest} px wide, under the ${MIN_TEXTURE_WIDTH}`,
+      '  this criterion is calibrated for. A file this size is a derived one: take its alpha',
+      '  modes from the file it came from, where they were decided on full-resolution images.',
+      '  See MIN_TEXTURE_WIDTH for what happens otherwise — 6 of 13 verdicts change.',
+      '  Pass --force if you mean it.',
+    ].join('\n'),
+  )
+  process.exit(2)
+}
 
 /** The image backing a texture, following the WebP extension when present. */
 function imageOf(textureIndex) {

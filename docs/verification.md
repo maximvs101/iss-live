@@ -156,6 +156,37 @@ passing check that confirmed nothing, since the currents read zero in sunlight t
 finds agreement between a real measurement and a constant is worse than no check at all, and it
 was removed.
 
+### The surfaces, and what they cost once decoded
+
+Everything else here checks arithmetic or structure. Two properties were checked by nothing, and
+both had drifted without a word: what the station is made of, and how much memory its pictures
+occupy once the driver holds them. `npm run verify:materials` measures both from the files.
+
+**Metal, and the trap in reading it.** 38 of the model's 42 materials carry `metallicFactor: 1`,
+which on its own means nothing — it is glTF's default for *the texture decides*. Decoding the
+metallic-roughness maps and multiplying the factor by the blue channel that actually carries
+metalness gives **0.528, mesh-weighted over 775 primitives**. That number is why the scene needs an
+environment map at all: a standard material computes `diffuse = baseColour × (1 − metalness)`, so
+ambient light and fill lamps go straight past half the station. The check holds it in a band rather
+than at a value — outside 0.4 to 0.7 the model was replaced, and the lighting was reasoned about a
+station that no longer exists.
+
+**Memory.** 4.2 MB of images in the file, **579 MB** once decoded to RGBA with mipmaps. That ratio
+is the whole reason a phone build exists and nothing was watching it. The script holds the desktop
+model under 700 MB and the mobile one under 60, checks that no image exceeds 1024 px and 256 px
+respectively, and adds the planet: **982 MB on a desktop against 138 on a phone**.
+
+**And the two builds against each other**, rather than against numbers written here. The mobile file
+is derived from the desktop one, so what matters is that it is still the same model with smaller
+pictures: same material count, and every material agreeing on alpha mode, metallic and roughness
+factors, and the number of meshes drawn with it. That is the check that would catch a rebuild in
+the wrong order — see `MIN_TEXTURE_WIDTH` in `fix-alpha-modes.mjs` for the ordering it depends on.
+
+The planet's light copies are checked for existence and for being exactly half the width of their
+source, because a name `build:earth:mobile` never wrote is a 404 on precisely the devices that
+cannot afford to load the full one. Verified by removing one: the check fails and the script exits
+non-zero.
+
 ### What the globe taught before it was removed
 
 The 3D globe is gone, replaced by the flat map. Three things learned building it are worth keeping,

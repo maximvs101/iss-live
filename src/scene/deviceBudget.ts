@@ -24,6 +24,23 @@ export interface DeviceBudget {
   reason: string
 }
 
+/**
+ * The reduced copy of a planet texture, where the budget calls for one.
+ *
+ * The station was halved for the phone and the planet was not, which left the asymmetry this
+ * repairs: `deviceBudget` switched a 739 MB model for a 200 MB one and then loaded 444 MB of
+ * planet on top of it either way. The day map alone is 297 MB decoded. `build:earth:mobile`
+ * writes the halved copies — 74, 19 and 8 MB against 297, 74 and 33 — and this is the one place
+ * that decides to ask for them.
+ *
+ * Only the images that are *looked at* have a light copy. The roughness map is read as data and
+ * the detail tile exists to be sharper than the map beneath it, so both are loaded at full size
+ * on every device; between them they are 40 MB, and the reasoning is in `build:earth:mobile`.
+ */
+export function lightTexture(name: string): string {
+  return deviceBudget().light ? name.replace(/\.jpg$/, '-light.jpg') : name
+}
+
 export function deviceBudget(): DeviceBudget {
   if (typeof window === 'undefined') return { light: false, reason: 'no window' }
 

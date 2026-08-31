@@ -35,6 +35,7 @@ import { earthOrientationLvlh } from '../orbit/propagator'
 import { EARTH_CENTRE, EARTH_RADIUS } from './earthLimb'
 import { EARTH_RADIUS_KM } from '../earth'
 import { tileAt, tileName, tileUvBox, type TileId } from './earthDetail'
+import { lightTexture } from './deviceBudget'
 
 const TEXTURE = (name: string) => `${import.meta.env.BASE_URL}textures/${name}`
 
@@ -155,11 +156,13 @@ function useDetailTile() {
 
 export function EarthSurface() {
   const group = useRef<Group>(null)
-  const day = useSurfaceTexture(`earth-day-${month}.jpg`)
+  const day = useSurfaceTexture(lightTexture(`earth-day-${month}.jpg`))
+  // Not halved on a phone: this one is read rather than looked at — it decides where the Sun
+  // glints — and blurring it moves coastlines in the glint for 14 MB. See build:earth:mobile.
   const roughness = useSurfaceTexture(`earth-roughness-${month}.jpg`, false)
   // Data, not colour. It is an opacity map now, and tagging it sRGB makes the *hardware* decode it
   // on every sample — which quietly crushed a cloud stored at 0.30 down to 0.07 of opacity.
-  const clouds = useSurfaceTexture('earth-clouds.jpg', false)
+  const clouds = useSurfaceTexture(lightTexture('earth-clouds.jpg'), false)
 
   const detail = useDetailTile()
 

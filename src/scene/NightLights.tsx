@@ -22,9 +22,10 @@ import { AdditiveBlending, Matrix3, SRGBColorSpace, TextureLoader, type Texture,
 import { useOrbitStore } from '../orbit/useOrbit'
 import { earthOrientationLvlh, sunDirectionLvlh } from '../orbit/propagator'
 import { EARTH_CENTRE, EARTH_RADIUS } from './earthLimb'
+import { lightTexture } from './deviceBudget'
 
 /** NASA's Black Marble, 2016. Loaded once the station view is open, never before. */
-const TEXTURE = `${import.meta.env.BASE_URL}textures/earth-night.jpg`
+const TEXTURE = `${import.meta.env.BASE_URL}textures/${lightTexture('earth-night.jpg')}`
 
 const vertexShader = /* glsl */ `
   varying vec3 vLocalPosition;
