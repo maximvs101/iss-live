@@ -18,6 +18,19 @@ import { useObserverStore } from '../../orbit/observer'
 import { latToY, lonToX } from './projection'
 import { MapView } from './MapView'
 
+/*
+ * jsdom has no `ResizeObserver`, and the map now asks for one: it measures the box it was given so
+ * it can size its labels in screen pixels rather than in map units. A stub is enough — jsdom lays
+ * nothing out, so the width would be 0 whatever this returned, and the component falls back to a
+ * scale of 1. What it must not do is throw, which is what an unstubbed constructor did to all four
+ * of these tests.
+ */
+globalThis.ResizeObserver = class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+} as unknown as typeof ResizeObserver
+
 const AT = new Date('2026-08-09T19:00:00Z')
 
 /** A station over the Indian Ocean, with a track running the width of the map. */

@@ -7,7 +7,8 @@
  * the station is *relative to everywhere else*, with no half of the world hidden behind the near
  * side.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useElementWidth } from '../../ui/useElementWidth'
 import { useOrbitStore } from '../../orbit/useOrbit'
 import { useObserverStore } from '../../orbit/observer'
 import { landPolygons } from './coastlines'
@@ -182,131 +183,149 @@ export function MapView() {
       )
       .join(' ')
 
+  /*
+   * How many viewBox units one CSS pixel is worth, so that the type can be sized in pixels.
+   *
+   * The drawing is 720 units wide and the layout gives it anything from 438 px on a 1280×720
+   * laptop to 1472 px on a tall desktop, so an 8-unit label reached the reader at 4.9 px in the
+   * first case and 16.4 px in the second. Neither is a size anyone chose. The charts solved this
+   * by drawing at the width they occupy — the map cannot, because its viewBox *is* its projection
+   * — so it does the other half of the same trick and counter-scales the type instead.
+   *
+   * The `- 2` is the SVG's own border, which `box-sizing` takes out of the drawing but not out of
+   * the box; a fifth of a percent, and cheaper to write than to explain the discrepancy later.
+   */
+  const [frame, frameWidth] = useElementWidth<HTMLDivElement>()
+  const unit = frameWidth > 2 ? SIZE.width / (frameWidth - 2) : 1
+
   return (
     <div className="map-view">
-      <svg
-        viewBox={`0 0 ${SIZE.width} ${SIZE.height}`}
-        className="map-view__svg"
-        role="img"
-        aria-label="World map with the station's ground track and the day/night terminator"
-      >
-        <rect width={SIZE.width} height={SIZE.height} fill="#1d5a8f" />
+      {/* Carries the map's width so the SVG can be measured, and holds the scale for the type. */}
+      <div className="map-view__frame" ref={frame} style={{ '--map-unit': unit } as CSSProperties}>
+        <svg
+          viewBox={`0 0 ${SIZE.width} ${SIZE.height}`}
+          className="map-view__svg"
+          role="img"
+          aria-label="World map with the station's ground track and the day/night terminator"
+        >
+          <rect width={SIZE.width} height={SIZE.height} fill="#1d5a8f" />
 
-        {/* Graticule every 30 degrees. */}
-        <g stroke="#3d7fb4" strokeWidth={0.4} opacity={0.4}>
-          {GRATICULE_LAT.map((lat) => (
-            <line key={lat} x1={0} x2={SIZE.width} y1={latToY(lat, SIZE)} y2={latToY(lat, SIZE)} />
-          ))}
-          {GRATICULE_LON.map((lon) => (
-            <line key={lon} y1={0} y2={SIZE.height} x1={lonToX(lon, SIZE)} x2={lonToX(lon, SIZE)} />
-          ))}
-        </g>
+          {/* Graticule every 30 degrees. */}
+          <g stroke="#3d7fb4" strokeWidth={0.4} opacity={0.4}>
+            {GRATICULE_LAT.map((lat) => (
+              <line key={lat} x1={0} x2={SIZE.width} y1={latToY(lat, SIZE)} y2={latToY(lat, SIZE)} />
+            ))}
+            {GRATICULE_LON.map((lon) => (
+              <line key={lon} y1={0} y2={SIZE.height} x1={lonToX(lon, SIZE)} x2={lonToX(lon, SIZE)} />
+            ))}
+          </g>
 
-        {/*
-          The graticule, named.
+          {/*
+            The graticule, named.
           
-          Unlabelled lines every 30° tell you the grid is regular and nothing else — you cannot read
-          a longitude off them. Drawn under the geography so a label never sits on top of a
-          coastline, and over the ocean fill so it stays legible where there is no land.
-        */}
-        <g className="map-graticule" aria-hidden="true">
-          {GRATICULE_LAT.filter((lat) => lat !== 0).map((lat) => (
-            <text key={lat} x={4} y={latToY(lat, SIZE) - 3}>
-              {Math.abs(lat)}° {lat > 0 ? 'N' : 'S'}
-            </text>
-          ))}
-          {GRATICULE_LON.map((lon) => (
-            <text key={lon} x={lonToX(lon, SIZE) + 3} y={SIZE.height - 4}>
-              {lon === 0 ? '0°' : `${Math.abs(lon)}° ${lon > 0 ? 'E' : 'W'}`}
-            </text>
-          ))}
-        </g>
+            Unlabelled lines every 30° tell you the grid is regular and nothing else — you cannot read
+            a longitude off them. Drawn under the geography so a label never sits on top of a
+            coastline, and over the ocean fill so it stays legible where there is no land.
+          */}
+          <g className="map-graticule" aria-hidden="true">
+            {GRATICULE_LAT.filter((lat) => lat !== 0).map((lat) => (
+              <text key={lat} x={4} y={latToY(lat, SIZE) - 3}>
+                {Math.abs(lat)}° {lat > 0 ? 'N' : 'S'}
+              </text>
+            ))}
+            {GRATICULE_LON.map((lon) => (
+              <text key={lon} x={lonToX(lon, SIZE) + 3} y={SIZE.height - 4}>
+                {lon === 0 ? '0°' : `${Math.abs(lon)}° ${lon > 0 ? 'E' : 'W'}`}
+              </text>
+            ))}
+          </g>
 
-        <g fill="#1e6b52" fillOpacity={0.75} stroke="none">
-          {coastPaths.fills.map((path, i) => (
-            <path key={`fill-${i}`} d={path} />
-          ))}
-        </g>
+          <g fill="#1e6b52" fillOpacity={0.75} stroke="none">
+            {coastPaths.fills.map((path, i) => (
+              <path key={`fill-${i}`} d={path} />
+            ))}
+          </g>
 
-        <g fill="none" stroke="#8bf5c4" strokeWidth={0.7} strokeLinejoin="round">
-          {coastPaths.outlines.map((path, i) => (
-            <path key={`line-${i}`} d={path} />
-          ))}
-        </g>
+          <g fill="none" stroke="#8bf5c4" strokeWidth={0.7} strokeLinejoin="round">
+            {coastPaths.outlines.map((path, i) => (
+              <path key={`line-${i}`} d={path} />
+            ))}
+          </g>
 
-        {/* Night, over the geography rather than under it: it has to dim the coastlines too,
-            which is the whole point — on the globe, leaving them lit made the terminator
-            invisible. */}
-        <path d={night.path} fill="#020c17" opacity={0.55} />
+          {/* Night, over the geography rather than under it: it has to dim the coastlines too,
+              which is the whole point — on the globe, leaving them lit made the terminator
+              invisible. */}
+          <path d={night.path} fill="#020c17" opacity={0.55} />
 
-        {/* Where the Sun is directly overhead — the centre of the lit hemisphere. */}
-        <g>
-          <title>
-            {`Sun overhead — ${Math.abs(night.subsolar.latitude).toFixed(1)}° ${night.subsolar.latitude >= 0 ? 'N' : 'S'}, ${Math.abs(night.subsolar.longitude).toFixed(1)}° ${night.subsolar.longitude >= 0 ? 'E' : 'W'}`}
-          </title>
-          <circle
-            cx={lonToX(night.subsolar.longitude, SIZE)}
-            cy={latToY(night.subsolar.latitude, SIZE)}
-            r={4}
-            fill="#ffd88a"
-            opacity={0.9}
-          />
-          <circle
-            cx={lonToX(night.subsolar.longitude, SIZE)}
-            cy={latToY(night.subsolar.latitude, SIZE)}
-            r={9}
-            fill="none"
-            stroke="#ffd88a"
-            strokeWidth={0.6}
-            opacity={0.4}
-          />
-        </g>
-
-        {footprint.map((run, i) => (
-          <path key={`fp-${i}`} d={toPath(run)} fill="#ffb03a" fillOpacity={0.07} stroke="#ffb03a" strokeWidth={0.6} opacity={0.5} />
-        ))}
-
-        <g fill="none" strokeLinecap="round">
-          {trackRuns.past.map((run, i) => (
-            <path key={`past-${i}`} d={toPath(run)} stroke="#8899aa" strokeWidth={1} opacity={0.5} />
-          ))}
-          {trackRuns.pastShadow.map((run, i) => (
-            <path key={`past-dark-${i}`} d={toPath(run)} stroke="#5b6b80" strokeWidth={1} opacity={0.45} strokeDasharray="3 3" />
-          ))}
-          {trackRuns.future.map((run, i) => (
-            <path key={`future-${i}`} d={toPath(run)} stroke="#ffb03a" strokeWidth={1.2} opacity={0.9} />
-          ))}
-          {/* Dashed where the station itself is in the Earth's shadow — which starts later than
-              the map's night, and is the difference the eye should catch. */}
-          {trackRuns.futureShadow.map((run, i) => (
-            <path key={`future-dark-${i}`} d={toPath(run)} stroke="#7f93c4" strokeWidth={1.2} opacity={0.85} strokeDasharray="3 3" />
-          ))}
-        </g>
-
-        {/* Quarter-hour marks on the track ahead. Under the station marker so it stays on top. */}
-        <g>
-          {ticks.map((tick) => (
-            <TrackTickMark key={tick.minutes} tick={tick} />
-          ))}
-        </g>
-
-        {observer && (
-          <ObserverMark observer={observer} overhead={overhead} />
-        )}
-
-        {state && (
+          {/* Where the Sun is directly overhead — the centre of the lit hemisphere. */}
           <g>
             <title>
-              {`Station — ${Math.abs(state.latitude).toFixed(2)}° ${state.latitude >= 0 ? 'N' : 'S'}, ${Math.abs(state.longitude).toFixed(2)}° ${state.longitude >= 0 ? 'E' : 'W'}`}
+              {`Sun overhead — ${Math.abs(night.subsolar.latitude).toFixed(1)}° ${night.subsolar.latitude >= 0 ? 'N' : 'S'}, ${Math.abs(night.subsolar.longitude).toFixed(1)}° ${night.subsolar.longitude >= 0 ? 'E' : 'W'}`}
             </title>
-            <IssMarker
-              x={lonToX(state.longitude, SIZE)}
-              y={latToY(state.latitude, SIZE)}
-              heading={heading}
+            <circle
+              cx={lonToX(night.subsolar.longitude, SIZE)}
+              cy={latToY(night.subsolar.latitude, SIZE)}
+              r={4}
+              fill="#ffd88a"
+              opacity={0.9}
+            />
+            <circle
+              cx={lonToX(night.subsolar.longitude, SIZE)}
+              cy={latToY(night.subsolar.latitude, SIZE)}
+              r={9}
+              fill="none"
+              stroke="#ffd88a"
+              strokeWidth={0.6}
+              opacity={0.4}
             />
           </g>
-        )}
-      </svg>
+
+          {footprint.map((run, i) => (
+            <path key={`fp-${i}`} d={toPath(run)} fill="#ffb03a" fillOpacity={0.07} stroke="#ffb03a" strokeWidth={0.6} opacity={0.5} />
+          ))}
+
+          <g fill="none" strokeLinecap="round">
+            {trackRuns.past.map((run, i) => (
+              <path key={`past-${i}`} d={toPath(run)} stroke="#8899aa" strokeWidth={1} opacity={0.5} />
+            ))}
+            {trackRuns.pastShadow.map((run, i) => (
+              <path key={`past-dark-${i}`} d={toPath(run)} stroke="#5b6b80" strokeWidth={1} opacity={0.45} strokeDasharray="3 3" />
+            ))}
+            {trackRuns.future.map((run, i) => (
+              <path key={`future-${i}`} d={toPath(run)} stroke="#ffb03a" strokeWidth={1.2} opacity={0.9} />
+            ))}
+            {/* Dashed where the station itself is in the Earth's shadow — which starts later than
+                the map's night, and is the difference the eye should catch. */}
+            {trackRuns.futureShadow.map((run, i) => (
+              <path key={`future-dark-${i}`} d={toPath(run)} stroke="#7f93c4" strokeWidth={1.2} opacity={0.85} strokeDasharray="3 3" />
+            ))}
+          </g>
+
+          {/* Quarter-hour marks on the track ahead. Under the station marker so it stays on top. */}
+          <g>
+            {ticks.map((tick) => (
+              <TrackTickMark key={tick.minutes} tick={tick} />
+            ))}
+          </g>
+
+          {observer && (
+            <ObserverMark observer={observer} overhead={overhead} />
+          )}
+
+          {state && (
+            <g>
+              <title>
+                {`Station — ${Math.abs(state.latitude).toFixed(2)}° ${state.latitude >= 0 ? 'N' : 'S'}, ${Math.abs(state.longitude).toFixed(2)}° ${state.longitude >= 0 ? 'E' : 'W'}`}
+              </title>
+              <IssMarker
+                x={lonToX(state.longitude, SIZE)}
+                y={latToY(state.latitude, SIZE)}
+                heading={heading}
+              />
+            </g>
+          )}
+        </svg>
+      </div>
 
       {/* `role="img"` on the SVG collapses everything inside it, so the live data is announced
           here instead. See MapAnnouncement. */}

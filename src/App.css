@@ -190,10 +190,18 @@
   min-height: 0;
 }
 
-/* The model has no fixed aspect to size a row from, so its share is stated outright. It earns
-   more than the map: it is a three-dimensional object seen at an angle. */
+/*
+ * The model has no fixed aspect to size a row from, so its share is stated outright. It earns more
+ * than the map: it is a three-dimensional object seen at an angle.
+ *
+ * The 356 px is the same reading floor the map buys with `--map-reserve`, written here in the only
+ * terms this row understands. Without it the two views disagreed on short screens — 58% of a 694 px
+ * column is 402, which left the readings 291 px under the model where the map left them 335 — and
+ * the strip changing height when you switch views is the kind of thing that reads as a glitch. On
+ * anything 1000 px tall or more the share still wins and nothing moves.
+ */
 .app__primary--station {
-  grid-template-rows: minmax(240px, 58%) minmax(0, 1fr);
+  grid-template-rows: minmax(240px, min(58%, 100% - 356px)) minmax(0, 1fr);
 }
 
 .app__scene {
@@ -214,11 +222,36 @@
   width: 100%;
   padding: 14px 16px 12px;
   box-sizing: border-box;
+  /* How wide the map is allowed to be. Uncapped here; the two-column layout restates it. Both the
+     drawing and the legend under it are sized from this one place, so they line up. */
+  --map-width: 100%;
 }
 
+/*
+ * As wide as the map it explains, and never so narrow that it starts stacking up.
+ *
+ * It used to be as wide as the *column*, which is not the same thing whenever the map is held
+ * narrower than the space it sits in — and that is most of the desktop range. At 1366×768 the map
+ * measured 534 px and the legend 987, so the first entry began 226 px to the left of the map's own
+ * edge and the last ended 226 px past it. Nothing was unreadable; the two simply did not read as
+ * one object, and a wide caption under a narrow drawing is a good way to make the drawing look
+ * smaller than it is.
+ *
+ * Following the map exactly is worse, though, and the short screens are where it shows: at
+ * 1280×720 the map is 438 px wide, the six entries need five lines to fit that, and 86 px of
+ * caption under a 219 px map is a caption competing with its own subject — paid for by the reading
+ * strip below, which lost 19 px to it.
+ *
+ * So: the map's width, but not below the width at which the entries settle. 46rem is measured, not
+ * chosen — 690 px at this document's 15 px root, which is where the six of them stop needing a
+ * third line. Above it the legend and the map share an edge; below it the legend overhangs — 78 px
+ * a side at 1366×768, 126 at 1280×720 — and keeps its two lines.
+ */
 .map-legend {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
+  width: min(100%, max(var(--map-width), 46rem));
   gap: 6px 18px;
   margin: 0;
   padding: 0;
@@ -295,14 +328,58 @@
  *
  * `max-height` on a `width: 100%` SVG does not shrink it — the box stays full width and
  * `preserveAspectRatio` letterboxes the drawing inside it, leaving the border floating a hundred
- * pixels clear of the map on both sides. Since the drawing is 2:1, capping the width at `88vh`
- * caps the height at `44vh` with no second constraint to fight.
+ * pixels clear of the map on both sides. Since the drawing is 2:1, capping the width caps the
+ * height at half of it, with no second constraint to fight.
+ *
+ * Uncapped here. Stacked under 900 px the page scrolls, so there is nothing for the map to crowd
+ * and it takes the width it is given; the cap belongs to the two-column layout and is stated
+ * there, right below. This is the mobile-first way round because the other way round lost: a
+ * `width: 100%` written inside `max-width: 900px` sat *before* a `min(100%, 68vh)` written inside
+ * `max-height: 1100px`, so on every screen that was both narrow and short the later rule won at
+ * equal specificity and the map came out at 61% of a column it was meant to fill — 544 px of 885
+ * at 900×800, against an explicit comment saying it should take everything.
  */
+/* The width lives on the frame rather than on the drawing, because the frame is what `MapView`
+   measures to work out how large a viewBox unit comes out on screen. */
+.map-view__frame {
+  display: flex;
+  width: var(--map-width);
+}
+
 .map-view__svg {
-  width: min(100%, 88vh);
+  width: 100%;
   height: auto;
   border: 1px solid var(--border-strong);
   border-radius: 8px;
+}
+
+/*
+ * Two columns: the map's height is what the readings pay for, so it is bought explicitly.
+ *
+ * The map is 2:1 and the reading strip sits under it, so every pixel of map height is a pixel the
+ * readings lose. Two limits, whichever bites first, and the width follows from the aspect:
+ *
+ *   - leave the readings a floor — the header, the map's own padding and legend line, and 380 px
+ *     of strip; everything above that is the map's;
+ *   - and never take more than 46% of the viewport's height, so that a tall screen does not hand
+ *     the map two thirds of itself.
+ *
+ * The two cross at about 930 px of viewport height: the floor governs short screens, the share
+ * tall ones, and the size is continuous through the crossing. What this replaces was not — 88vh
+ * above 1100 px of height and 68vh below it, a 30% step in the map's width for one pixel of
+ * viewport height. Measured across thirteen sizes before the change, the map filled between 48%
+ * and 96% of its column, and the worst case was the commonest screen there is: 734 px of 1520 at
+ * 1920×1080, with 393 px of empty background each side of it.
+ */
+@media (min-width: 901px) {
+  .map-view {
+    /* 501 = the 75 px header, the map's own furniture (54 px with the legend on one line, 69 with
+       two) and what is left over, which is the reading strip: 357 px at 1366×768, 439 at 1920×1080,
+       648 at 2560×1440. The 768-high laptop showed 357 px of strip before any of this, so the floor
+       is set exactly where it already stood rather than anywhere more comfortable. */
+    --map-reserve: 501px;
+    --map-width: min(100%, (100dvh - var(--map-reserve)) * 2, 92dvh);
+  }
 }
 
 /* Shown while the 3D view's own bundle is fetched, before the model download even starts. */
@@ -1141,11 +1218,8 @@
     min-height: 55vh;
   }
 
-  /* The height cap exists to stop the map crowding the telemetry out of a fixed frame. Stacked
-     and scrolling there is nothing to crowd, so the map takes the width it is given. */
-  .map-view__svg {
-    width: 100%;
-  }
+  /* The map needs nothing here: its height cap is written for the two-column layout only, so
+     stacked and scrolling it already takes the width it is given. */
 
   .panel--telemetry,
   .app__side {
@@ -1559,13 +1633,16 @@
 }
 
 /* Times along the track ahead. Small and set in the mono face, like every other reading. */
+/* Same counter-scaling as the graticule, and the same reason — see `.map-graticule text`. These
+   were the worst case of it: never overridden anywhere, so on a phone the half-hour marks along
+   the ground track reached the screen at 3.9 px. */
 .map-tick {
   font-family: var(--mono);
-  font-size: 8px;
+  font-size: calc(10px * var(--map-unit, 1));
   fill: #ffcf7a;
   paint-order: stroke;
   stroke: #041020;
-  stroke-width: 2.5px;
+  stroke-width: calc(3.1px * var(--map-unit, 1));
   stroke-linejoin: round;
 }
 
@@ -1614,10 +1691,10 @@
  * compact side of the line; only a genuinely tall screen has height to spare.
  */
 @media (max-height: 1100px) {
-  /* 68vh of width is 34vh of map — still the largest thing on screen, no longer most of it. */
-  .map-view__svg {
-    width: min(100%, 68vh);
-  }
+  /* The map is not touched here any more. It used to be — `68vh` against the `88vh` above this
+     threshold — and that step is what made its size jump by a third across one pixel of viewport
+     height. The reading floor it now sizes against varies smoothly and is stated where the map is
+     defined; this block keeps to the furniture around it. */
 
   .map-view {
     padding: 10px 12px 8px;
@@ -1674,14 +1751,27 @@
  * `paint-order: stroke` draws the dark outline first so the text stays readable on every one of
  * them without a background plate.
  */
+/*
+ * Sized in screen pixels, not in map units.
+ *
+ * `--map-unit` is how many viewBox units one CSS pixel is worth, measured by `MapView`, so
+ * `10 * var(--map-unit)` is ten pixels on the reader's screen whatever width the layout gave the
+ * map. Written as `8px` it was 4.9 px on a 1280×720 laptop and 14.7 px on a 1440-high desktop —
+ * the same declaration reaching the reader three times larger on one screen than on another.
+ *
+ * This also retires the phone-only override that used to sit at the end of this file: 22 units at
+ * 351 px was this calculation done by hand, for one width, and correct only there.
+ */
 .map-graticule text {
   font-family: var(--mono);
-  font-size: 8px;
+  font-size: calc(10px * var(--map-unit, 1));
   fill: #9fd4f5;
   opacity: 0.55;
   paint-order: stroke;
+  /* Kept at the ratio the halo was drawn with — 2.5 to 8 — so the outline neither disappears nor
+     starts eating the letters it is there to separate. */
+  stroke-width: calc(3.1px * var(--map-unit, 1));
   stroke: #08243c;
-  stroke-width: 2.5px;
   stroke-linejoin: round;
 }
 
@@ -1969,23 +2059,8 @@
   }
 
   /*
-   * SVG labels are drawn in user units, and on a phone the drawing is shrunk under them.
-   *
-   * Measured at 375: the map has a 720-unit viewBox rendered 351 px wide, so its 8 px graticule
-   * labels reach the screen at **3.9 px**; the orbit profile is worse at 900 units in 343 px and
-   * lands at **3.0**. Both were legible on the desktop this was built on and neither has been
-   * readable on a phone at any point.
-   *
-   * Only the map is treated here, and 22 units at 0.49 is 10.7 px on screen — measured after the
-   * change, with the nine graticule labels checked for collisions and finding none.
-   *
-   * The charts are not a CSS problem and are not fixed here. Their drawing resolution is a prop,
-   * and the answer is to draw at the width they occupy, which `TelemetryChart` already did and
-   * `OrbitProfile` did not. The map cannot do the same: its viewBox *is* its coordinate system,
-   * with a fixed 2:1 shape and a projection built on it.
+   * The map used to counter-scale its labels here, by hand, for this width only — 22 units
+   * at 0.49 is 10.7 px on screen. It now does it at every width from a measured scale, so
+   * there is nothing left to say about the phone in particular. See `.map-graticule text`.
    */
-  .map-graticule text {
-    font-size: 22px;
-    stroke-width: 5px;
-  }
 }
