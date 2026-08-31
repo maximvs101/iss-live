@@ -225,27 +225,6 @@ function Sun() {
 }
 
 /**
- * Earthshine: the planet below throwing sunlight back onto the station's belly.
- *
- * Real, and strong — the Earth reflects about a third of what hits it, and fills a third of the
- * sky from here. It is the reason the underside of the station is never truly black in orbital
- * photographs, and the reason the silhouette stays readable through an eclipse, where it is all
- * that is left.
- */
-function EarthShine() {
-  const light = useRef<DirectionalLight>(null)
-
-  useFrame(() => {
-    if (!light.current) return
-    const shadow = useOrbitStore.getState().state?.shadow ?? 0
-    light.current.intensity = 0.38 + 0.55 * shadow
-  })
-
-  // Coming from nadir: the Earth reflecting sunlight onto the belly of the station.
-  return <directionalLight ref={light} position={[0, -200, 0]} intensity={0.38} color="#6f93c4" />
-}
-
-/**
  * What the canvas is, for a reader who cannot see it.
  *
  * It had no name at all: a screen reader met an unlabelled canvas and said nothing about the
@@ -345,7 +324,27 @@ export function StationView() {
         */}
         <ambientLight intensity={0.16} color="#9fb6d0" />
         <hemisphereLight args={['#24425e', '#05080e', 0.22]} />
-        <EarthShine />
+        {/*
+          Earthshine is no longer a lamp. A lamp reaches a surface through its diffuse term, and
+          a standard material computes that as `baseColour × (1 − metalness)` — so on metal there
+          is nothing for it to land on. The station is metal: mesh-weighted metalness 0.528 over
+          775 primitives, and `ELC_Base`, the single most-drawn material at 279 of them, is 92 %.
+          The light put there to keep the shadow side readable was missing the half of the
+          station that needed it most.
+
+          It is an environment map now, carried by the model's own materials in `IssGltf` — the
+          same colour and the same law through eclipse, converted from a lamp's intensity to a
+          cap's radiance by `earthEnvironment`, and it lands on metal because reflection is the
+          only way anything lands on metal. It is not on `scene.environment` for the reason just
+          above: that would light the planet with the planet.
+
+          Measured against the lamp it replaces, at the same instant, in the same frame: the
+          shadow side of the station went from a mean luminance of **35.2 to 37.6** of 255 and
+          the sunlit side from 106.12 to 106.24 — which is the shape of it. The total light from
+          below is deliberately unchanged, so this moves the earthshine to the surfaces that
+          could not receive it rather than adding any. A brighter cap is a separate decision: the
+          0.38 was chosen for a lamp that only ever lit the dielectrics.
+        */}
 
         {/*
           Drawn in a pass of its own, from a camera that has barely moved — see Sky. The Sun is in

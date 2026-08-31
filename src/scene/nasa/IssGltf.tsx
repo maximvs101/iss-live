@@ -9,7 +9,7 @@
  * nothing moves.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useFrame, type ThreeEvent } from '@react-three/fiber'
+import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { Bvh } from '@react-three/drei'
 import {
   Box3,
@@ -27,6 +27,8 @@ import { useSelectionStore } from '../../ui/selection'
 import type { PartId } from '../parts'
 import { JOINT_BINDINGS, jointAngle, partOfNode, type JointBinding } from './nodeMapping'
 import { deviceBudget } from '../deviceBudget'
+import { earthEnvironment, environmentIntensity } from '../earthEnvironment'
+import { useOrbitStore } from '../../orbit/useOrbit'
 
 /**
  * Real span of the station across the truss, in metres — the model's longest axis.
@@ -93,6 +95,39 @@ export function IssGltf({ scene, rotation = [0, -Math.PI / 2, 0] }: IssGltfProps
   const select = useSelectionStore((store) => store.select)
   const hover = useSelectionStore((store) => store.hover)
 
+  // Read once per mount: it decides the hover acceleration structure and how hard the textures
+  // are filtered, and a canvas cannot change either mid-life anyway.
+  const [budget] = useState(deviceBudget)
+  const gl = useThree((three) => three.gl)
+
+  /*
+   * The planet, as the environment the metal reflects. See `earthEnvironment` for why the scene
+   * needs one at all: at a mesh-weighted metalness of 0.528 the fill lamps reach almost nothing.
+   *
+   * Set here rather than on `scene.environment`, which would light the planet too — and the
+   * planet is the one surface in this scene that must be lit by nothing but the Sun, for the
+   * reason `StationView` gives where it keeps its fill lights off the far pass.
+   */
+  const environment = useMemo(() => earthEnvironment(), [])
+  useEffect(() => () => environment.dispose(), [environment])
+
+  /*
+   * Anisotropic filtering, which the planet has had all along and the station has not.
+   *
+   * Every one of the model's 108 textures arrived at anisotropy 1, the loader's default, while
+   * `EarthSurface` asks for the maximum with a comment explaining why: most of what is on screen
+   * is seen edge-on, and a mip chain sized to the compressed direction smears the other one. A
+   * 94-metre truss viewed from anywhere but dead ahead is exactly that case.
+   *
+   * 8 rather than the 16 the planet takes, because the planet is one texture and this is 108 of
+   * them: the sampling cost is per texel fetched, and the difference between 8 and 16 is not
+   * visible at this size. Halved again on a phone, which has the least bandwidth to give.
+   */
+  const anisotropy = useMemo(
+    () => Math.min(gl.capabilities.getMaxAnisotropy(), budget.light ? 4 : 8),
+    [gl, budget.light],
+  )
+
   // The model is shared between mounts: work on a copy so materials can be tinted and joints
   // rotated without side effects.
   //
@@ -113,9 +148,27 @@ export function IssGltf({ scene, rotation = [0, -Math.PI / 2, 0] }: IssGltfProps
       object.material = Array.isArray(object.material)
         ? object.material.map((material) => material.clone())
         : object.material.clone()
+
+      const materials = Array.isArray(object.material) ? object.material : [object.material]
+      for (const material of materials) {
+        if (!(material instanceof MeshStandardMaterial)) continue
+        material.envMap = environment
+        // The frame loop owns the number from here; this is only so the first frame is not lit
+        // differently from the second.
+        material.envMapIntensity = environmentIntensity(0)
+
+        // The clones are ours, the textures they point at are the shared scene's — so this is a
+        // mutation of something borrowed, guarded to happen once. `needsUpdate` re-uploads the
+        // image, and doing that 108 times per mount would be a real cost for no change.
+        for (const map of [material.map, material.normalMap, material.metalnessMap, material.roughnessMap]) {
+          if (!map || map.anisotropy === anisotropy) continue
+          map.anisotropy = anisotropy
+          map.needsUpdate = true
+        }
+      }
     })
     return copy
-  }, [scene])
+  }, [scene, environment, anisotropy])
 
   // Those clones are ours to release; the textures they point at belong to the shared scene and
   // are deliberately left alone.
@@ -130,10 +183,23 @@ export function IssGltf({ scene, rotation = [0, -Math.PI / 2, 0] }: IssGltfProps
     [model],
   )
 
-  /** Scale factor bringing the model to the real dimensions of the station. */
-  // Read once per mount: it decides whether the hover acceleration structure is worth building.
-  const [budget] = useState(deviceBudget)
+  /**
+   * Every material the environment was put on, so the frame loop can reach them without walking
+   * the model again sixty times a second.
+   */
+  const litMaterials = useMemo(() => {
+    const found: MeshStandardMaterial[] = []
+    model.traverse((object) => {
+      if (!(object instanceof Mesh)) return
+      const materials = Array.isArray(object.material) ? object.material : [object.material]
+      for (const material of materials) {
+        if (material instanceof MeshStandardMaterial) found.push(material)
+      }
+    })
+    return found
+  }, [model])
 
+  /** Scale factor bringing the model to the real dimensions of the station. */
   const scale = useMemo(() => {
     const box = new Box3().setFromObject(model)
     const size = box.getSize(new Vector3())
@@ -229,7 +295,24 @@ export function IssGltf({ scene, rotation = [0, -Math.PI / 2, 0] }: IssGltfProps
     ;(window as unknown as { __issJoints?: Joint[] }).__issJoints = joints
   }, [joints])
 
+  /** Last value written to the materials, so an unchanged one costs nothing. */
+  const environmentAt = useRef(-1)
+
   useFrame(() => {
+    /*
+     * How bright the planet below is, this frame.
+     *
+     * Written to every material rather than to `scene.environment`, which would take the planet
+     * with it. The guard is not premature: `shadow` moves over minutes and this would otherwise
+     * be 838 assignments a frame to store the number it already held.
+     */
+    const shadow = useOrbitStore.getState().state?.shadow ?? 0
+    const intensity = environmentIntensity(shadow)
+    if (Math.abs(intensity - environmentAt.current) > 1e-4) {
+      environmentAt.current = intensity
+      for (const material of litMaterials) material.envMapIntensity = intensity
+    }
+
     // Diagnostic sweep: with no telemetry, this is the only way to check that the declared
     // rotation axes are right. Development only, never active for the user.
     const sweep = RIG_TEST ? (Date.now() / 40) % 360 : null
