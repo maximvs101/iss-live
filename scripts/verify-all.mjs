@@ -36,7 +36,7 @@ const here = dirname(fileURLToPath(import.meta.url))
 const manifest = JSON.parse(readFileSync(resolve(here, '../package.json'), 'utf8')).scripts
 
 /** Live: needs the network, and may fail for reasons outside this repository. */
-const LIVE = new Set(['orbit', 'passes', 'telemetry', 'arrays', 'media'])
+const LIVE = new Set(['orbit', 'telemetry', 'arrays', 'media'])
 
 /**
  * Surveys, which are not regression checks and are not in the routine run.

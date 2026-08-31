@@ -14,8 +14,8 @@ const links = sources.map((source) => new URL(source.href))
 
 describe('sources', () => {
   it('credits every place the application fetches from', () => {
-    // Six data sources, then the three libraries that do the computing.
-    expect(DATA).toHaveLength(6)
+    // Five data sources, then the three libraries that do the computing.
+    expect(DATA).toHaveLength(5)
     expect(CODE).toHaveLength(3)
   })
 
@@ -28,7 +28,6 @@ describe('sources', () => {
       'github.com',
       'github.com',
       'images.nasa.gov',
-      'kauai.ccmc.gsfc.nasa.gov',
       'lightstreamer.com',
       'threejs.org',
       'www.naturalearthdata.com',

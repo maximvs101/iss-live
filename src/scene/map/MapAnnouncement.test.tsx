@@ -10,7 +10,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { MapAnnouncement } from './MapAnnouncement'
 import { useOrbitStore } from '../../orbit/useOrbit'
-import { useObserverStore } from '../../orbit/observer'
 import type { OrbitState } from '../../orbit/propagator'
 
 /** Only the fields the description reads; the rest of OrbitState never reaches it. */
@@ -33,7 +32,6 @@ function stateAt(latitude: number, longitude: number, shadow = 0): OrbitState {
 afterEach(() => {
   cleanup()
   useOrbitStore.setState({ state: null })
-  useObserverStore.getState().setObserver(null)
   vi.useRealTimers()
 })
 
@@ -79,25 +77,6 @@ describe('MapAnnouncement', () => {
     useOrbitStore.setState({ state: stateAt(0, 0, 0.9) })
     render(<MapAnnouncement />)
     expect(screen.getByText(/shadow/)).toBeTruthy()
-  })
-
-  it('reports the observer only when one has been set', () => {
-    useOrbitStore.setState({ state: stateAt(0, 0) })
-    const { unmount } = render(<MapAnnouncement />)
-    expect(screen.queryByText(/your location/)).toBeNull()
-    unmount()
-
-    // Directly beneath the station, so it is unambiguously above the horizon.
-    useObserverStore.getState().setObserver({ latitude: 0, longitude: 0 })
-    render(<MapAnnouncement />)
-    expect(screen.getByText(/above the horizon from your location/)).toBeTruthy()
-  })
-
-  it('says below the horizon from the far side of the world', () => {
-    useOrbitStore.setState({ state: stateAt(0, 0) })
-    useObserverStore.getState().setObserver({ latitude: 0, longitude: 180 })
-    render(<MapAnnouncement />)
-    expect(screen.getByText(/below the horizon from your location/)).toBeTruthy()
   })
 
   it('says something sensible before any orbit has been computed', () => {

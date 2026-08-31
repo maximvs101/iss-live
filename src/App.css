@@ -404,135 +404,6 @@
   pointer-events: none;
 }
 
-/* --- Passes over a location --- */
-
-/* No margin of its own — `.passes__controls` owns the spacing of the row it sits in. */
-.passes__filter {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 12px;
-  color: var(--text-dim);
-  cursor: pointer;
-}
-
-.pass {
-  display: grid;
-  grid-template-columns: 62px 1fr auto;
-  gap: 10px;
-  align-items: center;
-  padding: 7px 0;
-  border-bottom: 1px solid rgba(30, 41, 55, 0.5);
-}
-
-.pass__when {
-  display: flex;
-  flex-direction: column;
-}
-
-.pass__day {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--idle);
-}
-
-.pass__time {
-  font-family: var(--mono);
-  font-size: 14px;
-  color: var(--text-strong);
-  font-variant-numeric: tabular-nums;
-}
-
-.pass__detail {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-}
-
-.pass__track {
-  font-size: 12px;
-  color: var(--text);
-  font-family: var(--mono);
-}
-
-.pass__meta {
-  font-size: 11px;
-  color: var(--text-dim);
-}
-
-.pass__badge {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--accent);
-  border: 1px solid rgba(255, 176, 58, 0.4);
-  border-radius: 999px;
-  padding: 2px 8px;
-}
-
-/* A visible pass is the one worth stepping outside for, so it gets a marker in the margin. */
-.pass--visible {
-  border-left: 2px solid var(--accent);
-  padding-left: 8px;
-  margin-left: -10px;
-}
-
-.button--wide {
-  width: 100%;
-  padding: 8px;
-  margin-top: 4px;
-}
-
-.coords {
-  display: grid;
-  grid-template-columns: 1fr 1fr auto;
-  gap: 8px;
-  align-items: end;
-  margin-top: 12px;
-}
-
-/*
- * `min-width: 0` on both, and neither is optional.
- *
- * A grid track sized `1fr` will not shrink below its content's min-content width, and an <input>
- * reports that as its default twenty characters — 205 px here. Two of those plus the button came
- * to 451 px inside a 352 px panel, so the form pushed the side column past the 400 px it is
- * supposed to occupy and stole the width from the map.
- */
-.coords label {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-dim);
-}
-
-.coords input {
-  min-width: 0;
-  padding: 6px 8px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
-  color: var(--text-strong);
-  font-family: var(--mono);
-  font-size: 13px;
-}
-
-.coords input:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-.coords button:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
 /* --- Model loading --- */
 
 .model-progress {
@@ -1371,15 +1242,6 @@
   font-size: 11px;
 }
 
-/* Pull the controls apart: the filter reads left, the destructive action sits at the far end. */
-.passes__controls {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 10px;
-}
-
 /* --- Telemetry strip --- */
 
 /*
@@ -1473,46 +1335,6 @@
 
 .telemetry__sections .telemetry-row {
   break-inside: avoid;
-}
-
-/* --- Space weather --- */
-
-/* Date, what it was, how big — the same three-part shape as a pass. */
-.weather-row {
-  display: grid;
-  grid-template-columns: 56px 1fr auto;
-  gap: 10px;
-  align-items: baseline;
-  padding: 6px 0;
-  border-bottom: 1px solid rgba(30, 41, 55, 0.5);
-  font-size: 12px;
-}
-
-.weather-row__when {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--idle);
-}
-
-.weather-row__what {
-  color: var(--text-dim);
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.weather-row__value {
-  font-family: var(--mono);
-  font-size: 13px;
-  color: var(--text-strong);
-  font-variant-numeric: tabular-nums;
-}
-
-/* M-class and above: the ones that mean a dose rather than an index. */
-.weather-row--notable .weather-row__value {
-  color: var(--accent);
 }
 
 /* --- Part photograph --- */
@@ -1644,22 +1466,6 @@
   stroke: #041020;
   stroke-width: calc(3.1px * var(--map-unit, 1));
   stroke-linejoin: round;
-}
-
-/* The observer's own position: a cross in the legend too, not another disc. */
-.map-legend__swatch--observer {
-  border-radius: 0;
-  background:
-    linear-gradient(to right, transparent 45%, #e8e6e0 45% 55%, transparent 55%),
-    linear-gradient(to bottom, transparent 45%, #e8e6e0 45% 55%, transparent 55%);
-}
-
-.map-legend__swatch--observer-up {
-  background:
-    linear-gradient(to right, transparent 45%, #7ef0b0 45% 55%, transparent 55%),
-    linear-gradient(to bottom, transparent 45%, #7ef0b0 45% 55%, transparent 55%);
-  box-shadow: 0 0 0 1px rgba(126, 240, 176, 0.5);
-  border-radius: 50%;
 }
 
 /* The full-resolution link sits inside the credit line, so it needs its own affordance. */
@@ -2044,16 +1850,14 @@
   /*
    * Everything a finger has to hit, brought up to size.
    *
-   * Measured at 375 before this: the subsystem tabs stood 28 px tall, the panel toggles 23, the
-   * plot selector 27, the location field and its button 29 and 28. A pointer lands on 23 px; a
-   * fingertip is about 45 across and lands on whatever was underneath it. `min-height` rather than
-   * padding, so a control that is already tall enough is left alone.
+   * Measured at 375 before this: the subsystem tabs stood 28 px tall, the panel toggles 23 and
+   * the plot selector 27. A pointer lands on 23 px; a fingertip is about 45 across and lands on
+   * whatever was underneath it. `min-height` rather than padding, so a control that is already
+   * tall enough is left alone.
    */
   .tabs__item,
   .panel__toggle,
   .plot__select,
-  .coords input,
-  .coords button,
   .button {
     min-height: 44px;
   }

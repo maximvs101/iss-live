@@ -11,12 +11,13 @@ establish and would regress silently.
 | `telemetry/units.test.ts` | missing data never renders as a number; enumerated states decode; onboard time reads as `Day 209 · 20:16:15` rather than `18126959000 ms` |
 | `telemetry/health.test.ts` | the stream's `TimeStamp` is hours-since-new-year, hour 24 being 1 January; a zero timestamp means *never measured*, not *very old*; the year rolls over correctly |
 | `scene/nasa/nodeMapping.test.ts` | elements are claimed by exact name — `Zvezda_SM_Something` must not resolve, which is the bug that made one module swallow half the station; joints turn about Z and X, never Y |
-| `orbit/orbit.test.ts` | frame conventions; invariants true of any orbit (inclination, period, vis-viva-consistent speed); a pass is never called visible in daylight |
+| `orbit/orbit.test.ts` | frame conventions; invariants true of any orbit (inclination, period, vis-viva-consistent speed) |
 | `telemetry/subsystems.test.ts` | every subscribed symbol exists in the catalogue and every part reference resolves; the dead power channels warn instead of presenting a reading |
 
 Writing them caught nothing in the application — but four of my own assumptions about its API were
-wrong (`groundTrack` takes an interval, `PassPoint` exposes `date` not `time`, `Observer` uses
+wrong (`groundTrack` takes an interval, `PassPoint` exposed `date` not `time`, `Observer` used
 `altitudeM`, ground track points carry no segment flag), which is its own argument for having them.
+Two of those four named the pass-prediction API, removed on 31 August 2026 with the panel it fed.
 
 ### Against the outside world
 
@@ -55,7 +56,8 @@ direction would show up as exceptions on the side that has none.
 
 **Passes**, against Heavens-Above for the same coordinates: identical maximum elevations (56°, 54°,
 11°, 76°), identical rise and set bearings, identical daylight classification. Only the timezone
-differed.
+differed. Kept as a record: the prediction and its `verify:passes` script were removed on
+31 August 2026 along with the panel, so nothing in the application computes a pass any more.
 
 **What the station is flying over**, against the places themselves. Land was always a
 point-in-polygon test and was always right; the sea was a partition of the globe by longitude and
@@ -247,16 +249,14 @@ was measured: 15 min is 58° of arc, and the argument-of-latitude calculation pu
 17.5° N against 17.3° drawn. The +45 mark sits at **51.6° S** — the orbital inclination exactly,
 which is the southern apex and could not be anywhere else.
 
-**Your own position is on the map**, if you have set one for passes. The two features were built
-apart and belonged together: the circle drawn round the station is the live answer to the question
-the passes panel answers for the next three days. The mark turns green and gains a halo while the
-station is above the horizon from there.
+**The footprint circle is checked against its own edge.** `withinFootprint` and the circle drawn
+round the station are deliberately the *same* calculation rather than two that happen to agree. A
+test walks the footprint polygon's own vertices and requires each to be inside a circle a
+kilometre larger and outside one a kilometre smaller.
 
-That state comes from `withinFootprint`, which is deliberately the *same* test the circle is drawn
-from rather than a second calculation that happens to agree — a mark claiming a pass while sitting
-outside the circle beside it would discredit both. A test walks the footprint polygon's own
-vertices and requires each to be inside a circle a kilometre larger and outside one a kilometre
-smaller.
+It used to carry a second reader: a mark for your own position, green with a halo while the
+station was above the horizon from there, set under the passes panel. Both went on 31 August 2026
+— the panel was the only place to enter a position. The circle stayed, and so did this check.
 
 ### The orbit's day/night line is not the terminator
 

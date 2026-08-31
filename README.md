@@ -49,7 +49,6 @@ The orbital side does not depend on the stream and keeps working regardless.
 | Lightstreamer `push.lightstreamer.com`, adapter set `ISSLIVE` | 163 telemetry parameters | WebSocket, straight from the browser |
 | Celestrak, NORAD object 25544 | orbital elements, propagated with SGP4 | HTTPS, CORS open |
 | `github.com/nasa/NASA-3D-Resources` | 3D model of the station | prepared once, served as a static file |
-| NASA DONKI, at Goddard's CCMC | solar flares and geomagnetic storms | JSON, **no key**, CORS open |
 | NASA Image and Video Library | a photograph of the selected part | JSON + HTTPS assets, no key, CORS open |
 
 Worth knowing: the `science.nasa.gov` pages offer the 3D models only as FBX and 7z archives, but
@@ -98,14 +97,14 @@ The individual `verify:*` scripts, what each one proves and what it cannot, are 
 
 `npm run lint`, `npx tsc -b`, `npm test` and `npm run build` run on every push through GitHub
 Actions. Most of the `verify:*` scripts deliberately do not: they open a real Lightstreamer session,
-query Celestrak, DONKI and the image catalogue, and judge live data — which makes them invaluable at
+query Celestrak and the image catalogue, and judge live data — which makes them invaluable at
 a keyboard and useless in CI, where a quiet stream or a re-indexed catalogue would fail a build that
 has nothing wrong with it.
 
 ## Publishing
 
-Nothing here needs a server. The page talks to Lightstreamer, Celestrak, DONKI and NASA's image
-catalogue directly, all four over HTTPS, and holds its history in the browser — so any static host
+Nothing here needs a server. The page talks to Lightstreamer, Celestrak and NASA's image
+catalogue directly, all three over HTTPS, and holds its history in the browser — so any static host
 will do, with no secrets to configure and nothing to keep running.
 
 ### Two builds of the station, and why
@@ -313,7 +312,7 @@ reconnection — and a display taking it at face value would announce a station 
 - The 3D scene is untested. jsdom has no WebGL, so what runs against it is the arithmetic —
   `verify:render`, `verify:camera`, `verify:scene` — while the image itself is checked by eye. The
   React components around it are covered: the map is held to the projection at their seam, and the
-  chart, the passes panel, the error boundary and the photo gallery have tests of their own.
+  chart, the error boundary and the photo gallery have tests of their own.
 - `verify:arrays` recognises an off-Sun configuration by a three-part signature rather than by
   measuring it, so it lets one through rather than calling a healthy station broken. A defect
   symmetric enough to imitate a splay in all three respects passes — the beta zeros above being

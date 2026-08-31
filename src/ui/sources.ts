@@ -46,14 +46,6 @@ export const DATA: Source[] = [
     note: 'Prepared once and served as a static file. The science.nasa.gov pages offer only FBX and 7z archives; the GitHub repository publishes usable GLB.',
   },
   {
-    // CCMC, not `api.nasa.gov`: the mirror there wants an API key, and a key in a static page is
-    // a key published to the world. This endpoint serves the same data with none.
-    name: 'NASA DONKI, at Goddard’s CCMC',
-    href: 'https://kauai.ccmc.gsfc.nasa.gov/DONKI/',
-    used: 'Solar flares and geomagnetic storms — the two kinds of space weather the station feels',
-    note: 'A large flare raises the radiation dose on board; a geomagnetic storm heats the upper atmosphere until the added drag pulls the orbit down faster.',
-  },
-  {
     name: 'NASA Image and Video Library',
     href: 'https://images.nasa.gov/',
     used: 'A photograph of the module or instrument selected in the 3D view',

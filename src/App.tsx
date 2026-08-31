@@ -18,11 +18,9 @@ import { useOrbitEngine } from './orbit/useOrbit'
 import { MapView } from './scene/map/MapView'
 import { StreamStatusBar } from './ui/StreamStatusBar'
 import { OrbitPanel } from './ui/OrbitPanel'
-import { PassesPanel } from './ui/PassesPanel'
 import { InspectorPanel } from './ui/InspectorPanel'
 import { SubsystemPanel } from './ui/SubsystemPanel'
 import { HoverLabel } from './ui/HoverLabel'
-import { SpaceWeatherPanel } from './ui/SpaceWeatherPanel'
 import { FreshnessPanel } from './ui/FreshnessPanel'
 import { OrbitProfile } from './ui/charts/OrbitProfile'
 import { ErrorBoundary } from './ui/ErrorBoundary'
@@ -232,11 +230,7 @@ export default function App() {
 
         <aside className="app__side">
           {view === 'station' ? <InspectorPanel /> : <OrbitPanel />}
-          {view === 'map' && <PassesPanel />}
-          {/* Above space weather: this one is about the numbers on this page, that one is about
-              the Sun. Both are folded, and the nearer question goes first. */}
           <FreshnessPanel />
-          <SpaceWeatherPanel />
           <OrbitProfile />
         </aside>
       </main>

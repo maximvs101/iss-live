@@ -10,7 +10,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { useElementWidth } from '../../ui/useElementWidth'
 import { useOrbitStore } from '../../orbit/useOrbit'
-import { useObserverStore } from '../../orbit/observer'
 import { landPolygons } from './coastlines'
 import { MapAnnouncement } from './MapAnnouncement'
 import { IssMarker, IssShape } from './IssMarker'
@@ -22,7 +21,6 @@ import {
   splitAtAntimeridian,
   trackHeading,
   trackTicks,
-  withinFootprint,
   type TrackTick,
   type MapSize,
 } from './projection'
@@ -91,9 +89,6 @@ function useCoastPaths(): { outlines: string[]; fills: string[] } {
 export function MapView() {
   const state = useOrbitStore((store) => store.state)
   const track = useOrbitStore((store) => store.track)
-  // The place passes are computed for. Shown here because the footprint circle is the live answer
-  // to the question that panel answers for the next three days: can I see it from there?
-  const observer = useObserverStore((store) => store.observer)
   const coastPaths = useCoastPaths()
 
   // The terminator moves; recomputing once a minute is far more often than the eye needs.
@@ -156,10 +151,6 @@ export function MapView() {
    * and a label that crept along the curve between refreshes would be worse than one that steps.
    */
   const ticks = useMemo(() => trackTicks(track, new Date()), [track])
-
-  /** Is the station over the observer's horizon right now? */
-  const overhead =
-    observer && state ? withinFootprint(observer, state, state.footprintKm) : false
 
   /**
    * Which way the station is pointing, taken from the two track samples that straddle now.
@@ -308,10 +299,6 @@ export function MapView() {
             ))}
           </g>
 
-          {observer && (
-            <ObserverMark observer={observer} overhead={overhead} />
-          )}
-
           {state && (
             <g>
               <title>
@@ -331,7 +318,7 @@ export function MapView() {
           here instead. See MapAnnouncement. */}
       <MapAnnouncement />
 
-      <MapLegend subsolar={night.subsolar} observer={observer} overhead={overhead} />
+      <MapLegend subsolar={night.subsolar} />
     </div>
   )
 }
@@ -373,54 +360,12 @@ function TrackTickMark({ tick }: { tick: TrackTick }) {
 }
 
 /**
- * Where the reader is, and whether the station is above their horizon.
- *
- * The state comes from `withinFootprint`, which is the same test the circle around the station is
- * drawn from — so the marker can never claim a pass while sitting outside the circle beside it.
- */
-function ObserverMark({
-  observer,
-  overhead,
-}: {
-  observer: { latitude: number; longitude: number; label?: string }
-  overhead: boolean
-}) {
-  const x = lonToX(observer.longitude, SIZE)
-  const y = latToY(observer.latitude, SIZE)
-  const colour = overhead ? '#7ef0b0' : '#e8e6e0'
-
-  return (
-    <g>
-      <title>
-        {`${observer.label ?? 'Your location'} — the station is ${overhead ? 'above' : 'below'} the horizon from here`}
-      </title>
-      {/* A cross, not another disc: the map already carries three circles. */}
-      <g stroke={colour} strokeWidth={1.2} strokeLinecap="round">
-        <line x1={x - 4} x2={x + 4} y1={y} y2={y} />
-        <line x1={x} x2={x} y1={y - 4} y2={y + 4} />
-      </g>
-      {overhead && (
-        <circle cx={x} cy={y} r={7} fill="none" stroke={colour} strokeWidth={1} opacity={0.7} />
-      )}
-    </g>
-  )
-}
-
-/**
  * What each mark on the map means.
  *
  * Added because the subsolar marker was genuinely unreadable without it — a yellow dot in the
  * middle of the ocean explains nothing on its own, and the map carries three different circles.
  */
-function MapLegend({
-  subsolar,
-  observer,
-  overhead,
-}: {
-  subsolar: { latitude: number; longitude: number }
-  observer: { latitude: number; longitude: number; label?: string } | null
-  overhead: boolean
-}) {
+function MapLegend({ subsolar }: { subsolar: { latitude: number; longitude: number } }) {
   const format = (value: number, positive: string, negative: string) =>
     `${Math.abs(value).toFixed(1)}° ${value >= 0 ? positive : negative}`
 
@@ -457,15 +402,6 @@ function MapLegend({
         <span className="map-legend__swatch map-legend__swatch--night" />
         Night on the ground
       </li>
-      {observer && (
-        <li title="Set under “Passes overhead”. Nothing about it leaves this browser.">
-          <span
-            className={`map-legend__swatch map-legend__swatch--observer${overhead ? ' map-legend__swatch--observer-up' : ''}`}
-          />
-          {observer.label ?? 'Your location'}
-          {overhead ? ' — above the horizon now' : ''}
-        </li>
-      )}
     </ul>
   )
 }

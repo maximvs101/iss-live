@@ -20,29 +20,26 @@ inspector still prints it in full for the part you select. What went was the swi
 five teaching cards, and the conditionals that made components behave differently depending on
 which mode was current.
 
-### Space weather, and only the part of it that reaches the station
+### Space weather, removed
 
-DONKI is NASA's space weather database, and most of what it publishes is upstream of anything a
-crew would notice. Two event types are not. A large **solar flare** raises the radiation dose on
-board. A **geomagnetic storm** heats the thermosphere until the air at 420 km thickens, drag rises
-and the orbit decays faster — which shows up in the very elements this application propagates.
-Coronal mass ejections, particle events and shocks are the causes of those two and are left out;
-listing everything would bury the two that matter.
+DONKI drove a panel here until 31 August 2026, when it went along with the passes panel: the
+application is about what the station is doing now, and a list of solar flares was answering a
+question nobody had asked it. Two findings from building it are worth keeping, because both were
+the data correcting a reading of it rather than a bug.
 
-**No API key, deliberately.** `api.nasa.gov` mirrors DONKI and wants one, and a key in a static
-page is a key published to the world. Goddard's CCMC serves the same data straight, with
-`Access-Control-Allow-Origin: *`.
+**A distribution that looks like a bug and is not.** 67 of 76 flares in the window came back at
+M-class or above, where C-class normally dominates by count. Checked against the raw feed, the
+month really was 65 M, 2 X and 9 C: the Sun is near the maximum of cycle 25.
 
-Two readings of the data turned out to be wrong on contact with it. The first was mine: 67 of 76
-flares in the window came back at M-class or above, which looked like a classification bug, because
-C-class normally dominates by count. It is not a bug — checked against the raw feed, the month was
-65 M, 2 X and 9 C. The Sun is near the maximum of cycle 25.
+**Which exposed a second, in the panel's own wording.** It summarised the month as "67 flares at
+M+", and near solar maximum that number describes the cycle rather than the month. Sorting by flux
+rather than by date was the fix — the five most recent were five M1s while both X-class events sat
+sixty rows down — and it is also why `flareFlux` existed at all: each class letter is a decade, so
+a string comparison puts C9.9 above M1.0.
 
-Which exposed the second: the panel's summary said "67 flares at M+", and near solar maximum that
-number describes the Sun's cycle rather than the month. It now names the largest event — `flare
-X1.3` — and the list is sorted by flux rather than by date, because a list of the five most recent
-was five M1s while both X-class events sat sixty rows down. Sorting by flux is also why
-`flareFlux` exists: each class letter is a decade, so a string comparison puts C9.9 above M1.0.
+The endpoint was Goddard's CCMC rather than `api.nasa.gov`, which mirrors the same data but wants
+an API key — and a key in a static page is a key published to the world. Worth remembering if
+anything here ever needs NASA data again.
 
 ### A photograph of the thing you just clicked
 
@@ -990,10 +987,13 @@ the machines this section is about.
 
 ### What is shown first, and what waits to be asked for
 
-**Passes overhead is folded shut.** Three days of passes is a long list and a tall panel, and it
-answers a question most visitors did not arrive with — they came to see where the station is.
-Folded, it costs one line; and while it is shut, the 72 hours of propagation behind it are not
-computed at all.
+**Passes overhead was folded shut, and is now gone.** Three days of passes was a long list and a
+tall panel answering a question most visitors did not arrive with — they came to see where the
+station is. Folding it cost one line and saved 72 hours of propagation while shut, which was the
+right trade for as long as it was there; on 31 August 2026 it was removed outright, and with it
+the only place a visitor could enter their own position. The marker that showed that position on
+the map went at the same time — the panel was its only writer, so leaving it would have meant a
+store nobody could fill and a legend pointing at a panel that no longer existed.
 
 **Sources are one small link in the header.** Nobody opens a tracking page wanting a bibliography,
 but an application that asserts a cabin pressure owes an answer to "says who?", and leaving that
@@ -1006,11 +1006,9 @@ and the inert backdrop cost no code.
 - **Map** — an equirectangular world map: the ground track — 45 minutes behind and **90 ahead**,
   which at 92.96 minutes per revolution is very nearly the whole of the next orbit, marked every
   quarter hour and labelled every half — the circle from inside which the station is above the
-  horizon, your own position within it if you have set one, and the night side as a computed polygon with the
-  subsolar point marked. Drawn as SVG rather than through the 3D renderer — a map has no camera to
+  horizon, and the night side as a computed polygon with the subsolar point marked. Drawn as SVG rather than through the 3D renderer — a map has no camera to
   place, no depth to sort and no lighting to model, and vector strokes stay crisp at any size. A
-  panel names the country or stretch of ocean directly beneath, and lists the coming passes over a
-  chosen location.
+  panel names the country or stretch of ocean directly beneath.
 - **Station** — NASA's official model at metre scale. Hovering a part names it on the spot;
   clicking it opens its description and the parameters published about it. The twelve joints
   (2 SARJ, 8 BGA, 2 TRRJ) are driven by telemetry; with no data they hold their original position.

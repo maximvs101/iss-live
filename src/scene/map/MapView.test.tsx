@@ -14,7 +14,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { cleanup, render } from '@testing-library/react'
 import { useOrbitStore } from '../../orbit/useOrbit'
-import { useObserverStore } from '../../orbit/observer'
 import { latToY, lonToX } from './projection'
 import { MapView } from './MapView'
 
@@ -60,7 +59,6 @@ beforeEach(() => {
     beta: -34.5,
     subsolar: { latitude: 15.7, longitude: -74.8 },
   } as never)
-  useObserverStore.setState({ observer: null, status: 'idle' })
 })
 
 afterEach(cleanup)
@@ -87,8 +85,8 @@ describe('the map', () => {
 
     /*
      * The station silhouette is a group carrying `translate(x y) rotate(...)`, not a circle — the
-     * first version of this looked for circles, found the observer and footprint markers instead,
-     * and reported the station 281 px out.
+     * first version of this looked for circles, found the footprint marker instead, and reported
+     * the station 281 px out.
      */
     const placed = [...svg.querySelectorAll('g[transform]')]
       .map((g) => /translate\(\s*(-?[\d.]+)[ ,]\s*(-?[\d.]+)\s*\)/.exec(g.getAttribute('transform') ?? ''))

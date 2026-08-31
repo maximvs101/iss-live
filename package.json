@@ -31,7 +31,6 @@
     "build:earth": "node scripts/build-earth-textures.mjs",
     "fix:alpha": "node scripts/fix-alpha-modes.mjs",
     "verify:model": "node scripts/verify-model-mapping.mjs",
-    "verify:passes": "node scripts/verify-passes.mjs",
     "verify:telemetry": "node scripts/verify-telemetry.mjs",
     "verify:plottable": "node scripts/verify-plottable.mjs",
     "verify:arrays": "node scripts/verify-array-pointing.mjs",

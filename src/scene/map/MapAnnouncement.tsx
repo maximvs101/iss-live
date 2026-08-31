@@ -2,8 +2,8 @@
  * What the map says, for a reader who cannot see it.
  *
  * The map is an `<svg role="img">`, and that role makes it a **leaf** in the accessibility tree:
- * every `<title>` inside it — the station's position, the subsolar point, the observer's state, the
- * times along the track — is collapsed away and never announced. A screen reader heard one fixed
+ * every `<title>` inside it — the station's position, the subsolar point, the times along the
+ * track — is collapsed away and never announced. A screen reader heard one fixed
  * sentence about a map that changes every second. The drawing cannot carry the data, so a live
  * region beside it does.
  *
@@ -14,9 +14,7 @@
  */
 import { useEffect, useState } from 'react'
 import { useOrbitStore } from '../../orbit/useOrbit'
-import { useObserverStore } from '../../orbit/observer'
 import { overflightAt } from '../../orbit/overflight'
-import { withinFootprint } from './projection'
 
 /** How often the sentence is refreshed. */
 const SPEAK_EVERY_MS = 30_000
@@ -29,7 +27,6 @@ function describe(): string {
   const { state } = useOrbitStore.getState()
   if (!state) return 'Waiting for orbital elements.'
 
-  const { observer } = useObserverStore.getState()
   const under = overflightAt(state.latitude, state.longitude)
   // Spelled out — "43.4° N" is read as "43.4 N" by most screen readers, which is not a latitude.
   const where = `${coordinate(state.latitude, 'north', 'south')}, ${coordinate(state.longitude, 'east', 'west')}`
@@ -46,16 +43,7 @@ function describe(): string {
           : `over the ${under.name}`
   const lit = state.shadow < 0.5 ? 'in sunlight' : 'in the Earth’s shadow'
 
-  const parts = [`Station at ${where}${over ? `, ${over}` : ''}, ${lit}.`]
-  if (observer) {
-    const up = withinFootprint(observer, state, state.footprintKm)
-    parts.push(
-      up
-        ? 'It is above the horizon from your location.'
-        : 'It is below the horizon from your location.',
-    )
-  }
-  return parts.join(' ')
+  return `Station at ${where}${over ? `, ${over}` : ''}, ${lit}.`
 }
 
 export function MapAnnouncement() {

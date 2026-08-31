@@ -1,15 +1,13 @@
 /**
  * Tests for the orbital engine.
  *
- * The propagation itself is verified against outside sources by `npm run verify:orbit` (0.79 km
- * against api.wheretheiss.at) and `npm run verify:passes` (identical to Heavens-Above). Those need
- * the network. What is tested here is the code around it: invariants that hold
- * for any orbit, and the rules deciding whether a pass is visible.
+ * The propagation itself is verified against an outside source by `npm run verify:orbit` (0.79 km
+ * against api.wheretheiss.at), which needs the network. What is tested here is the code around
+ * it: invariants that hold for any orbit.
  */
 import { describe, expect, it } from 'vitest'
 import { twoline2satrec } from 'satellite.js'
 import { betaAngle, groundTrack, normalizeLongitude, propagateIss, subsolarPoint } from './propagator'
-import { compassPoint, findPasses } from './passes'
 
 /**
  * A fixed set of elements, so the tests do not depend on the network or on today's date.
@@ -265,91 +263,5 @@ describe('subsolar point', () => {
     expect(cosDistance(sun.latitude, sun.longitude)).toBeCloseTo(1, 9)
     expect(cosDistance(-sun.latitude, sun.longitude + 180)).toBeCloseTo(-1, 9)
     expect(Math.abs(cosDistance(0, sun.longitude + 90))).toBeLessThan(0.4)
-  })
-})
-
-describe('compassPoint', () => {
-  it('names the cardinal directions', () => {
-    expect(compassPoint(0)).toBe('N')
-    expect(compassPoint(90)).toBe('E')
-    expect(compassPoint(180)).toBe('S')
-    expect(compassPoint(270)).toBe('W')
-  })
-
-  it('wraps a full turn back to north', () => {
-    expect(compassPoint(360)).toBe('N')
-    expect(compassPoint(-10)).toBe('N')
-    expect(compassPoint(720)).toBe('N')
-  })
-
-  it('names the intermediate points', () => {
-    expect(compassPoint(45)).toBe('NE')
-    expect(compassPoint(225)).toBe('SW')
-  })
-})
-
-describe('findPasses', () => {
-  // Houston, where the station passes often enough for a 48-hour window to find several.
-  const observer = { latitude: 29.76, longitude: -95.37, altitudeM: 10 }
-  const from = new Date('2026-07-28T00:00:00Z')
-  const passes = findPasses(satrec, observer, from, { hours: 48, minElevation: 10 })
-
-  it('finds passes over a mid-latitude site', () => {
-    expect(passes.length).toBeGreaterThan(0)
-  })
-
-  it('orders every pass rise, culmination, set', () => {
-    for (const pass of passes) {
-      expect(pass.start.date.getTime()).toBeLessThanOrEqual(pass.culmination.date.getTime())
-      expect(pass.culmination.date.getTime()).toBeLessThanOrEqual(pass.end.date.getTime())
-    }
-  })
-
-  it('does not overlap two passes', () => {
-    for (let i = 1; i < passes.length; i++) {
-      expect(passes[i].start.date.getTime()).toBeGreaterThan(passes[i - 1].end.date.getTime())
-    }
-  })
-
-  it('culminates higher than it rises or sets', () => {
-    for (const pass of passes) {
-      expect(pass.culmination.elevation).toBeGreaterThanOrEqual(pass.start.elevation)
-      expect(pass.culmination.elevation).toBeGreaterThanOrEqual(pass.end.elevation)
-      expect(pass.maxElevation).toBeCloseTo(pass.culmination.elevation, 6)
-    }
-  })
-
-  it('honours the elevation threshold', () => {
-    const high = findPasses(satrec, observer, from, { hours: 48, minElevation: 40 })
-    for (const pass of high) expect(pass.maxElevation).toBeGreaterThanOrEqual(40)
-    // A stricter threshold cannot produce more passes.
-    expect(high.length).toBeLessThanOrEqual(passes.length)
-  })
-
-  it('lasts a few minutes at most', () => {
-    // From the ground, the station crosses the sky in well under ten minutes.
-    for (const pass of passes) {
-      expect(pass.durationSeconds).toBeGreaterThan(0)
-      expect(pass.durationSeconds).toBeLessThan(900)
-    }
-  })
-
-  it('only calls a pass visible when it is also bright', () => {
-    // Visibility requires the station to be sunlit while the observer's sky is dark. A visible
-    // pass must therefore carry a magnitude estimate.
-    for (const pass of passes) {
-      if (pass.visible) expect(pass.brightestMagnitude).not.toBeNull()
-    }
-  })
-
-  it('never calls a pass visible in broad daylight', () => {
-    // The threshold is a Sun more than 6 degrees below the horizon: civil twilight.
-    for (const pass of passes) {
-      if (pass.visible) expect(pass.culmination.sunElevation).toBeLessThan(0)
-    }
-  })
-
-  it('finds nothing in a window of zero length', () => {
-    expect(findPasses(satrec, observer, from, { hours: 0 })).toEqual([])
   })
 })
