@@ -285,11 +285,17 @@ export function StationView() {
       {/* Shadows on: the solar wings shading the truss is the single largest gain in realism the
           scene can make, and it costs one shadow map. */}
       {/*
-        Soft shadows and a slightly lifted exposure.
-        
-        `PCFSoft` costs a little and buys edges that are not staircases; the exposure compensates
-        for the fill light that was just taken away, so the lit side keeps its brightness while
-        the unlit side goes properly dark.
+        Percentage-closer shadows and a slightly lifted exposure.
+
+        This asked for `soft` until three.js 0.185 deprecated `PCFSoftShadowMap`: the first shadow
+        render now warns to the console and assigns `PCFShadowMap` over the top, so the request was
+        being answered with the ordinary filter and the code said otherwise. Measured on the live
+        renderer — `gl.shadowMap.type` read 1, not 2, and setting it back to 2 by hand lasted
+        exactly one frame. Naming what actually happens costs nothing and stops the warning
+        repeating; `shadow.radius` is no use here either, PCF ignores it.
+
+        The exposure compensates for the fill light that was taken away, so the lit side keeps its
+        brightness while the unlit side goes properly dark.
 
         The camera sits at 104 units, pulled in from 121 by the same 94/109 as the truss-length
         correction, so the station fills the same fraction of the frame as it did before the scale
@@ -297,7 +303,7 @@ export function StationView() {
       */}
       <Canvas
         ref={canvas}
-        shadows="soft"
+        shadows="percentage"
         gl={{ toneMappingExposure: 1.15 }}
         camera={{ position: [60, 34, 78], fov: 42, near: 0.5, far: farPlane(MAX_CAMERA_DISTANCE) }}
         /*

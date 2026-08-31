@@ -214,6 +214,13 @@ export function EarthSurface() {
         .replace(
           '#include <map_fragment>',
           `#include <map_fragment>
+           // Guarded, because this material compiles before the day map has arrived over the
+           // network. Without a map three.js never declares vMapUv, the fragment shader fails
+           // to compile, and the program is dropped (useProgram: program not valid), and the
+           // planet missing from however many frames pass before the texture lands and forces a
+           // recompile. It reproduced on every load. There is also nothing to correct without a
+           // base colour: the tile multiplies the map, so with no map it has no work to do.
+           #ifdef USE_MAP
            {
              vec2 inTile = (vMapUv - uDetailBox.xy) / uDetailBox.zw;
              vec2 within = step(vec2(0.0), inTile) * step(inTile, vec2(1.0));
@@ -224,7 +231,8 @@ export function EarthSurface() {
              // says, and the map keeps the colour. See build-earth-detail for why chroma was left out.
              float ratio = texture2D(uDetail, clamp(inTile, 0.0, 1.0)).r * ${RATIO_RANGE}.0;
              diffuseColor.rgb *= mix(1.0, ratio, amount);
-           }`,
+           }
+           #endif`,
         )
     },
     [detailUniforms],
