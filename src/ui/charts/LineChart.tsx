@@ -70,6 +70,12 @@ export function LineChart({
     const tMax = Math.max(...times)
     let vMin = Math.min(...values)
     let vMax = Math.max(...values)
+    // Both axes, because both divide by their own span below. The value axis was guarded and the
+    // time axis was not, so a series whose points share one timestamp — two flushes inside a
+    // millisecond, or a history bucketed to one interval — projected every x as 0/0. The path
+    // became `M NaN NaN …`, which a browser drops without a word: no line, no marker, no error.
+    let tSpan = tMax - tMin
+    if (tSpan === 0) tSpan = 1
     if (vMin === vMax) {
       vMin -= 1
       vMax += 1
@@ -87,7 +93,7 @@ export function LineChart({
       tMax,
       vMin,
       vMax,
-      x: (t: number) => PADDING.left + ((t - tMin) / (tMax - tMin)) * plotWidth,
+      x: (t: number) => PADDING.left + ((t - tMin) / tSpan) * plotWidth,
       y: (value: number) =>
         PADDING.top + plotHeight - ((value - vMin) / (vMax - vMin)) * plotHeight,
       plotWidth,

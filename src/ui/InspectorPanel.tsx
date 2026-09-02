@@ -12,14 +12,29 @@ import { TelemetryValue } from './TelemetryValue'
 import { PartPhoto } from './PartPhoto'
 import { PartPicker } from './PartPicker'
 
+/**
+ * One per category the inventory actually uses, checked by a test rather than by eye.
+ *
+ * Three were missing — robotics, science and platform — so Canadarm2, Dextre, the Mobile
+ * Transporter, AMS and the two stowage platforms printed their raw identifier under their name:
+ * `robotics`, lowercase, where every other part reads `Pressurised module`. The fallback that let
+ * that through is kept, because a label is not worth a blank line, but nothing should reach it.
+ *
+ * `attitude` was here and no part carries it; it was the only entry with nothing behind it.
+ */
 const CATEGORY_LABELS: Record<string, string> = {
   module: 'Pressurised module',
   truss: 'Structure',
   power: 'Power',
   thermal: 'Thermal',
-  attitude: 'Attitude control',
+  robotics: 'Robotics',
+  science: 'Science',
   comms: 'Communications',
+  platform: 'Stowage platform',
 }
+
+/** Exported so a test can hold it against the inventory rather than against this list. */
+export const PART_CATEGORY_LABELS = CATEGORY_LABELS
 
 export function InspectorPanel() {
   const selected = useSelectionStore((store) => store.selected)
@@ -60,7 +75,10 @@ export function InspectorPanel() {
       <p className="panel__category">{CATEGORY_LABELS[part.category] ?? part.category}</p>
       <p className="panel__summary">{part.summary}</p>
 
-      <PartPhoto part={selected} />
+      {/* Keyed on the part, so a change remounts rather than resetting in an effect: the state
+          reset used to happen *after* the commit, so one frame was painted with the previous
+          part's photograph under the new part's name. */}
+      <PartPhoto key={selected} part={selected} />
 
       {channels.length > 0 ? (
         <div className="panel__section">

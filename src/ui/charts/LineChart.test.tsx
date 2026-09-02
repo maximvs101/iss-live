@@ -75,6 +75,21 @@ describe('the line chart', () => {
     expect(pathPoints().every((p) => Number.isFinite(p.x) && Number.isFinite(p.y))).toBe(true)
   })
 
+  it('survives a series that shares one instant', () => {
+    // The mirror of the case above, on the other axis: the time span is the other divisor, and it
+    // was the one without a guard. Two flushes inside a millisecond, or a history bucketed to one
+    // interval, and every x came out 0/0 — a path of NaN, which a browser drops in silence.
+    render(<LineChart points={[
+      { t: 1_700_000_000_000, value: 5 },
+      { t: 1_700_000_000_000, value: 10 },
+      { t: 1_700_000_000_000, value: 7 },
+    ]} title="Bus voltage" unit="V" />)
+
+    const d = document.querySelector('path[d]')?.getAttribute('d') ?? ''
+    expect(d).not.toContain('NaN')
+    expect(pathPoints().every((p) => Number.isFinite(p.x) && Number.isFinite(p.y))).toBe(true)
+  })
+
   it('survives a single point', () => {
     render(<LineChart points={[{ t: 5_000, value: 3 }]} title="One reading" />)
     const d = document.querySelector('path[d]')?.getAttribute('d') ?? ''

@@ -78,7 +78,17 @@ export default function App() {
    * a dozen entries deep in the back button.
    */
   useEffect(() => {
-    const search = searchForPart(view === 'station' ? selected : null, window.location.search)
+    /*
+     * Read from the store rather than from the closure.
+     *
+     * On a deep link both effects run over the same commit, in order: the one above calls
+     * `select('cupola')`, and this one still held `selected = null` from that render. It therefore
+     * computed an empty query, wrote it, and wrote `?part=cupola` back on the next render — two
+     * `replaceState` calls per load, with the address genuinely stripped in between. Zustand's set
+     * is synchronous, so asking it here gets the selection the effect above has just made.
+     */
+    const current = useSelectionStore.getState().selected
+    const search = searchForPart(view === 'station' ? current : null, window.location.search)
     if (search !== window.location.search) {
       window.history.replaceState(null, '', `${window.location.pathname}${search}${window.location.hash}`)
     }

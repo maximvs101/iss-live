@@ -11,6 +11,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { PartPicker } from './PartPicker'
 import { useSelectionStore } from './selection'
 import { PARTS } from '../scene/parts'
+import { PART_CATEGORY_LABELS } from './InspectorPanel'
 
 afterEach(() => {
   cleanup()
@@ -27,6 +28,19 @@ describe('PartPicker', () => {
       .filter(Boolean)
 
     expect(values.sort()).toEqual(Object.keys(PARTS).sort())
+  })
+
+  /**
+   * The mirror of the check above, on the other list that enumerates categories by hand.
+   *
+   * The picker groups by category and the inspector names the category, and the two lists were
+   * written separately: the inspector was missing robotics, science and platform, so six parts —
+   * Canadarm2, Dextre, the Mobile Transporter, AMS and the two stowage platforms — printed the raw
+   * identifier under their name. It also carried `attitude`, which no part has ever used.
+   */
+  it('names every category the inventory actually uses, and no others', () => {
+    const used = [...new Set(Object.values(PARTS).map((part) => part.category))].sort()
+    expect(Object.keys(PART_CATEGORY_LABELS).sort()).toEqual(used)
   })
 
   it('groups them under headings', () => {
