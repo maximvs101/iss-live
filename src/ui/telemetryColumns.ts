@@ -43,6 +43,13 @@
  * the wrapping stops and the height is at its lowest; 320 draws the same layout at 1920 and costs
  * a column at 1366, where 300 still fits three. Below 1366 nothing changes — 1024 and 1366 draw
  * the same two and three columns at either setting.
+ *
+ * Re-measured after the page went monospaced and the subsystem rail took 210 px off the strip —
+ * 1271 px at 1920 where it was 1473. The conclusion holds and the numbers moved a little: three
+ * columns for every subsystem, 2 227 px of strip against 1 828, and five wrapped labels against
+ * three, all five in Attitude & orbit and Communications, whose longest labels are simply long.
+ * 280 was measured again at the same width and draws exactly the same layout, so the setting is
+ * not delicately balanced; widening it to chase those five would cost a column somewhere else.
  */
 export const COLUMN_WIDTH = 300
 export const COLUMN_GAP = 18

@@ -54,7 +54,7 @@ export function LineChart({
   bands = [],
   height = 150,
   width = 340,
-  color = '#ffb03a',
+  color = '#4ade80',
   precision = 1,
   emptyMessage = 'No data to plot.',
 }: LineChartProps) {
@@ -182,7 +182,7 @@ export function LineChart({
               x2={width - PADDING.right}
               y1={scale.y(tick)}
               y2={scale.y(tick)}
-              stroke="#1e2937"
+              stroke="#16202c"
               strokeWidth={1}
             />
             <text x={PADDING.left - 6} y={scale.y(tick) + 3} className="chart__tick" textAnchor="end">
@@ -203,7 +203,7 @@ export function LineChart({
         />
 
         {/* End marker, ringed in the surface colour */}
-        <circle cx={scale.x(last.t)} cy={scale.y(last.value)} r={4} fill={color} stroke="#0d121b" strokeWidth={2} />
+        <circle cx={scale.x(last.t)} cy={scale.y(last.value)} r={4} fill={color} stroke="#090e15" strokeWidth={2} />
         <text
           x={scale.x(last.t) + 8}
           y={scale.y(last.value) + 4}
@@ -220,7 +220,7 @@ export function LineChart({
               x2={scale.x(hover.t)}
               y1={PADDING.top}
               y2={PADDING.top + scale.plotHeight}
-              stroke="#2c3a4d"
+              stroke="#243545"
               strokeWidth={1}
             />
             <circle
@@ -228,7 +228,7 @@ export function LineChart({
               cy={scale.y(hover.value)}
               r={4}
               fill={color}
-              stroke="#0d121b"
+              stroke="#090e15"
               strokeWidth={2}
             />
           </g>

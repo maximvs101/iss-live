@@ -28,7 +28,10 @@ const laid = (columns: ReturnType<typeof distribute>) =>
 
 describe('how many columns the width affords', () => {
   it('draws the counts the sweep was run against', () => {
-    // Widths of `.telemetry__sections` itself, read off the live page at 2560, 1920, 1366 and 1024.
+    // Widths of `.telemetry__sections` itself, read off the live page at 2560, 1920, 1366 and 1024
+    // before the rail was added. The arithmetic under test does not depend on what the page is set
+    // in; the strip is narrower now — 1271 px at 1920 rather than 1473 — and these four widths are
+    // kept as the fixed points the width was chosen against.
     expect(columnCount(2128)).toBe(6)
     expect(columnCount(1473)).toBe(4)
     expect(columnCount(964)).toBe(3)

@@ -1,5 +1,22 @@
 /** Layout: full-frame 3D scene on the left, reading column on the right. */
 
+/*
+ * Where the colours are spent.
+ *
+ * Amber used to be the accent: the selected tab, a hovered link, the place name in the header, the
+ * progress bar, the sunlit marker. It was also the warning colour, which meant a warning had to
+ * shout over five decorative uses of itself to be seen. Here the four colours each mean one thing
+ * and nothing else:
+ *
+ *     --live    green   this reading is current, this thing is lit, this stream is up
+ *     --warn    amber   late, held, off nominal — and nothing that is merely selected or hovered
+ *     --alert   red     a continuous sensor has stopped reporting
+ *     --idle    slate   nothing is claimed
+ *
+ * Everything interactive — hover, focus, the open tab — is carried by brightness, ground and a
+ * rule instead: `--text-strong` against `--text`, a panel a shade lighter, a 2 px edge. That is
+ * enough to say "this one" without borrowing a colour that has a job.
+ */
 .app {
   display: flex;
   flex-direction: column;
@@ -23,6 +40,66 @@
   padding: 12px 16px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-panel);
+}
+
+/*
+ * The state band under the title.
+ *
+ * Cells of equal weight, divided by hairlines and never reordered: a strip is only readable at a
+ * glance if a cell stays where it was, so this is a fixed row rather than a flex that reflows. It
+ * scrolls sideways below 900 px instead of wrapping, for the same reason.
+ */
+.console-strip {
+  display: flex;
+  margin: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.console-strip__cell {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  /*
+   * Grows to share the width, never shrinks below its own text.
+   *
+   * `1 1 0` shared the row evenly and, at 375 px, gave each cell 53 px for content needing 90:
+   * the values kept their width — `nowrap` — and ran straight over the cell beside them, so the
+   * band read as one smear of digits. Refusing to shrink is what makes the sideways scroll
+   * happen instead.
+   */
+  flex: 1 0 auto;
+  padding: 6px 14px;
+  border-right: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.console-strip__cell:last-child {
+  border-right: 0;
+}
+
+.console-strip__cell dt {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  color: var(--idle);
+}
+
+.console-strip__value {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.console-strip__value--live {
+  color: var(--live);
+}
+
+.console-strip__value--idle {
+  color: var(--idle);
 }
 
 .app__brand h1 {
@@ -98,7 +175,7 @@
 }
 
 .now-over strong {
-  color: var(--accent);
+  color: var(--text-strong);
   font-weight: 600;
 }
 
@@ -136,14 +213,14 @@
   gap: 2px;
   padding: 3px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 2px;
   background: var(--bg);
 }
 
 .view-switch__item {
   padding: 6px 16px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 2px;
   background: transparent;
   color: var(--text-dim);
   transition: background 0.15s, color 0.15s;
@@ -154,8 +231,9 @@
 }
 
 .view-switch__item--active {
-  background: var(--accent-dim);
-  color: var(--accent);
+  background: var(--bg-panel-alt);
+  color: var(--text-strong);
+  box-shadow: inset 0 -2px 0 var(--text-dim);
 }
 
 /*
@@ -242,16 +320,21 @@
  * caption under a 219 px map is a caption competing with its own subject — paid for by the reading
  * strip below, which lost 19 px to it.
  *
- * So: the map's width, but not below the width at which the entries settle. 46rem is measured, not
- * chosen — 690 px at this document's 15 px root, which is where the six of them stop needing a
- * third line. Above it the legend and the map share an edge; below it the legend overhangs — 78 px
- * a side at 1366×768, 126 at 1280×720 — and keeps its two lines.
+ * So: the map's width, but not below the width at which the entries settle. 740 px is measured,
+ * not chosen: swept in the page in 20 px steps, the six entries take a third line below 740 and
+ * settle into two at it. Above it the legend and the map share an edge; below it the legend
+ * overhangs and keeps its two lines.
+ *
+ * In pixels rather than rem, because it is a threshold of this text at this size and the root has
+ * already moved underneath it once: written as 46rem it meant 690 px while the page was set in
+ * Inter at 15, and became 575 the moment the console face took over at 12.5 — a 115 px change to a
+ * measured constant, made by editing something else entirely.
  */
 .map-legend {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  width: min(100%, max(var(--map-width), 46rem));
+  width: min(100%, max(var(--map-width), 740px));
   gap: 6px 18px;
   margin: 0;
   padding: 0;
@@ -275,8 +358,8 @@
 }
 
 .map-legend__swatch--sun {
-  background: #ffd88a;
-  box-shadow: 0 0 0 2px rgba(255, 216, 138, 0.25);
+  background: #4ade80;
+  box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.22);
 }
 
 /*
@@ -298,11 +381,11 @@
 }
 
 .map-legend__swatch--future {
-  background: var(--accent);
+  background: var(--live);
 }
 
 .map-legend__swatch--past {
-  background: #8899aa;
+  background: #4a5c70;
 }
 
 /* Dashed, like the track itself where the station is eclipsed. */
@@ -312,13 +395,13 @@
   border-radius: 0;
   background: repeating-linear-gradient(
     to right,
-    #7f93c4 0 3px,
+    #2f8f63 0 3px,
     transparent 3px 6px
   );
 }
 
 .map-legend__swatch--night {
-  background: #0d2338;
+  background: #060f1a;
   border: 1px solid var(--border-strong);
   border-radius: 2px;
 }
@@ -350,7 +433,7 @@
   width: 100%;
   height: auto;
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  border-radius: 2px;
 }
 
 /*
@@ -373,11 +456,13 @@
  */
 @media (min-width: 901px) {
   .map-view {
-    /* 501 = the 75 px header, the map's own furniture (54 px with the legend on one line, 69 with
-       two) and what is left over, which is the reading strip: 357 px at 1366×768, 439 at 1920×1080,
-       648 at 2560×1440. The 768-high laptop showed 357 px of strip before any of this, so the floor
-       is set exactly where it already stood rather than anywhere more comfortable. */
-    --map-reserve: 501px;
+    /* 534 = the 75 px header, the 33 px state band under it, the map's own furniture (54 px with
+       the legend on one line, 69 with two) and what is left over, which is the reading strip:
+       357 px at 1366×768, 439 at 1920×1080, 648 at 2560×1440. The 768-high laptop showed 357 px of
+       strip before any of this, so the floor is set exactly where it already stood rather than
+       anywhere more comfortable. The band is the whole of the change from 501: it is a row the
+       header did not have, and the map pays for it rather than the readings. */
+    --map-reserve: 534px;
     --map-width: min(100%, (100dvh - var(--map-reserve)) * 2, 92dvh);
   }
 }
@@ -400,7 +485,7 @@
   color: var(--text-dim);
   background: rgba(7, 10, 16, 0.72);
   padding: 5px 10px;
-  border-radius: 6px;
+  border-radius: 2px;
   pointer-events: none;
 }
 
@@ -436,7 +521,7 @@
 .model-progress__bar {
   display: block;
   height: 100%;
-  background: var(--accent);
+  background: var(--live);
   transition: width 0.2s ease-out;
 }
 
@@ -456,7 +541,7 @@
   max-width: 240px;
   padding: 7px 10px;
   border: 1px solid var(--border-strong);
-  border-radius: 6px;
+  border-radius: 2px;
   background: rgba(7, 10, 16, 0.92);
   backdrop-filter: blur(4px);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
@@ -467,7 +552,7 @@
 .hover-label__name {
   font-size: 13px;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--text-strong);
 }
 
 .hover-label__designation {
@@ -500,7 +585,7 @@
   width: min(520px, calc(100% - 32px));
   padding: 24px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 2px;
   background: var(--bg-panel);
   box-shadow: 0 8px 32px rgb(0 0 0 / 45%);
 }
@@ -509,7 +594,7 @@
   margin-top: 16px;
   padding: 7px 14px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 2px;
   background: var(--bg-panel-alt);
   color: var(--text);
   font: inherit;
@@ -518,8 +603,8 @@
 }
 
 .scene-error__retry:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--text-dim);
+  color: var(--text-strong);
 }
 
 .scene-error h2 {
@@ -538,7 +623,7 @@
   margin-top: 12px;
   padding: 10px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 2px;
   background: var(--bg-panel-alt);
   font-family: var(--mono);
   font-size: 11px;
@@ -718,7 +803,7 @@
 }
 
 .panel__toggle:hover .panel__title {
-  color: var(--accent);
+  color: var(--text-strong);
 }
 
 /*
@@ -742,9 +827,10 @@
 }
 
 .panel__title {
-  font-size: 15px;
+  font-size: 12px;
   text-transform: uppercase;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.12em;
+  color: var(--text-dim);
 }
 
 .panel__designation {
@@ -755,10 +841,10 @@
 
 .panel__category {
   margin-top: 8px;
-  font-size: 11px;
+  font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--accent);
+  letter-spacing: 0.11em;
+  color: var(--text-dim);
 }
 
 .panel__summary {
@@ -784,9 +870,9 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 8px;
-  font-size: 12px;
+  font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.11em;
   color: var(--text-dim);
   padding-bottom: 6px;
   border-bottom: 1px solid var(--border);
@@ -812,7 +898,7 @@
   background: transparent;
   color: var(--text-dim);
   padding: 4px 10px;
-  border-radius: 6px;
+  border-radius: 2px;
   font-size: 12px;
 }
 
@@ -833,7 +919,7 @@
 .metric {
   padding: 8px 10px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 2px;
   background: var(--bg);
 }
 
@@ -855,7 +941,7 @@
 }
 
 .metric--sun .metric__value {
-  color: var(--accent);
+  color: var(--live);
 }
 
 .metric--shadow .metric__value {
@@ -965,7 +1051,7 @@
 }
 
 .plot__select:focus-visible {
-  outline: 1px solid var(--accent);
+  outline: 1px solid var(--text-strong);
   outline-offset: 1px;
 }
 
@@ -1028,38 +1114,181 @@
   margin-top: 8px;
   padding: 14px;
   border: 1px dashed var(--border);
-  border-radius: 6px;
+  border-radius: 2px;
   font-size: 12px;
   color: var(--text-dim);
   line-height: 1.5;
 }
 
-/* --- Subsystem tabs --- */
+/* --- The subsystem rail --- */
 
-.tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 12px;
+/*
+ * Six lines, always all six, with their counts.
+ *
+ * The pills this replaces said only which subsystem was open. A rail can carry the two figures
+ * that decide where to look — how many channels the subsystem has, and how many of them have
+ * stopped reporting — and carry them for the five subsystems the reader is *not* looking at,
+ * which is the whole value: the flagged one is visible without opening it.
+ */
+.rail {
+  flex: 0 0 auto;
+  width: 210px;
+  border-right: 1px solid var(--border);
 }
 
-.tabs__item {
-  padding: 4px 10px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
+/*
+ * The six stay put while the readings scroll past them.
+ *
+ * Measured at 1600×1000: the panel shows 364 px of a 753 px column, so a rail that scrolled with
+ * the readings left the screen after the first third — taking with it the flag counts that are
+ * the reason for having a rail at all. The rail itself keeps its full height so its rule divides
+ * the whole panel; only the list inside it sticks.
+ */
+.rail__inner {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.rail__head {
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  color: var(--text-dim);
+}
+
+.rail__item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-left: 2px solid transparent;
   background: transparent;
   color: var(--text-dim);
   font-size: 12px;
+  text-align: left;
 }
 
-.tabs__item:hover {
+.rail__item:hover {
   color: var(--text);
+  background: var(--bg-panel-alt);
 }
 
-.tabs__item--active {
-  background: var(--accent-dim);
-  border-color: rgba(255, 176, 58, 0.4);
-  color: var(--accent);
+/*
+ * The open subsystem, marked by ground and a rule rather than by colour.
+ *
+ * Amber is a warning here and nothing else; spending it on "this tab is open" is what made a
+ * flagged subsystem indistinguishable from a selected one.
+ */
+.rail__item--active {
+  background: var(--bg-panel-alt);
+  border-left-color: var(--text-dim);
+  color: var(--text-strong);
+}
+
+.rail__label {
+  flex-grow: 1;
+  min-width: 0;
+}
+
+.rail__count {
+  color: var(--idle);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The stopped count: a dot when there is nothing to say, the number when there is. */
+.rail__flag {
+  width: 16px;
+  text-align: right;
+  color: var(--idle);
+  font-variant-numeric: tabular-nums;
+}
+
+.rail__flag--on {
+  color: var(--warn);
+}
+
+.rail__consoles {
+  margin-top: auto;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--idle);
+}
+
+/*
+ * The rail stands only where there is width to stand in.
+ *
+ * Vertical it takes 210 px out of the reading strip, and at 1366 that was a whole column: the
+ * strip fell from three columns to two, which is fifteen readings for six rail labels. Lying flat
+ * it costs 45 px of height instead — one and a half rows — and keeps its counts. So the threshold
+ * is where the third column survives the rail: 1400 px, measured, not chosen.
+ */
+@media (max-width: 1400px) {
+  /*
+   * The band runs off the edge, and says so.
+   *
+   * Seven cells need 836 px and a phone has 375, so it scrolls sideways — which is invisible
+   * unless something at the edge suggests it. The fade is that suggestion, and it is written here
+   * rather than on the band itself because above 900 px the seven fit and there is nothing to
+   * hint at.
+   */
+  .console-strip {
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  }
+
+  /*
+   * The rail lies down.
+   *
+   * Six lines down the side of a phone is 264 px of chrome before the first reading. Laid flat it
+   * is one 36 px row that scrolls sideways, and it keeps what it was built for: the counts travel
+   * with the labels, so the flagged subsystem is still marked without being opened.
+   */
+  .telemetry__frame {
+    flex-direction: column;
+  }
+
+  .rail {
+    width: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .rail__inner {
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .rail__head {
+    display: none;
+  }
+
+  .rail__item {
+    width: auto;
+    flex: 0 0 auto;
+    border-bottom: 0;
+    border-left: 0;
+    border-top: 2px solid transparent;
+  }
+
+  .rail__item--active {
+    border-left-color: transparent;
+    border-top-color: var(--text-dim);
+  }
+
+  .rail__consoles {
+    display: none;
+  }
 }
 
 /*
@@ -1074,6 +1303,7 @@
     height: auto;
     min-height: 100%;
   }
+
 
   .app__main {
     grid-template-columns: 1fr;
@@ -1122,8 +1352,8 @@
 }
 
 .sources__open:hover {
-  color: var(--accent);
-  text-decoration-color: var(--accent);
+  color: var(--text-strong);
+  text-decoration-color: var(--text-strong);
 }
 
 /*
@@ -1144,14 +1374,14 @@
 }
 
 .app__repo:hover {
-  color: var(--accent);
+  color: var(--text-strong);
 }
 
 /* Keyboard reach: the mark is the only control here with no text to outline. */
 .app__repo:focus-visible {
-  outline: 1px solid var(--accent);
+  outline: 1px solid var(--text-strong);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 2px;
 }
 
 .sources {
@@ -1159,7 +1389,7 @@
   max-height: min(80vh, 760px);
   padding: 0;
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  border-radius: 2px;
   background: var(--bg-panel);
   color: var(--text);
   overflow: auto;
@@ -1191,7 +1421,7 @@
   width: 26px;
   height: 26px;
   border: 0;
-  border-radius: 4px;
+  border-radius: 2px;
   background: transparent;
   color: var(--text-dim);
   font-size: 20px;
@@ -1216,7 +1446,7 @@
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--accent);
+  color: var(--text-dim);
 }
 
 .sources__list {
@@ -1241,7 +1471,7 @@
 }
 
 .sources__list a:hover {
-  color: var(--accent);
+  color: var(--text-strong);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -1283,32 +1513,26 @@
   overflow-y: auto;
   border-top: 1px solid var(--border);
   border-bottom: 0;
+  /* The frame inside owns the spacing now, so the rail can run edge to edge. */
+  padding: 0;
 }
 
-/* Title, tabs and consoles on one line — chrome costs readings, in a panel this shape. */
-.telemetry__head {
+/* The rail down the side, the readings beside it, no heading over either: the rail says what
+   this panel is, and a second word saying "Subsystems" would only cost a line of readings. */
+.telemetry__frame {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px 16px;
+  align-items: stretch;
+  min-height: 100%;
 }
 
-.telemetry__head .tabs {
-  margin-top: 0;
-}
-
-/* Pushed to the far end and allowed to disappear before it wraps the row. */
-.telemetry__consoles {
-  margin-top: 0;
-  margin-left: auto;
+.telemetry__main {
+  flex-grow: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  padding: 10px 14px 14px;
 }
 
 .telemetry__tagline {
-  margin-top: 6px;
+  margin-top: 0;
   max-width: 80ch;
 }
 
@@ -1415,7 +1639,7 @@
   width: 100%;
   height: auto;
   border: 1px solid var(--border-strong);
-  border-radius: 6px;
+  border-radius: 2px;
   /* Reserves the space before the JPEG arrives, so the panel does not jump under the reader. */
   aspect-ratio: 3 / 2;
   object-fit: cover;
@@ -1436,7 +1660,7 @@
 }
 
 .part-photo figcaption a:hover {
-  color: var(--accent);
+  color: var(--text-strong);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
@@ -1494,8 +1718,8 @@
 }
 
 .part-photo__arrow:hover {
-  background: rgba(7, 10, 16, 0.85);
-  color: var(--accent);
+  background: rgba(5, 8, 12, 0.85);
+  color: var(--text-strong);
 }
 
 .part-photo__arrow--back {
@@ -1505,7 +1729,7 @@
 
 .part-photo__arrow--next {
   right: 0;
-  border-radius: 4px 0 0 4px;
+  border-radius: 2px 0 0 4px;
 }
 
 /* Always visible: it is the only cue that there is more than one picture. */
@@ -1544,8 +1768,8 @@
 }
 
 .part-photo__original:hover {
-  color: var(--accent);
-  text-decoration-color: var(--accent);
+  color: var(--text-strong);
+  text-decoration-color: var(--text-strong);
 }
 
 /*
@@ -1575,12 +1799,12 @@
 
   /* Context, not data. First to go when the two compete for the same pixels. */
   .telemetry__tagline,
-  .telemetry__consoles {
+  .rail__consoles {
     display: none;
   }
 
-  .panel--telemetry {
-    padding: 12px 16px;
+  .telemetry__main {
+    padding: 8px 12px 12px;
   }
 
   /*
@@ -1694,7 +1918,7 @@
   max-width: min(560px, calc(100% - 32px));
   padding: 6px 12px;
   border: 1px solid rgba(255, 176, 58, 0.35);
-  border-radius: 6px;
+  border-radius: 2px;
   background: rgba(7, 10, 16, 0.82);
   font-size: 12px;
   line-height: 1.45;
@@ -1930,7 +2154,7 @@
    * whatever was underneath it. `min-height` rather than padding, so a control that is already
    * tall enough is left alone.
    */
-  .tabs__item,
+  .rail__item,
   .panel__toggle,
   .plot__select,
   .button {

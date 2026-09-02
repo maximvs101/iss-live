@@ -29,23 +29,26 @@ export function OrbitPanel() {
     <section className="panel">
       <h2 className="panel__title">Orbit</h2>
 
+      {/*
+        Position, altitude, speed and illumination moved to the console strip under the title,
+        where they are on screen in both views instead of only this one. What stays here is what
+        the strip cannot say in a cell: the shape of the orbit, and the comparison between the
+        angle this application computes and the one the station measures — which is the whole
+        reason both are on the page, and why beta appears twice on purpose.
+      */}
       <div className="metric-grid">
-        <Metric label="Latitude" value={formatLatitude(state.latitude)} />
-        <Metric label="Longitude" value={formatLongitude(state.longitude)} />
-        <Metric label="Altitude" value={`${state.altitude.toFixed(1)} km`} />
-        <Metric label="Speed" value={`${(state.speed * 3600).toFixed(0)} km/h`} />
         <Metric label="Orbital period" value={`${state.periodMinutes.toFixed(2)} min`} />
         <Metric label="Visibility circle" value={`${state.footprintKm.toFixed(0)} km`} />
+        <Metric
+          label="Beta angle (computed)"
+          value={beta === null ? '—' : `${beta.toFixed(2)}°`}
+          hint="How high the Sun sits above the orbital plane"
+        />
         <Metric
           label="Illumination"
           value={sunlit ? 'sunlit' : 'in shadow'}
           accent={sunlit ? 'sun' : 'shadow'}
           hint="Whether the station is lit, not the ground below it. At 420 km it keeps seeing the Sun for about ten minutes after sunset underneath — which is why it can be sunlit while flying over darkness, and why it is visible from the ground at dusk."
-        />
-        <Metric
-          label="Beta angle (computed)"
-          value={beta === null ? '—' : `${beta.toFixed(2)}°`}
-          hint="How high the Sun sits above the orbital plane"
         />
       </div>
 
@@ -84,21 +87,4 @@ function Metric({
       <span className="metric__value">{value}</span>
     </div>
   )
-}
-
-/*
- * Two decimals, not three, because the third was never a measurement.
- *
- * A thousandth of a degree is about 110 m. What this position is actually worth is 0.79 km, which
- * is how far it sits from `api.wheretheiss.at` given the same elements — and that is agreement
- * between two SGP4 propagations, not accuracy against the station, which is looser still and grows
- * with the age of the elements. Printing a digit worth 110 m on a figure uncertain by 800 claims a
- * precision nothing here has. Two decimals is 1.1 km, which is honestly the resolution available.
- */
-function formatLatitude(value: number): string {
-  return `${Math.abs(value).toFixed(2)}° ${value >= 0 ? 'N' : 'S'}`
-}
-
-function formatLongitude(value: number): string {
-  return `${Math.abs(value).toFixed(2)}° ${value >= 0 ? 'E' : 'W'}`
 }

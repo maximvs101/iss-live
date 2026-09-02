@@ -25,6 +25,7 @@ import { FreshnessPanel } from './ui/FreshnessPanel'
 import { OrbitProfile } from './ui/charts/OrbitProfile'
 import { ErrorBoundary } from './ui/ErrorBoundary'
 import { SourcesDialog } from './ui/SourcesDialog'
+import { ConsoleStrip } from './ui/ConsoleStrip'
 import { RepositoryLink } from './ui/RepositoryLink'
 import { useSelectionStore } from './ui/selection'
 import { partFromSearch, searchForPart } from './ui/deepLink'
@@ -204,6 +205,10 @@ export default function App() {
           <RepositoryLink />
         </div>
       </header>
+
+      {/* The vehicle's state, on its own band under the title and present in both views. Computed
+          locally, so it is what remains true when the broadcast goes quiet. */}
+      <ConsoleStrip />
 
       <main className="app__main">
         {/*

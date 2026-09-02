@@ -199,10 +199,20 @@ export function MapView() {
           role="img"
           aria-label="World map with the station's ground track and the day/night terminator"
         >
-          <rect width={SIZE.width} height={SIZE.height} fill="#1d5a8f" />
+          {/*
+            A console map, not a school atlas.
+
+            The ocean was a saturated blue and the land a bright green, which read as geography
+            first and as an instrument second — and against the darker chrome they now sit in,
+            they glowed. Both are near-black here, the coastline is a hairline, and the only
+            saturated colour left on the map is the track: green for where the station is going,
+            slate for where it has been, which is the same green that means "current" everywhere
+            else on the page.
+          */}
+          <rect width={SIZE.width} height={SIZE.height} fill="#0a1622" />
 
           {/* Graticule every 30 degrees. */}
-          <g stroke="#3d7fb4" strokeWidth={0.4} opacity={0.4}>
+          <g stroke="#1d3040" strokeWidth={0.4} opacity={0.9}>
             {GRATICULE_LAT.map((lat) => (
               <line key={lat} x1={0} x2={SIZE.width} y1={latToY(lat, SIZE)} y2={latToY(lat, SIZE)} />
             ))}
@@ -231,13 +241,13 @@ export function MapView() {
             ))}
           </g>
 
-          <g fill="#1e6b52" fillOpacity={0.75} stroke="none">
+          <g fill="#111e28" fillOpacity={1} stroke="none">
             {coastPaths.fills.map((path, i) => (
               <path key={`fill-${i}`} d={path} />
             ))}
           </g>
 
-          <g fill="none" stroke="#8bf5c4" strokeWidth={0.7} strokeLinejoin="round">
+          <g fill="none" stroke="#31536b" strokeWidth={0.7} strokeLinejoin="round">
             {coastPaths.outlines.map((path, i) => (
               <path key={`line-${i}`} d={path} />
             ))}
@@ -246,7 +256,7 @@ export function MapView() {
           {/* Night, over the geography rather than under it: it has to dim the coastlines too,
               which is the whole point — on the globe, leaving them lit made the terminator
               invisible. */}
-          <path d={night.path} fill="#020c17" opacity={0.55} />
+          <path d={night.path} fill="#01050a" opacity={0.5} />
 
           {/* Where the Sun is directly overhead — the centre of the lit hemisphere. */}
           <g>
@@ -257,7 +267,7 @@ export function MapView() {
               cx={lonToX(night.subsolar.longitude, SIZE)}
               cy={latToY(night.subsolar.latitude, SIZE)}
               r={4}
-              fill="#ffd88a"
+              fill="#4ade80"
               opacity={0.9}
             />
             <circle
@@ -265,30 +275,30 @@ export function MapView() {
               cy={latToY(night.subsolar.latitude, SIZE)}
               r={9}
               fill="none"
-              stroke="#ffd88a"
+              stroke="#4ade80"
               strokeWidth={0.6}
               opacity={0.4}
             />
           </g>
 
           {footprint.map((run, i) => (
-            <path key={`fp-${i}`} d={toPath(run)} fill="#ffb03a" fillOpacity={0.07} stroke="#ffb03a" strokeWidth={0.6} opacity={0.5} />
+            <path key={`fp-${i}`} d={toPath(run)} fill="#4ade80" fillOpacity={0.06} stroke="#4ade80" strokeWidth={0.6} opacity={0.5} />
           ))}
 
           <g fill="none" strokeLinecap="round">
             {trackRuns.past.map((run, i) => (
-              <path key={`past-${i}`} d={toPath(run)} stroke="#8899aa" strokeWidth={1} opacity={0.5} />
+              <path key={`past-${i}`} d={toPath(run)} stroke="#4a5c70" strokeWidth={1} opacity={0.5} />
             ))}
             {trackRuns.pastShadow.map((run, i) => (
-              <path key={`past-dark-${i}`} d={toPath(run)} stroke="#5b6b80" strokeWidth={1} opacity={0.45} strokeDasharray="3 3" />
+              <path key={`past-dark-${i}`} d={toPath(run)} stroke="#3a4a5c" strokeWidth={1} opacity={0.45} strokeDasharray="3 3" />
             ))}
             {trackRuns.future.map((run, i) => (
-              <path key={`future-${i}`} d={toPath(run)} stroke="#ffb03a" strokeWidth={1.2} opacity={0.9} />
+              <path key={`future-${i}`} d={toPath(run)} stroke="#4ade80" strokeWidth={1.2} opacity={0.9} />
             ))}
             {/* Dashed where the station itself is in the Earth's shadow — which starts later than
                 the map's night, and is the difference the eye should catch. */}
             {trackRuns.futureShadow.map((run, i) => (
-              <path key={`future-dark-${i}`} d={toPath(run)} stroke="#7f93c4" strokeWidth={1.2} opacity={0.85} strokeDasharray="3 3" />
+              <path key={`future-dark-${i}`} d={toPath(run)} stroke="#2f8f63" strokeWidth={1.2} opacity={0.85} strokeDasharray="3 3" />
             ))}
           </g>
 
@@ -343,7 +353,7 @@ function TrackTickMark({ tick }: { tick: TrackTick }) {
   return (
     <g>
       <title>{`In ${tick.minutes} minutes — ${local} in this browser's time zone`}</title>
-      <circle cx={x} cy={y} r={2} fill="#ffb03a" stroke="#0b1a2b" strokeWidth={0.8} />
+      <circle cx={x} cy={y} r={2} fill="#4ade80" stroke="#01050a" strokeWidth={0.8} />
       {labelled && (
         <text
           x={x}

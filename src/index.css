@@ -1,29 +1,51 @@
 /**
- * Visual foundations: a dark mission-control palette, restrained typography, and tabular figures
- * so values do not jitter as they change.
+ * Visual foundations: a console, read the way a flight controller reads one.
+ *
+ * The application used a dark panel palette with Inter for prose and mono for figures. It now
+ * commits to the console the whole way: one monospaced face for everything, a darker ground so the
+ * lit values carry, hairlines instead of filled panels, and — the part that is not decoration —
+ * **colour that means something**.
+ *
+ *     --live    green     the reading is current, the stream is up
+ *     --warn    amber     something is late, held, or off nominal
+ *     --alert   red       a continuous sensor has stopped reporting
+ *     --idle    slate     nothing is claimed
+ *
+ * Amber was the accent before, spent on selection, links and section headings alike; a warning
+ * therefore had to shout to be heard over the furniture. Here it is spent on nothing but the
+ * warning, and what used to be "accent" — the selected tab, the active view — is carried by
+ * weight, ground and a rule instead. `--accent` remains as the amber those semantics use.
  */
 :root {
-  --bg: #070a10;
-  --bg-panel: #0d121b;
-  --bg-panel-alt: #111926;
-  --border: #1e2937;
-  --border-strong: #2c3a4d;
+  --bg: #05080c;
+  --bg-panel: #090e15;
+  --bg-panel-alt: #0d1720;
+  --border: #16202c;
+  --border-strong: #243545;
 
-  --text: #c7d2df;
-  --text-dim: #7d8da0;
-  --text-strong: #f2f6fb;
+  --text: #9fb0c3;
+  --text-dim: #5d6f83;
+  --text-strong: #e6edf5;
 
+  /* Amber, and it is the warning colour: see the note at the top of App.css for what that costs
+     everything that used to borrow it. */
   --accent: #ffb03a;
-  --accent-dim: rgba(255, 176, 58, 0.16);
-  --live: #3ddc97;
+  --live: #4ade80;
   --warn: #ffb03a;
   --alert: #ff6b5e;
-  --idle: #6b7c93;
+  --idle: #45566b;
 
-  --sans: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --sans: ui-monospace, 'Cascadia Mono', Consolas, monospace;
   --mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
 
-  font: 15px/1.5 var(--sans);
+  /*
+   * 12.5 px rather than 15, because the face changed underneath it.
+   *
+   * A monospaced advance is wider than Inter's average, so the same nominal size sets a longer
+   * line: measured on the six subsystem labels, mono at 15 px runs about 18 % wider than Inter at
+   * 15. Dropping to 12.5 gets the density back and is what a console reads at anyway.
+   */
+  font: 12.5px/1.5 var(--mono);
   color: var(--text);
   background: var(--bg);
   color-scheme: dark;

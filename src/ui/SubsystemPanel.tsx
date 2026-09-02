@@ -2,8 +2,10 @@
  * Telemetry browsing by subsystem, in the spirit of the mission control consoles: power, life
  * support, thermal, attitude, communications, onboard computers.
  */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { SUBSYSTEMS, getChannel, type SubsystemId } from '../telemetry/subsystems'
+import { useTelemetryStore } from '../telemetry/store'
+import { readingOf } from '../telemetry/freshness'
 import { PLOTTABLE, defaultPlot } from '../telemetry/plottable'
 import { getSymbol } from '../data/catalog'
 import { TelemetryValue } from './TelemetryValue'
@@ -43,31 +45,39 @@ export function SubsystemPanel() {
 
   return (
     <section className="panel panel--telemetry">
-      {/* Title and tabs share a row: this panel is wide and short, so every line of height it
-          does not spend on chrome is a line of readings. */}
-      <header className="telemetry__head">
-        <h2 className="panel__title">Subsystems</h2>
+      <div className="telemetry__frame">
+        {/*
+          A rail, not a row of tabs.
 
-        <nav className="tabs">
+          Tabs answer "what am I looking at"; this has to answer "where should I be looking",
+          which a tab strip cannot: five of the six subsystems were a word with nothing beside
+          it, so the one holding seven stopped sensors looked exactly like the five that were
+          fine. Each line now carries its channel count and its stopped count, and the six sit
+          one under the other where a column of numbers can be read down.
+        */}
+        <nav className="rail" aria-label="Subsystems">
+          <div className="rail__inner">
+          <p className="rail__head">Subsystems</p>
           {SUBSYSTEMS.map((item) => (
             <button
               key={item.id}
               type="button"
-              className={`tabs__item${item.id === active ? ' tabs__item--active' : ''}`}
+              aria-pressed={item.id === active}
+              className={`rail__item${item.id === active ? ' rail__item--active' : ''}`}
               onClick={() => setActive(item.id)}
             >
-              {item.label}
+              <span className="rail__label">{item.label}</span>
+              <span className="rail__count">
+                {[...new Set(item.sections.flatMap((s) => s.channels.map((c) => c.pui)))].length}
+              </span>
+              <StoppedCount id={item.id} />
             </button>
           ))}
+          {subsystem && <p className="rail__consoles">{subsystem.disciplines.join(', ')}</p>}
+          </div>
         </nav>
 
-        {subsystem && (
-          <p className="panel__category telemetry__consoles">
-            {subsystem.disciplines.join(', ')}
-          </p>
-        )}
-      </header>
-
+        <div className="telemetry__main">
       {subsystem && <p className="panel__summary telemetry__tagline">{subsystem.tagline}</p>}
 
       {subsystem && (
@@ -122,6 +132,41 @@ export function SubsystemPanel() {
           </div>
         </div>
       )}
+        </div>
+      </div>
     </section>
+  )
+}
+
+/**
+ * How many of this subsystem's channels have stopped reporting, as one figure on the rail.
+ *
+ * Its own component, and its own subscription, for a reason the panel would otherwise pay for:
+ * the store fires four times a second, and a count read in the panel would re-render every row
+ * and re-cut the columns at that rate. A selector returning a number re-renders only when the
+ * number moves, which is at most once a day per channel.
+ */
+const REFRESH_MS = 5_000
+
+function StoppedCount({ id }: { id: SubsystemId }) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), REFRESH_MS)
+    return () => clearInterval(timer)
+  }, [])
+
+  const puis = useMemo(() => {
+    const subsystem = SUBSYSTEMS.find((item) => item.id === id)
+    return [...new Set((subsystem?.sections ?? []).flatMap((s) => s.channels.map((c) => c.pui)))]
+  }, [id])
+
+  const stopped = useTelemetryStore(
+    (store) => puis.filter((pui) => readingOf(pui, store.samples[pui], now).state === 'stopped').length,
+  )
+
+  return (
+    <span className={`rail__flag${stopped > 0 ? ' rail__flag--on' : ''}`}>
+      {stopped > 0 ? stopped : '·'}
+    </span>
   )
 }

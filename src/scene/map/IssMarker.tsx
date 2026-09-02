@@ -43,7 +43,9 @@ export function IssShape() {
       <rect x={-0.9} y={-TRUSS} width={1.8} height={TRUSS * 2} rx={0.5} fill="#9aa6b4" />
 
       {/* Outlined, so the panels stay legible where the track or the city lights pass beneath. */}
-      <g fill="#ffb03a" stroke="#1b2a3d" strokeWidth={0.5}>
+      {/* Steel rather than amber: the marker is an object, not a state, and amber now means a
+          warning everywhere else on the page. */}
+      <g fill="#5b7a99" stroke="#111e28" strokeWidth={0.5}>
         {ends.flatMap((y) => sides.map((x) => <Wing key={`${x},${y}`} x={x} y={y} />))}
       </g>
 
