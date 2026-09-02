@@ -12,6 +12,7 @@
  */
 import { LightstreamerClient, Subscription } from 'lightstreamer-client-web'
 import { appendHistory } from '../history/indexeddb'
+import { isZeroDropout } from './subsystems'
 import { onboardTimestampToDate } from './health'
 import { useTelemetryStore, type ConnectionState, type TelemetrySample } from './store'
 
@@ -162,13 +163,22 @@ export function connectTelemetry({ items, maxFrequency = 1 }: ConnectOptions): v
     }) {
       const pui = update.getItemName()
       if (!pui) return
+
+      const raw = update.getValue('Value')
+      // A zero from a channel that cannot read zero is the broadcast dropping out, not the
+      // station, and it is dropped at the door rather than filtered at each of the places that
+      // read it — the panel, the freshness list and the plotted history all draw from here. The
+      // previous value stays on screen and goes on ageing, which is true: the reading really is
+      // a minute older than it was. See `Channel.neverZero`.
+      if (isZeroDropout(pui, raw)) return
+
       const timestamp = update.getValue('TimeStamp')
       // Parsed here, once, rather than wherever it is read: the field is hours since the start of
       // the year and needs the current year to be resolved, so it wants doing while "now" is known.
       const onboard = timestamp ? onboardTimestampToDate(timestamp) : null
       pending.set(pui, {
         pui,
-        value: update.getValue('Value'),
+        value: raw,
         calibrated: update.getValue('CalibratedData'),
         timestamp,
         onboardAt: onboard ? onboard.getTime() : null,

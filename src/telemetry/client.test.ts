@@ -194,6 +194,46 @@ describe('the Lightstreamer client', () => {
     expect(useTelemetryStore.getState().newestOnboardAt).toBe(sample.onboardAt)
   })
 
+  /**
+   * The dropout, from the collector's record.
+   *
+   * Twice in twenty-two days — 11 August 2026 at 16:44 UTC and 19 August at 00:31 — twenty-two
+   * symbols read exactly 0 for one minute and returned to their previous value the minute after.
+   * The values here are Destiny's, as recorded: 165.849 mmHg of oxygen, then zero, then 165.849
+   * again. Kept out at the door, the panel shows the last real reading getting a minute older,
+   * which is what happened; let through, it says the crew is breathing nothing.
+   */
+  it('refuses a zero from a channel that cannot read zero, and keeps every other zero', () => {
+    const send = (pui: string, value: string) =>
+      fire(captured.subscriptionListeners, 'onItemUpdate', {
+        getItemName: () => pui,
+        getValue: (field: string) => (field === 'Value' ? value : null),
+      })
+
+    connectTelemetry({ items: ['USLAB000053', 'AIRLOCK000049', 'S4000001'] })
+
+    send('USLAB000053', '165.84898488')
+    vi.advanceTimersByTime(250)
+    expect(useTelemetryStore.getState().samples.USLAB000053.value).toBe('165.84898488')
+
+    send('USLAB000053', '0.000')
+    vi.advanceTimersByTime(250)
+    // Still the real reading, not the dropout, and not an empty row either.
+    expect(useTelemetryStore.getState().samples.USLAB000053.value).toBe('165.84898488')
+
+    send('USLAB000053', '165.84898488')
+    vi.advanceTimersByTime(250)
+    expect(useTelemetryStore.getState().samples.USLAB000053.value).toBe('165.84898488')
+
+    // A crewlock at zero is a crewlock pumped down for a spacewalk, and an array at zero is an
+    // array offline. Both are readings.
+    send('AIRLOCK000049', '0')
+    send('S4000001', '0')
+    vi.advanceTimersByTime(250)
+    expect(useTelemetryStore.getState().samples.AIRLOCK000049.value).toBe('0')
+    expect(useTelemetryStore.getState().samples.S4000001.value).toBe('0')
+  })
+
   it('keeps only the latest update per symbol between flushes', () => {
     connectTelemetry({ items: ['A'] })
     for (const value of ['1', '2', '3']) {

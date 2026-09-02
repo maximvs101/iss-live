@@ -9,10 +9,12 @@ import { getSymbol } from '../data/catalog'
 import { PART_IDS } from '../scene/parts'
 import {
   ALL_CHANNELS,
+  NEVER_ZERO_PUIS,
   SUBSCRIBED_PUIS,
   SUBSYSTEMS,
   channelsForPart,
   getChannel,
+  isZeroDropout,
   subsystemOfPui,
 } from './subsystems'
 
@@ -132,5 +134,43 @@ describe('the power channels the stream does not publish', () => {
     expect(current?.hint).toBeDefined()
     expect(current!.hint).toMatch(/not published|zero/i)
     expect(current!.hint).not.toMatch(/negative current means/i)
+  })
+})
+
+describe('the zero that is a dropout', () => {
+  it('rejects a zero only from a channel that cannot read zero', () => {
+    // Destiny's oxygen partial pressure, in every shape the stream has been seen to send one.
+    expect(isZeroDropout('USLAB000053', '0')).toBe(true)
+    expect(isZeroDropout('USLAB000053', '0.000')).toBe(true)
+    expect(isZeroDropout('USLAB000053', '-0')).toBe(true)
+    expect(isZeroDropout('USLAB000053', '165.84898488')).toBe(false)
+  })
+
+  it('lets through every zero that is a reading', () => {
+    // The crewlock is pumped to vacuum for a spacewalk; the eight drive currents publish zero and
+    // nothing else; an unwatched symbol is nobody's business here.
+    expect(isZeroDropout('AIRLOCK000049', '0')).toBe(false)
+    expect(isZeroDropout('S4000002', '0')).toBe(false)
+    expect(isZeroDropout('NOT_A_PUI', '0')).toBe(false)
+  })
+
+  it('says nothing about an absent value, which is a different fault', () => {
+    expect(isZeroDropout('USLAB000053', null)).toBe(false)
+    expect(isZeroDropout('USLAB000053', '')).toBe(false)
+  })
+
+  it('guards the readings the record saw drop, and no others', () => {
+    // The eight are the ones where zero is physically impossible. Widening this set is a decision
+    // about a real channel, so it should break this test and be argued in the diff.
+    expect([...NEVER_ZERO_PUIS].sort()).toEqual([
+      'NODE3000001',
+      'NODE3000002',
+      'NODE3000003',
+      'USLAB000039',
+      'USLAB000053',
+      'USLAB000054',
+      'USLAB000055',
+      'USLAB000058',
+    ])
   })
 })

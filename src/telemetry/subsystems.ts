@@ -30,6 +30,21 @@ export interface Channel {
    * arriving at all — which is the trap this flag exists to avoid.
    */
   hidden?: boolean
+  /**
+   * Zero is not a reading this channel can take, so a zero is the broadcast, not the station.
+   *
+   * Measured on the collector's record: on 11 August 2026 at 16:44 UTC, and again on 19 August at
+   * 00:31, twenty-two symbols read exactly 0 for one minute and came back to their previous value
+   * the minute after — cabin pressure, station mass and the partial pressures among them. Twice in
+   * twenty-two days, so rare; and unmissable when it happens, because a page saying the cabin is
+   * at 0 mmHg is saying something about the crew that is not true.
+   *
+   * Only where zero is physically impossible, which is a narrower set than it looks. The crewlock
+   * reads zero every time it is pumped down for a spacewalk, the oxygen generator reads zero when
+   * it is idle, an array reads zero when it is offline, and a cabin temperature in Celsius reads
+   * zero at freezing. Those are readings, and they stay.
+   */
+  neverZero?: boolean
 }
 
 interface Section {
@@ -173,6 +188,7 @@ export const SUBSYSTEMS: Subsystem[] = [
           {
             pui: 'USLAB000058',
             label: 'Cabin pressure',
+            neverZero: true,
             hint: 'The station is held at sea-level pressure — 14.7 psi with 21 % oxygen, the same 760 mmHg you are breathing — so daily life needs no acclimatisation. Spacewalks still do: the suit runs at 4.3 psi, and that drop has to be paid for with a prebreathe protocol before the hatch opens.',
             part: 'destiny',
           },
@@ -180,19 +196,21 @@ export const SUBSYSTEMS: Subsystem[] = [
           {
             pui: 'USLAB000053',
             label: 'Destiny ppO₂',
+            neverZero: true,
             hint: 'Partial pressure of oxygen: this, not the percentage, decides whether air is breathable — about 160 mmHg at sea level, and held between 146 and 178 aboard. The atmosphere sensors report rarely, so read the age beside the value before comparing two of them.',
             part: 'destiny',
           },
-          { pui: 'USLAB000054', label: 'Destiny ppN₂', part: 'destiny' },
+          { pui: 'USLAB000054', label: 'Destiny ppN₂', part: 'destiny', neverZero: true },
           {
             pui: 'USLAB000055',
             label: 'Destiny ppCO₂',
+            neverZero: true,
             hint: 'Carbon dioxide builds up in a sealed volume, and the threshold that matters is lower than most people expect. NASA-STD-3001 caps the 1-hour average at 3 mmHg, down from an earlier 3.8–7.5 mmHg range: crews reported headaches from 2.8 mmHg upward, and 19 of 49 astronauts studied had them. Below 2.5 mmHg the risk falls under 1 %.',
             part: 'destiny',
           },
-          { pui: 'NODE3000001', label: 'Tranquility ppO₂', part: 'tranquility' },
-          { pui: 'NODE3000002', label: 'Tranquility ppN₂', part: 'tranquility' },
-          { pui: 'NODE3000003', label: 'Tranquility ppCO₂', part: 'tranquility' },
+          { pui: 'NODE3000001', label: 'Tranquility ppO₂', part: 'tranquility', neverZero: true },
+          { pui: 'NODE3000002', label: 'Tranquility ppN₂', part: 'tranquility', neverZero: true },
+          { pui: 'NODE3000003', label: 'Tranquility ppCO₂', part: 'tranquility', neverZero: true },
         ],
       },
       {
@@ -437,6 +455,7 @@ export const SUBSYSTEMS: Subsystem[] = [
           {
             pui: 'USLAB000039',
             label: 'Total station mass',
+            neverZero: true,
             hint: 'The station itself is about 420 tonnes; the published figure includes every docked vehicle and its propellant, so it runs higher. It has to stay accurate — the thrusters need it to control the station’s orientation. Check its age: this one is updated only occasionally.',
           },
           { pui: 'USLAB000032', label: 'J2000 position X' },
@@ -612,6 +631,22 @@ export const ALL_CHANNELS: Channel[] = SUBSYSTEMS.flatMap((subsystem) =>
 
 /** Deduplicated list of symbols to subscribe to. */
 export const SUBSCRIBED_PUIS: string[] = [...new Set(ALL_CHANNELS.map((channel) => channel.pui))]
+
+/** Symbols where a zero is the broadcast dropping out. See `Channel.neverZero`. */
+export const NEVER_ZERO_PUIS: ReadonlySet<string> = new Set(
+  ALL_CHANNELS.filter((channel) => channel.neverZero).map((channel) => channel.pui),
+)
+
+/**
+ * True where this reading is the dropout rather than a value.
+ *
+ * Read at the door, in telemetry/client, so a dropout reaches neither the panel nor the plot: a
+ * zero in the history would draw a spike through a chart of cabin pressure and stay there. What
+ * the reader sees instead is the previous value going on ageing, which is exactly what happened.
+ */
+export function isZeroDropout(pui: string, value: string | null): boolean {
+  return NEVER_ZERO_PUIS.has(pui) && Number.parseFloat(value ?? '') === 0
+}
 
 const channelByPui = new Map<string, Channel>(ALL_CHANNELS.map((channel) => [channel.pui, channel]))
 
