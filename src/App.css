@@ -80,6 +80,27 @@
   border-right: 0;
 }
 
+/*
+ * The place is not a figure, and it is not sized like one.
+ *
+ * It is the one cell a reader who knows nothing about the rest can use, and it is the only one
+ * whose value is words — so it takes the band's slack instead of an equal share, and a size up on
+ * its neighbours. It lived beside the title until the tagline left the header and the two ran
+ * together as a single line of prose: "ISS LIVE Now over the Indian Ocean".
+ */
+.console-strip__cell--over {
+  flex: 4 0 auto;
+}
+
+.console-strip__value--place {
+  font-size: 15px;
+}
+
+/* The hover explains an unnamed stretch of water, and only ever appears over one. */
+.console-strip__cell--over[title] {
+  cursor: help;
+}
+
 .console-strip__cell dt {
   font-size: 10px;
   text-transform: uppercase;
@@ -102,72 +123,24 @@
   color: var(--idle);
 }
 
+/*
+ * A rule after the title, the same hairline the band below uses between its cells.
+ *
+ * With the tagline gone the title sat 16 px from the stream status and the two read as one run of
+ * words. Moving the place name out of the row was most of the fix; this is the rest of it, and it
+ * costs nothing but a pixel because the band underneath already divides its cells the same way.
+ */
+.app__brand {
+  padding-right: 16px;
+  border-right: 1px solid var(--border);
+}
+
 .app__brand h1 {
   font-size: 20px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
-/*
- * What the station is passing over, in the header.
- *
- * No box and no background: it sits between a title and a set of controls, and a bordered card
- * there would read as a third control.
- *
- * The flex triple is the whole of it, and both of the obvious answers are wrong. Growing (`1 1
- * auto`) with `min-width: 0` made this the one item that *could* collapse — the status bar's
- * children are nowrap and refuse to — so it clipped to "Now over Austra…" at full desktop width
- * while the bar beside it kept 775 px. Refusing to shrink at all (`0 0 auto`) fixed that and
- * overflowed the header at 768, which is a tablet held upright.
- *
- * It does not give ground, and that is the point.
- *
- * Everything else was measured and is worse. Letting it grow made it the one item that *could*
- * collapse — `overflow: hidden` sets an automatic minimum size of zero — so it clipped at 960 while
- * the status bar kept its width. Shrinking it a tenth as readily still clipped, because during an
- * interruption the bar gains a paragraph and there is nothing else elastic in the row. Wrapping the
- * header cost three lines and a quarter of the viewport.
- *
- * So it holds its size and the explanation beside it takes the extra line instead, which is what
- * prose is for and it already wraps.
- *
- * That was unaffordable on a tablet while the header still carried a tagline. It was hidden below
- * 1200 px to pay for this — at 768 during an interruption, holding this width grew the header from
- * 102 px to 191, and dropping the line brought the same case to 137 — and the tagline has since
- * gone at every width, so the trade is settled everywhere rather than only where it was measured.
- */
-.now-over {
-  flex: 0 0 auto;
-  margin: 0;
-  text-align: center;
-  font-size: 13px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/*
- * The help cursor follows the tooltip, rather than being set on the line for good.
- *
- * It used to be unconditional, from when every sea name was a regional approximation and the line
- * always had something to excuse. Both land and sea are looked up from real outlines now and the
- * title is only written for the one case the data cannot name, so the cursor was offering an
- * explanation that no longer arrived — a question mark over "Now over France", with nothing behind
- * it. React omits the attribute entirely when the value is undefined, so this selector tracks the
- * component without either side having to remember the other.
- */
-.now-over[title] {
-  cursor: help;
-}
-
-.now-over__label {
-  color: var(--text-dim);
-}
-
-.now-over strong {
-  color: var(--text-strong);
-  font-weight: 600;
-}
 
 /*
  * And on a tablet held upright the brand's tagline goes too.
@@ -2070,6 +2043,9 @@
     order: 1;
     flex: 1 1 auto;
     min-width: 0;
+    /* Its own row here, so the rule would divide the title from nothing. */
+    padding-right: 0;
+    border-right: 0;
   }
 
   .app__controls {
@@ -2116,12 +2092,6 @@
   .stream-status__explanation {
     flex: 1 1 100%;
     margin-top: 0;
-  }
-
-  .now-over {
-    order: 4;
-    flex: 1 1 100%;
-    text-align: left;
   }
 
   /*

@@ -12,7 +12,6 @@ import { connectTelemetry, disconnectTelemetry } from './telemetry/client'
 import { useTelemetryStore } from './telemetry/store'
 import { LIVE_THRESHOLD_MS, reconnectDecision } from './telemetry/reconnect'
 import { streamAgeMs } from './telemetry/health'
-import { NowOver } from './ui/NowOver'
 import { SUBSCRIBED_PUIS } from './telemetry/subsystems'
 import { useOrbitEngine } from './orbit/useOrbit'
 import { MapView } from './scene/map/MapView'
@@ -167,10 +166,6 @@ export default function App() {
         <div className="app__brand">
           <h1>ISS Live</h1>
         </div>
-
-        {/* Moved up from the orbital panel: it is the one line on the page that reads without any
-            other context, and the panel it used to live in is only on screen in one of the views. */}
-        <NowOver />
 
         {/* Stream health sits in the header rather than at the top of the side panel: it applies
             to everything on screen, and it is the first thing worth knowing. */}

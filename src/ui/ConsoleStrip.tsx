@@ -13,6 +13,7 @@
  */
 import { useEffect, useState } from 'react'
 import { useOrbitStore } from '../orbit/useOrbit'
+import { NowOver } from './NowOver'
 
 /** UTC, to the second, because a console's timebase is UTC and nothing else. */
 function useGmt(): string {
@@ -33,6 +34,9 @@ export function ConsoleStrip() {
 
   return (
     <dl className="console-strip">
+      {/* The place first: it is the only cell a reader can use without knowing what the others
+          mean, and the two that follow are the same position in figures. */}
+      <NowOver />
       <Cell label="GMT" value={gmt} />
       <Cell label="Lat" value={state ? formatLatitude(state.latitude) : '—'} />
       <Cell label="Lon" value={state ? formatLongitude(state.longitude) : '—'} />
