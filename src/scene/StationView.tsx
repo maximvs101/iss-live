@@ -134,7 +134,7 @@ const GLOW_STRENGTH = 0.55
  */
 function useHaloTexture() {
   const gl = useThree((three) => three.gl)
-  return useMemo(() => {
+  const texture = useMemo(() => {
     const size = 128
     const canvas = document.createElement('canvas')
     canvas.width = canvas.height = size
@@ -152,6 +152,12 @@ function useHaloTexture() {
     texture.needsUpdate = true
     return texture
   }, [gl])
+
+  // `useMemo` holds the reference, not the GPU allocation: without this the 128x128 upload
+  // outlives every visit to this view. Every other texture here is paired with the same line —
+  // the planet's maps, the detail tile, the night lights, the environment in `IssGltf`.
+  useEffect(() => () => texture.dispose(), [texture])
+  return texture
 }
 
 function Sun() {

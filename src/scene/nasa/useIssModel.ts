@@ -19,8 +19,16 @@ import { deviceBudget } from '../deviceBudget'
  * hard-edged, 2.5 vertices per triangle because every face owns its normals, so nothing welds and
  * the simplifier has no shared edges to collapse. See `scripts/build-iss-model-mobile.mjs`.
  */
-const FULL_MODEL_URL = '/models/iss-igoal.glb'
-const LIGHT_MODEL_URL = '/models/iss-igoal-mobile.glb'
+/*
+ * Through `BASE_URL`, as the textures already are.
+ *
+ * These were root-absolute while `EarthSurface` and `NightLights` built theirs from Vite's base,
+ * so under a base other than `/` the planet would have loaded and the station would have 404ed.
+ * The README states the site must be served from a root today; this is what makes that a
+ * configuration line rather than a code change.
+ */
+const FULL_MODEL_URL = `${import.meta.env.BASE_URL}models/iss-igoal.glb`
+const LIGHT_MODEL_URL = `${import.meta.env.BASE_URL}models/iss-igoal-mobile.glb`
 
 export const ISS_MODEL_URL = deviceBudget().light ? LIGHT_MODEL_URL : FULL_MODEL_URL
 
@@ -31,7 +39,12 @@ export const ISS_MODEL_IS_LIGHT = ISS_MODEL_URL === LIGHT_MODEL_URL
  * Draco decoder served by the application itself: by default three would fetch it from a Google
  * CDN, which would make displaying the station depend on a third party.
  */
-const DRACO_DECODER_PATH = '/draco/'
+/*
+ * And the same base, for the same reason with sharper teeth: three.js does not fail when this
+ * path 404s, it quietly falls back to Google's CDN — which is the exact dependency the local
+ * copy exists to remove, restored without a word.
+ */
+const DRACO_DECODER_PATH = `${import.meta.env.BASE_URL}draco/`
 
 /** Compressed size of the model, used to report progress when the server sends no length. */
 const MODEL_BYTES = (ISS_MODEL_IS_LIGHT ? 11.5 : 14.9) * 1024 * 1024

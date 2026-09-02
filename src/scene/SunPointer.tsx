@@ -17,7 +17,7 @@
  */
 import { useFrame, useThree } from '@react-three/fiber'
 import { Vector3 } from 'three'
-import type { RefObject } from 'react'
+import { useMemo, type RefObject } from 'react'
 import { useOrbitStore } from '../orbit/useOrbit'
 import { markerPlacement } from './sunMarker'
 import { sunDirectionLvlh } from '../orbit/propagator'
@@ -31,7 +31,18 @@ const MARGIN = 0.88
 export function SunPointer({ target }: { target: RefObject<HTMLDivElement | null> }) {
   const camera = useThree((three) => three.camera)
   const size = useThree((three) => three.size)
-  const at = new Vector3()
+  /*
+   * Three scratch vectors, allocated once.
+   *
+   * `applyMatrix4` and `project` both mutate their receiver, so the loop was cloning twice a
+   * frame and rebuilding `at` on every render of the view above it — a hundred and twenty short
+   * lived vectors a second, in the one function that runs on every frame. The rest of this
+   * directory already keeps its scratch in a memo: `NightLights`, `Atmosphere`, `EarthSurface`.
+   */
+  const scratch = useMemo(
+    () => ({ at: new Vector3(), cameraSpace: new Vector3(), ndc: new Vector3() }),
+    [],
+  )
 
   useFrame(() => {
     const node = target.current
@@ -52,11 +63,11 @@ export function SunPointer({ target }: { target: RefObject<HTMLDivElement | null
     // doing, so the disc holds the true solar direction from wherever you are looking. Projecting
     // a fixed point 600 units from the *origin* instead put the marker up to 41.8° out at the far
     // end of the orbit — pointing confidently at nothing.
-    at.set(x, y, z).multiplyScalar(SUN_DISTANCE).add(camera.position)
+    const at = scratch.at.set(x, y, z).multiplyScalar(SUN_DISTANCE).add(camera.position)
 
     // In camera space first: `project` alone cannot tell a point in front from one behind.
-    const behind = at.clone().applyMatrix4(camera.matrixWorldInverse).z > 0
-    const ndc = at.clone().project(camera)
+    const behind = scratch.cameraSpace.copy(at).applyMatrix4(camera.matrixWorldInverse).z > 0
+    const ndc = scratch.ndc.copy(at).project(camera)
     const place = markerPlacement(ndc.x, ndc.y, behind, MARGIN)
 
     if (!place.visible) {

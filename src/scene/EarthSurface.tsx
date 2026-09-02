@@ -144,8 +144,13 @@ function useDetailTile() {
       },
       undefined,
       () => {
+        // That *this* tile is absent is true whenever the answer arrives, so it is recorded
+        // either way. Blanking the overlay is not: a slow failure for the tile behind us would
+        // otherwise wipe the one that has since loaded, and nothing would put it back until the
+        // station crossed the next grid line — minutes, at this speed. The success path guards
+        // for the same reason, three lines up.
         absent.current.add(name)
-        setTile(null)
+        if (wanted.current === name) setTile(null)
       },
     )
   })
@@ -181,6 +186,9 @@ export function EarthSurface() {
     texture.needsUpdate = true
     return texture
   }, [])
+
+  // One pixel, and still an upload: released like the maps above it rather than left behind.
+  useEffect(() => () => neutral.dispose(), [neutral])
 
   const detailUniforms = useMemo(
     () => ({
