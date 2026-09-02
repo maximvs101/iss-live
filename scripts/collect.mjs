@@ -17,8 +17,10 @@
  *
  *   collect-liveness.jsonl   one line a minute: pushes seen, symbols moved, session state.
  *                            This is the record of when the broadcast was actually up.
- *   collect-events.jsonl     one line per *change* of a watched value. Silence is the signal here:
- *                            a channel that never appears never moved.
+ *   collect-events.jsonl     one line per *change* of a watched value — except for the handful
+ *                            that change without stopping, which are sampled on the heartbeat
+ *                            instead. See SAMPLED. Silence is the signal here: a channel that
+ *                            never appears never moved.
  *
  * Restartable and safe to run twice — both files are appends, and the report sorts by time.
  */
@@ -56,6 +58,32 @@ const WATCH = {
 }
 
 const ITEMS = Object.keys(WATCH)
+
+/**
+ * Three symbols do nearly all the talking, and writing down everything they say buries the rest.
+ *
+ * Measured over the first six minutes of the September run — 10 503 lines:
+ *
+ *     9 083  (86 %)  the station clock, which ticks
+ *       607  ( 6 %)  the two rotary joints, which turn
+ *       591  ( 6 %)  the eight gimbals, which track
+ *       222  ( 2 %)  the eight voltages and the measured beta — the questions
+ *
+ * At that rate a fortnight is 4.2 GB, four fifths of it a clock. The clock's whole duty here is to
+ * prove the broadcast is alive, and `pushes` on the liveness line already does that once a minute;
+ * its value now rides there too, so the timebase is kept and the log is not. The joints and the
+ * gimbals are context — where each wing pointed when the voltages parted — and no question asked
+ * of them is finer than a minute, so they are sampled on the heartbeat: a line only where the
+ * value moved between two beats.
+ *
+ * Nothing the report reads is thinned. It asks about the eight voltages and about the six stalled
+ * sensors, and those still write on every change, which is the point of the whole exercise.
+ */
+const SAMPLED = new Set(
+  ITEMS.filter((pui) => WATCH[pui].endsWith(' bga') || WATCH[pui].startsWith('sarj ')),
+)
+const LOGGED = new Set(ITEMS.filter((pui) => pui !== CLOCK && !SAMPLED.has(pui)))
+
 const DIR = new URL('../data/', import.meta.url)
 const LIVENESS = new URL('collect-liveness.jsonl', DIR)
 const EVENTS = new URL('collect-events.jsonl', DIR)
@@ -79,15 +107,37 @@ let sessionState = 'starting'
 let sessionOpenedAt = null
 let sessions = 0
 
+/** Last value written for each sampled symbol, so a beat that saw no movement writes nothing. */
+const lastSampled = new Map()
+
 setInterval(() => {
+  const at = new Date().toISOString()
   write(LIVENESS, {
-    at: new Date().toISOString(),
+    at,
     state: sessionState,
     pushes,
     moved: [...moved],
     sessions,
     upSeconds: sessionOpenedAt ? Math.round((Date.now() - sessionOpenedAt) / 1000) : 0,
+    // The station's own clock, once a minute: everything the clock was worth in the event log,
+    // at a nine-thousandth of the lines.
+    clock: lastValue.get(CLOCK)?.value ?? null,
   })
+
+  for (const pui of SAMPLED) {
+    const current = lastValue.get(pui)
+    if (!current || current.value === lastSampled.get(pui)) continue
+    lastSampled.set(pui, current.value)
+    write(EVENTS, {
+      at,
+      pui,
+      what: WATCH[pui],
+      value: current.value,
+      timestamp: current.timestamp,
+      sampled: true,
+    })
+  }
+
   pushes = 0
   moved = new Set()
 }, HEARTBEAT_MS).unref?.()
@@ -168,10 +218,12 @@ async function runSession() {
       snapshotDone.add(pui)
       if (!isSnapshot) pushes += 1
 
-      // Only a change is worth a line. A value that never moves leaves no trace, which is exactly
-      // what its absence from this file should mean.
-      if (!previous || previous.value !== value) {
-        if (previous) moved.add(WATCH[pui])
+      // Only a change is worth a line, and only from a symbol whose every change is worth one. A
+      // value that never moves leaves no trace, which is exactly what its absence from this file
+      // should mean — and the sampled symbols leave theirs on the heartbeat instead.
+      const changed = !previous || previous.value !== value
+      if (changed && previous) moved.add(WATCH[pui])
+      if (changed && LOGGED.has(pui)) {
         write(EVENTS, {
           at: new Date().toISOString(),
           pui,

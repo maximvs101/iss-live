@@ -28,7 +28,16 @@ dist-ssr
 # a clone cannot serve the 3D view.
 data/nasa-models/iss-igoal-source.glb
 
-# Process output of the 24/7 collector. The data it gathers is the .jsonl beside it, which is
-# tracked; these two are just stdout and stderr of a long-running process.
+# Process output of the 24/7 collector: these two are just stdout and stderr of a long-running
+# process.
 data/collect.out
 data/collect.err
+
+# The event log of the September campaign, untracked for its duration.
+#
+# Thinned, it still writes on the order of a hundred megabytes over a fortnight — one line per
+# change of sixteen symbols, plus a sample a minute of ten more. That is data, and it does not
+# belong in the history of a static site. The liveness log stays tracked: one line a minute is
+# two megabytes, and it is the record of when the broadcast was actually up, which is what makes
+# every other answer readable.
+data/collect-events.jsonl
