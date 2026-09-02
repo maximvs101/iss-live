@@ -79,6 +79,23 @@ const ITEMS = Object.keys(WATCH)
  * Nothing the report reads is thinned. It asks about the eight voltages and about the six stalled
  * sensors, and those still write on every change, which is the point of the whole exercise.
  */
+/**
+ * Readings where zero is physically impossible — see `Channel.neverZero` in the application.
+ *
+ * Recorded twice, on 11 August at 16:44 UTC and 19 August at 00:31: twenty-two symbols read
+ * exactly 0 for one minute and returned to their previous value the minute after.
+ */
+const NEVER_ZERO = new Set([
+  'USLAB000053',
+  'USLAB000054',
+  'USLAB000055',
+  'NODE3000001',
+  'NODE3000002',
+  'NODE3000003',
+  'USLAB000058',
+  'USLAB000039',
+])
+
 const SAMPLED = new Set(
   ITEMS.filter((pui) => WATCH[pui].endsWith(' bga') || WATCH[pui].startsWith('sarj ')),
 )
@@ -109,6 +126,15 @@ let sessions = 0
 
 /** Last value written for each sampled symbol, so a beat that saw no movement writes nothing. */
 const lastSampled = new Map()
+/**
+ * The first beat has nothing to compare against, so what it writes is a baseline, not a change.
+ *
+ * Left unmarked, every restart appended one line per sampled symbol whether or not the value had
+ * moved — and a parked joint, which is exactly what this collector is meant to catch, appeared to
+ * move once per restart. The change-driven path has always marked its first line `snapshot`; this
+ * one now does too, and the report already filters on it.
+ */
+let firstBeat = true
 
 setInterval(() => {
   const at = new Date().toISOString()
@@ -135,8 +161,10 @@ setInterval(() => {
       value: current.value,
       timestamp: current.timestamp,
       sampled: true,
+      ...(firstBeat ? { snapshot: true } : {}),
     })
   }
+  firstBeat = false
 
   pushes = 0
   moved = new Set()
@@ -221,6 +249,15 @@ async function runSession() {
       // Only a change is worth a line, and only from a symbol whose every change is worth one. A
       // value that never moves leaves no trace, which is exactly what its absence from this file
       // should mean — and the sampled symbols leave theirs on the heartbeat instead.
+      /*
+       * A zero from a channel that cannot read zero is the broadcast, not the station.
+       *
+       * The same eight the application refuses at the door, of which this watches six. Logged, a
+       * one-minute dropout becomes two changes — down and back — on precisely the stalled sensors
+       * this file exists to watch, and the report then reads them as having resumed.
+       */
+      if (NEVER_ZERO.has(pui) && Number.parseFloat(value) === 0) continue
+
       const changed = !previous || previous.value !== value
       if (changed && previous) moved.add(WATCH[pui])
       if (changed && LOGGED.has(pui)) {

@@ -17,6 +17,7 @@ export function SubsystemPanel() {
   const [active, setActive] = useState<SubsystemId>('eps')
   // Kept per subsystem, so switching tabs and coming back does not lose the chosen trace.
   const [plotted, setPlotted] = useState<Partial<Record<SubsystemId, string>>>({})
+  const stoppedCounts = useStoppedCounts()
   const subsystem = SUBSYSTEMS.find((item) => item.id === active)
 
   const choices = PLOTTABLE[active]
@@ -44,7 +45,7 @@ export function SubsystemPanel() {
   )
 
   return (
-    <section className="panel panel--telemetry">
+    <section className="panel panel--telemetry" aria-labelledby="subsystems-head">
       <div className="telemetry__frame">
         {/*
           A rail, not a row of tabs.
@@ -57,23 +58,41 @@ export function SubsystemPanel() {
         */}
         <nav className="rail" aria-label="Subsystems">
           <div className="rail__inner">
-          <p className="rail__head">Subsystems</p>
-          {SUBSYSTEMS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              aria-pressed={item.id === active}
-              className={`rail__item${item.id === active ? ' rail__item--active' : ''}`}
-              onClick={() => setActive(item.id)}
-            >
-              <span className="rail__label">{item.label}</span>
-              <span className="rail__count">
-                {[...new Set(item.sections.flatMap((s) => s.channels.map((c) => c.pui)))].length}
-              </span>
-              <StoppedCount id={item.id} />
-            </button>
-          ))}
-          {subsystem && <p className="rail__consoles">{subsystem.disciplines.join(', ')}</p>}
+            <p className="rail__head" id="subsystems-head">
+              Subsystems
+            </p>
+            {RAIL.map((item) => {
+              const stopped = stoppedCounts[item.id] ?? 0
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  aria-pressed={item.id === active}
+                  /*
+                   * The two figures are drawn, not spoken as part of the name. Left as plain
+                   * spans they became the button's accessible name — "Life support 32 7, toggle
+                   * button" — two integers a listener has no way to read.
+                   */
+                  aria-label={`${item.label}: ${item.puis.length} channels, ${stopped} stopped`}
+                  className={`rail__item${item.id === active ? ' rail__item--active' : ''}`}
+                  onClick={() => setActive(item.id)}
+                >
+                  <span className="rail__label" aria-hidden="true">
+                    {item.label}
+                  </span>
+                  <span className="rail__count" aria-hidden="true">
+                    {item.puis.length}
+                  </span>
+                  <span
+                    className={`rail__flag${stopped > 0 ? ' rail__flag--on' : ''}`}
+                    aria-hidden="true"
+                  >
+                    {stopped > 0 ? stopped : '·'}
+                  </span>
+                </button>
+              )
+            })}
+            {subsystem && <p className="rail__consoles">{subsystem.disciplines.join(', ')}</p>}
           </div>
         </nav>
 
@@ -139,34 +158,57 @@ export function SubsystemPanel() {
 }
 
 /**
- * How many of this subsystem's channels have stopped reporting, as one figure on the rail.
+ * The six rows of the rail, built once.
  *
- * Its own component, and its own subscription, for a reason the panel would otherwise pay for:
- * the store fires four times a second, and a count read in the panel would re-render every row
- * and re-cut the columns at that rate. A selector returning a number re-renders only when the
- * number moves, which is at most once a day per channel.
+ * Hidden channels are left out here for the same reason the columns leave them out: they have no
+ * row, so counting them made the rail disagree with the list beside it.
+ */
+const RAIL = SUBSYSTEMS.map((subsystem) => ({
+  id: subsystem.id,
+  label: subsystem.label,
+  puis: [
+    ...new Set(
+      subsystem.sections.flatMap((section) =>
+        section.channels.filter((channel) => !channel.hidden).map((channel) => channel.pui),
+      ),
+    ),
+  ],
+}))
+
+/**
+ * Recomputed on a timer, not on the stream.
+ *
+ * Six per-row store subscriptions were doing this, and zustand runs a selector on every `set()`
+ * to decide whether to re-render: the store flushes four times a second and the six partition all
+ * 163 channels, so it cost about 650 `Reading` objects and 1 300 map lookups a second to produce
+ * six integers that move at most once a day. Reading the store on the tick instead — no
+ * subscription at all — costs 163 lookups every five seconds, and the boundary these counts sit
+ * on is twenty-four hours.
  */
 const REFRESH_MS = 5_000
 
-function StoppedCount({ id }: { id: SubsystemId }) {
-  const [now, setNow] = useState(() => Date.now())
+function useStoppedCounts(): Partial<Record<SubsystemId, number>> {
+  const [counts, setCounts] = useState<Partial<Record<SubsystemId, number>>>({})
+
   useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), REFRESH_MS)
+    const measure = () => {
+      const { samples } = useTelemetryStore.getState()
+      const now = Date.now()
+      const next: Partial<Record<SubsystemId, number>> = {}
+      for (const item of RAIL) {
+        next[item.id] = item.puis.filter(
+          (pui) => readingOf(pui, samples[pui], now).state === 'stopped',
+        ).length
+      }
+      setCounts((previous) =>
+        RAIL.every((item) => previous[item.id] === next[item.id]) ? previous : next,
+      )
+    }
+
+    measure()
+    const timer = setInterval(measure, REFRESH_MS)
     return () => clearInterval(timer)
   }, [])
 
-  const puis = useMemo(() => {
-    const subsystem = SUBSYSTEMS.find((item) => item.id === id)
-    return [...new Set((subsystem?.sections ?? []).flatMap((s) => s.channels.map((c) => c.pui)))]
-  }, [id])
-
-  const stopped = useTelemetryStore(
-    (store) => puis.filter((pui) => readingOf(pui, store.samples[pui], now).state === 'stopped').length,
-  )
-
-  return (
-    <span className={`rail__flag${stopped > 0 ? ' rail__flag--on' : ''}`}>
-      {stopped > 0 ? stopped : '·'}
-    </span>
-  )
+  return counts
 }

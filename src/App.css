@@ -92,10 +92,6 @@
   flex: 4 0 auto;
 }
 
-.console-strip__value--place {
-  font-size: 15px;
-}
-
 /* The hover explains an unnamed stretch of water, and only ever appears over one. */
 .console-strip__cell--over[title] {
   cursor: help;
@@ -115,6 +111,12 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* After the rule above, not before it: written first, this lost to it at equal specificity and the
+   place name painted at 13 px like every figure beside it. */
+.console-strip__value--place {
+  font-size: 15px;
+}
+
 .console-strip__value--live {
   color: var(--live);
 }
@@ -124,16 +126,13 @@
 }
 
 /*
- * A rule after the title, the same hairline the band below uses between its cells.
+ * No rule of its own after the title.
  *
- * With the tagline gone the title sat 16 px from the stream status and the two read as one run of
- * words. Moving the place name out of the row was most of the fix; this is the rest of it, and it
- * costs nothing but a pixel because the band underneath already divides its cells the same way.
+ * One was added here when the place name left the row, and it drew a second hairline: the stream
+ * status has carried a `border-left` since it sat beside that place name, so the header rendered
+ * two parallel rules 16 px apart with an empty gutter between them. The status bar's own edge is
+ * the divider, and it always was.
  */
-.app__brand {
-  padding-right: 16px;
-  border-right: 1px solid var(--border);
-}
 
 .app__brand h1 {
   font-size: 20px;
@@ -462,9 +461,10 @@
     --map-width: min(100%, (100dvh - 160px) * 2);
   }
 
-  /* The readings are beside the map now, so the rule that separated them turns on its side. */
+  /* The readings are beside the map now, so the rule that separated them turns on its side. The
+     `border-top: 0` half of that lives after the base rule further down: written here it lost to
+     it at equal specificity, and the column kept a hairline above it as well as beside it. */
   .panel--telemetry {
-    border-top: 0;
     border-left: 1px solid var(--border);
   }
 }
@@ -1212,8 +1212,10 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* The same red the freshness cells and the stalled ages use. Amber here said "late or held" about
+   a fact the two surfaces beside it were calling a fault — one fact, two severities. */
 .rail__flag--on {
-  color: var(--warn);
+  color: var(--alert);
 }
 
 .rail__consoles {
@@ -1236,18 +1238,6 @@
  */
 @media (max-width: 1400px) {
   /*
-   * The band runs off the edge, and says so.
-   *
-   * Seven cells need 836 px and a phone has 375, so it scrolls sideways — which is invisible
-   * unless something at the edge suggests it. The fade is that suggestion, and it is written here
-   * rather than on the band itself because above 900 px the seven fit and there is nothing to
-   * hint at.
-   */
-  .console-strip {
-    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
-  }
-
-  /*
    * The rail lies down.
    *
    * Six lines down the side of a phone is 264 px of chrome before the first reading. Laid flat it
@@ -1258,10 +1248,22 @@
     flex-direction: column;
   }
 
+  /*
+   * Lying down it still has to stay put, because the panel under 1400 px is still a scroller.
+   *
+   * `position: static` on the list was cancelling the sticky rule without putting anything in its
+   * place, so between 901 and 1400 — the widths the rail's own threshold was measured against —
+   * the row scrolled off the top with the readings and took the flag counts with it. The rail
+   * itself sticks here instead of its inner list, which is the same fix one axis over.
+   */
   .rail {
+    position: sticky;
+    top: 0;
+    z-index: 1;
     width: auto;
     border-right: 0;
     border-bottom: 1px solid var(--border);
+    background: var(--bg-panel);
   }
 
   .rail__inner {
@@ -1271,8 +1273,16 @@
     scrollbar-width: none;
   }
 
+  /* Off the screen, not out of the tree: it names the panel, and the panel has no other heading. */
   .rail__head {
-    display: none;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   .rail__item {
@@ -1306,6 +1316,24 @@
     min-height: 100%;
   }
 
+  /*
+   * The band runs off the edge, and says so.
+   *
+   * Eight cells need about 1100 px and a phone has 375, so it scrolls sideways — which is
+   * invisible unless something at the edge suggests it. Written here and not in the rail's
+   * 1400 px block, where it was fading the right edge of a band that fits: between 901 and 1400
+   * nothing overflows, and the ramp was washing out the last cell and the strip's own bottom rule
+   * for no reason.
+   *
+   * The padding is what keeps the ramp off the content. A mask is anchored to the box, not to the
+   * scroll offset, so scrolled fully right the last value would sit under it; 28 px of end padding
+   * scrolls into that space instead.
+   */
+  .console-strip {
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+    padding-right: 28px;
+  }
+
 
   .app__main {
     grid-template-columns: 1fr;
@@ -1324,7 +1352,7 @@
   /* The map needs nothing here: its height cap is written for the two-column layout only, so
      stacked and scrolling it already takes the width it is given. */
 
-  .panel--telemetry,
+  /* `.panel--telemetry` is handled after the base rule further down, for the same reason. */
   .app__side {
     overflow-y: visible;
   }
@@ -1517,6 +1545,26 @@
   border-bottom: 0;
   /* The frame inside owns the spacing now, so the rail can run edge to edge. */
   padding: 0;
+}
+
+/*
+ * The two overrides of the rule above, placed after it because a media query adds no specificity.
+ *
+ * Both were written inside their own blocks earlier in the file and both lost, silently: stacked
+ * on a phone the panel stayed a scroller inside a scrolling page, and in the landscape layout the
+ * readings column kept a hairline above it as well as the one beside it. This is the same trap the
+ * narrow-screen section at the end of this file was moved there to avoid.
+ */
+@media (max-width: 900px) {
+  .panel--telemetry {
+    overflow-y: visible;
+  }
+}
+
+@media (min-width: 1000px) and (max-height: 712px) {
+  .panel--telemetry {
+    border-top: 0;
+  }
 }
 
 /* The rail down the side, the readings beside it, no heading over either: the rail says what
@@ -2094,9 +2142,6 @@
     order: 1;
     flex: 1 1 auto;
     min-width: 0;
-    /* Its own row here, so the rule would divide the title from nothing. */
-    padding-right: 0;
-    border-right: 0;
   }
 
   .app__controls {

@@ -24,7 +24,17 @@
   --border-strong: #243545;
 
   --text: #9fb0c3;
-  --text-dim: #5d6f83;
+  /*
+   * Raised to clear WCAG AA, which the console palette had quietly dropped below.
+   *
+   * The dim roles were carried over from a lighter ground and then given more work: the state
+   * band's labels, the rail's two counts, every panel heading. Measured against the three grounds
+   * they sit on — #05080c, #090e15 and the rail's #0d1720 — the old values came to 3.89/3.75/3.50
+   * for `--text-dim` and 2.67/2.58/2.41 for `--idle`, against the 4.5 that 10 to 13 px text needs.
+   * These clear it on all three: 6.82/6.57/6.15 and 5.16/4.98/4.65, and the ramp still descends
+   * text > dim > idle.
+   */
+  --text-dim: #8698b0;
   --text-strong: #e6edf5;
 
   /* Amber, and it is the warning colour: see the note at the top of App.css for what that costs
@@ -33,7 +43,7 @@
   --live: #4ade80;
   --warn: #ffb03a;
   --alert: #ff6b5e;
-  --idle: #45566b;
+  --idle: #70839a;
 
   --sans: ui-monospace, 'Cascadia Mono', Consolas, monospace;
   --mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;

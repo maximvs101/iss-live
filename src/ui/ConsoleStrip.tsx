@@ -33,7 +33,15 @@ export function ConsoleStrip() {
   const sunlit = state ? state.shadow < 0.5 : null
 
   return (
-    <dl className="console-strip">
+    /*
+     * Focusable, because it scrolls.
+     *
+     * Below about 1100 px the eight cells do not fit and the band scrolls sideways with its
+     * scrollbar suppressed. A scrollport with no focusable child is not reachable by keyboard in
+     * Chrome or Safari, so Alt, Vel, Beta and Illum simply could not be read without a pointer.
+     * `tabIndex` makes it a stop that arrow keys scroll; the group needs a name once it is one.
+     */
+    <dl className="console-strip" tabIndex={0} role="group" aria-label="Vehicle state">
       {/* The place first: it is the only cell a reader can use without knowing what the others
           mean, and the two that follow are the same position in figures. */}
       <NowOver />

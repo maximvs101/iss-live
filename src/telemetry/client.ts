@@ -69,15 +69,58 @@ function mapConnectionStatus(status: string): ConnectionState {
   return 'disconnected'
 }
 
+/**
+ * How many symbols must fall to zero together before the flush is read as a dropout.
+ *
+ * The per-channel guard in `subsystems` covers the eight readings where zero is physically
+ * impossible, and that is only eight of the twenty-two symbols the collector recorded going to
+ * exactly 0 in the same minute on 11 August and again on 19 August. The other fourteen — the eight
+ * array voltages, the gimbals, the two rotary joints, measured beta — are channels where zero is a
+ * legal reading in isolation, so no list can catch them. What catches them is the thing that is
+ * actually true of a dropout and never true of the station: several unrelated symbols *falling* to
+ * zero at once.
+ *
+ * Four, because at one update per second per symbol the twenty-two arrive across about four
+ * flushes, five or six to a flush, and because four unrelated channels genuinely reaching zero in
+ * the same quarter-second is a station event rather than a reading. When it fires the values are
+ * dropped rather than replaced, so the page shows the last real reading getting older — which is
+ * the conservative failure, and the one it already makes for the eight.
+ *
+ * A symbol that was already zero cannot fall to zero, which is what keeps the eight array drive
+ * currents — they publish nothing but 0, for ever — from tripping this on every flush.
+ */
+const DROPOUT_ZEROS = 4
+
+/** The symbols in this batch that read zero because the broadcast dropped, not the station. */
+export function dropoutZeros(
+  batch: readonly TelemetrySample[],
+  previous: (pui: string) => string | null | undefined,
+): ReadonlySet<string> {
+  const fell = batch.filter((sample) => {
+    if (Number.parseFloat(sample.value ?? '') !== 0) return false
+    const before = Number.parseFloat(previous(sample.pui) ?? '')
+    return Number.isFinite(before) && before !== 0
+  })
+  return fell.length >= DROPOUT_ZEROS ? new Set(fell.map((sample) => sample.pui)) : new Set()
+}
+
 function flush() {
   if (pending.size === 0) return
   const batch = [...pending.values()]
   pending.clear()
-  useTelemetryStore.getState().applyBatch(batch)
+
+  const { samples } = useTelemetryStore.getState()
+  const dropped = dropoutZeros(batch, (pui) => samples[pui]?.value)
+  const kept = dropped.size === 0 ? batch : batch.filter((sample) => !dropped.has(sample.pui))
+  if (kept.length === 0) return
+
+  useTelemetryStore.getState().applyBatch(kept)
 
   // Carried over to the archive before the buffer is lost, so the tick below sees the whole
-  // interval rather than its last quarter-second. See `archive`.
-  for (const sample of batch) archive.set(sample.pui, sample)
+  // interval rather than its last quarter-second. See `archive`. A dropped sample never reaches
+  // here either: the history is keyed by the onboard clock, so a zero written into it is a zero
+  // for good — no later reading lands on the same key to overwrite it.
+  for (const sample of kept) archive.set(sample.pui, sample)
 
   // Sparse archiving: only numeric quantities are kept, since enumerated states mean nothing
   // on a plot.

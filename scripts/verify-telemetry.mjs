@@ -22,6 +22,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import { UNIT_OVERRIDES } from '../src/telemetry/units.ts'
+import { CLOCK, subsystemChannels } from './lib/subsystem-channels.mjs'
 import { propagateIss, betaAngle } from '../src/orbit/propagator.ts'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -40,40 +41,10 @@ const DURATION_S = durationArg !== -1 ? Number(process.argv[durationArg + 1]) : 
 const catalog = JSON.parse(read('src/data/pui-catalog.json'))
 const symbolByPui = new Map(catalog.symbols.map((s) => [s.pui, s]))
 
-// subsystems.ts cannot be imported here: it reads `import.meta.env`, which does not exist
-// outside Vite. The declarations are regular enough to read as text.
-//
-// Read in two steps rather than with one pattern, and the reason is a channel this file lost.
-//
-// It matched `pui: '…',` followed by `label: '…'` with at most a newline between them, which is
-// how every entry but one is written. `TIME_000001` carries a comment on the line between the
-// two, so it never matched — and TIME_000001 is the station's clock, which is what every age in
-// this report is measured against. Losing it failed nothing: `ageDays` returned null for all 162
-// remaining channels, every age printed as "age unknown", and the stalled-sensor check reported
-// **[ok] every continuous measurement is less than a day old** over an empty list, while the
-// application's own freshness panel counted thirteen stopped sensors on the same stream.
-//
-// A pattern spanning two lines of a declaration is a pattern that breaks on a comment. This finds
-// each `pui` and then the first `label` before the next one, which is what the structure promises.
-const subsystemsSource = read('src/telemetry/subsystems.ts')
-const channels = []
-const puiMatches = [...subsystemsSource.matchAll(/pui: '([A-Z0-9_]+)'/g)]
-for (const [index, match] of puiMatches.entries()) {
-  const from = match.index + match[0].length
-  const until = index + 1 < puiMatches.length ? puiMatches[index + 1].index : subsystemsSource.length
-  const slice = subsystemsSource.slice(from, until)
-  const label = /label: '([^']*)'/.exec(slice)
-  // Declared where the labels are: this symbol's timestamp dates a change, not a measurement.
-  channels.push({ pui: match[1], label: label ? label[1] : match[1], holds: /holds: true/.test(slice) })
-}
-const CHANNELS = [...new Map(channels.map((c) => [c.pui, c])).values()]
-
-/** The clock every age is measured against. Named here because losing it is silent otherwise. */
-const CLOCK = 'TIME_000001'
-if (!CHANNELS.some((c) => c.pui === CLOCK)) {
-  console.error(`\n  [FAIL] ${CLOCK} is not among the declared channels — every age reads "unknown".\n`)
-  process.exit(1)
-}
+// The channel list, its labels and the two flags a report must agree with the page about, read
+// once in `lib/subsystem-channels` — including the clock, which a pattern spanning two lines of a
+// declaration silently lost. See that file.
+const CHANNELS = subsystemChannels()
 
 // --- Documented operating ranges ---------------------------------------------------------
 //
@@ -238,7 +209,7 @@ const num = (values, pui) => {
  */
 function ageDays(values, pui) {
   const stamp = Number.parseFloat(values.get(pui)?.timestamp ?? '')
-  const nowMs = Number.parseFloat(values.get('TIME_000001')?.raw ?? '')
+  const nowMs = Number.parseFloat(values.get(CLOCK)?.raw ?? '')
   if (!Number.isFinite(stamp) || !Number.isFinite(nowMs)) return null
   return nowMs / 86_400_000 - stamp / 24
 }
@@ -249,6 +220,94 @@ const formatAge = (days) => {
   if (days < 1 / 24) return `${(days * 1440).toFixed(0)} min old`
   if (days < 1) return `${(days * 24).toFixed(1)} h old`
   return `${days.toFixed(1)} days old`
+}
+
+/**
+ * Section 1: how old every reading is, per the station.
+ *
+ * Its own function so the missing-clock case can leave without skipping the sections after it.
+ */
+function reportAges(values) {
+  // How old is each reading, according to the station?
+  //
+  // This supersedes counting distinct values over a short capture, which could not tell a slow
+  // channel from a dead one without waiting. The stream's TimeStamp answers directly — and the
+  // answer is startling: several channels re-send, every few seconds, a measurement taken weeks
+  // ago. Nothing in the arrival rate betrays it.
+  console.log('\n--- Age of each reading, per the station ---\n')
+
+  // An old timestamp means two very different things depending on the symbol.
+  //
+  // For an enumerated symbol it marks the last *transition*: a computer that has read
+  // "Not-Off Ok" for 28 days is stable, and that is good news, not a fault. For a continuous
+  // measurement it marks the last time the sensor produced a number at all — a partial pressure
+  // that has not moved in 25 days is a sensor that stopped reporting.
+  /*
+   * The clock has to have arrived, and if it has not, this section says nothing at all.
+   *
+   * Every age below divides by it. Without it they are all null, every list built from them is
+   * empty, and the checks over those lists pass — which is exactly how this section spent its life
+   * reporting "[ok] every continuous measurement is less than a day old" while the page counted
+   * thirteen stopped sensors. Failing and then carrying on would print that same reassurance under
+   * the failure; it returns instead.
+   */
+  const clockArrived = Number.isFinite(Number.parseFloat(values.get(CLOCK)?.raw ?? ''))
+  if (!clockArrived) {
+    fail(`${CLOCK} published no value — no age can be computed, so this section is skipped`)
+    return
+  }
+
+  const analogue = []
+  const discrete = []
+  const never = []
+  for (const channel of CHANNELS) {
+    const days = ageDays(values, channel.pui)
+    if (days === null) continue
+    const stamp = Number.parseFloat(values.get(channel.pui)?.timestamp ?? '')
+    // A timestamp of zero is not an old reading, it is no reading: the channel has never
+    // carried one. All eight drive currents sit here, which is what "not working" looks like.
+    if (!Number.isFinite(stamp) || stamp <= 0) {
+      never.push(channel)
+      continue
+    }
+    // The same two sources the application reads: enumerated in the catalogue, or declared as
+    // holding its value. Split any other way and this report and the page disagree about which
+    // sensors have stopped — they did, by six, until `holds` existed.
+    const holds = !!symbolByPui.get(channel.pui)?.values || channel.holds
+    ;(holds ? discrete : analogue).push({ ...channel, days })
+  }
+  analogue.sort((a, b) => b.days - a.days)
+  discrete.sort((a, b) => b.days - a.days)
+
+  if (never.length) {
+    console.log(`  ${never.length} channel(s) carry no timestamp at all — never measured:`)
+    for (const c of never) console.log(`    ${c.pui.padEnd(14)} ${c.label}`)
+    console.log('')
+  }
+
+  const staleAnalogue = analogue.filter((a) => a.days > 1)
+  if (staleAnalogue.length === 0) {
+    ok('every continuous measurement is less than a day old')
+  } else {
+    console.log(`  ${staleAnalogue.length} continuous measurement(s) over a day old — these are stalled sensors:`)
+    for (const s of staleAnalogue) {
+      console.log(`    ${s.pui.padEnd(14)} ${s.label.padEnd(34)} ${formatAge(s.days)}`)
+    }
+    console.log('\n  They arrive continuously but were measured long ago. Comparing one of these')
+    console.log('  against a live channel compares two moments, not two sensors.')
+  }
+
+  const steady = discrete.filter((d) => d.days > 1)
+  console.log(`\n  ${steady.length} enumerated symbol(s) unchanged for over a day (stability, not staleness).`)
+  if (steady.length) {
+    const oldest = steady[0]
+    console.log(`  Longest steady: ${oldest.label} — ${formatAge(oldest.days)}`)
+  }
+
+  const freshAnalogue = analogue.filter((a) => a.days <= 1)
+  if (freshAnalogue.length) {
+    console.log(`  ${freshAnalogue.length} continuous measurement(s) under a day old, oldest ${formatAge(freshAnalogue[0].days)}`)
+  }
 }
 
 async function main() {
@@ -313,77 +372,8 @@ async function main() {
     for (const r of undecoded) console.log(`    ${r.pui.padEnd(14)} ${r.label.padEnd(34)} raw=${r.value}`)
   }
 
-  // How old is each reading, according to the station?
-  //
-  // This supersedes counting distinct values over a short capture, which could not tell a slow
-  // channel from a dead one without waiting. The stream's TimeStamp answers directly — and the
-  // answer is startling: several channels re-send, every few seconds, a measurement taken weeks
-  // ago. Nothing in the arrival rate betrays it.
-  console.log('\n--- Age of each reading, per the station ---\n')
+  reportAges(values)
 
-  // An old timestamp means two very different things depending on the symbol.
-  //
-  // For an enumerated symbol it marks the last *transition*: a computer that has read
-  // "Not-Off Ok" for 28 days is stable, and that is good news, not a fault. For a continuous
-  // measurement it marks the last time the sensor produced a number at all — a partial pressure
-  // that has not moved in 25 days is a sensor that stopped reporting.
-  // The clock has to have arrived, or every age below is null and every check over them passes on
-  // an empty list. That is exactly how this section spent its life reporting no stalled sensors.
-  if (!Number.isFinite(Number.parseFloat(values.get(CLOCK)?.raw ?? ''))) {
-    fail(`${CLOCK} published no value — no age can be computed, and nothing below is an answer`)
-  }
-
-  const analogue = []
-  const discrete = []
-  const never = []
-  for (const channel of CHANNELS) {
-    const days = ageDays(values, channel.pui)
-    if (days === null) continue
-    const stamp = Number.parseFloat(values.get(channel.pui)?.timestamp ?? '')
-    // A timestamp of zero is not an old reading, it is no reading: the channel has never
-    // carried one. All eight drive currents sit here, which is what "not working" looks like.
-    if (!Number.isFinite(stamp) || stamp <= 0) {
-      never.push(channel)
-      continue
-    }
-    // The same two sources the application reads: enumerated in the catalogue, or declared as
-    // holding its value. Split any other way and this report and the page disagree about which
-    // sensors have stopped — they did, by six, until `holds` existed.
-    const holds = !!symbolByPui.get(channel.pui)?.values || channel.holds
-    ;(holds ? discrete : analogue).push({ ...channel, days })
-  }
-  analogue.sort((a, b) => b.days - a.days)
-  discrete.sort((a, b) => b.days - a.days)
-
-  if (never.length) {
-    console.log(`  ${never.length} channel(s) carry no timestamp at all — never measured:`)
-    for (const c of never) console.log(`    ${c.pui.padEnd(14)} ${c.label}`)
-    console.log('')
-  }
-
-  const staleAnalogue = analogue.filter((a) => a.days > 1)
-  if (staleAnalogue.length === 0) {
-    ok('every continuous measurement is less than a day old')
-  } else {
-    console.log(`  ${staleAnalogue.length} continuous measurement(s) over a day old — these are stalled sensors:`)
-    for (const s of staleAnalogue) {
-      console.log(`    ${s.pui.padEnd(14)} ${s.label.padEnd(34)} ${formatAge(s.days)}`)
-    }
-    console.log('\n  They arrive continuously but were measured long ago. Comparing one of these')
-    console.log('  against a live channel compares two moments, not two sensors.')
-  }
-
-  const steady = discrete.filter((d) => d.days > 1)
-  console.log(`\n  ${steady.length} enumerated symbol(s) unchanged for over a day (stability, not staleness).`)
-  if (steady.length) {
-    const oldest = steady[0]
-    console.log(`  Longest steady: ${oldest.label} — ${formatAge(oldest.days)}`)
-  }
-
-  const freshAnalogue = analogue.filter((a) => a.days <= 1)
-  if (freshAnalogue.length) {
-    console.log(`  ${freshAnalogue.length} continuous measurement(s) under a day old, oldest ${formatAge(freshAnalogue[0].days)}`)
-  }
 
   // ---- 2. Documented ranges ----
   console.log('\n=== 2. Values against documented ranges ===\n')

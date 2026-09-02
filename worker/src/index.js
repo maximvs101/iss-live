@@ -80,6 +80,25 @@ const WATCH = {
   [CLOCK]: 'station clock',
 }
 
+/**
+ * Readings where zero is physically impossible, so a zero is the broadcast, not the station.
+ *
+ * The same eight the application refuses at the door — see `Channel.neverZero` in
+ * src/telemetry/subsystems.ts — of which this collector watches six. Recorded twice, on
+ * 11 August at 16:44 UTC and 19 August at 00:31, when twenty-two symbols read exactly 0 for one
+ * minute and came back the minute after.
+ */
+const NEVER_ZERO = new Set([
+  'USLAB000053',
+  'USLAB000054',
+  'USLAB000055',
+  'NODE3000001',
+  'NODE3000002',
+  'NODE3000003',
+  'USLAB000058',
+  'USLAB000039',
+])
+
 const ITEMS = Object.keys(WATCH)
 
 /**
@@ -351,6 +370,14 @@ async function gather(env, at, started) {
   const current = {}
   let moved = 0
   for (const [pui, entry] of seen) {
+    // A zero from a channel that cannot read zero is the broadcast dropping out, not the station.
+    // Carried through, it is recorded as two changes — down and back — on exactly the sensors this
+    // record exists to watch, and `/report` then answers "has it resumed?" with a dropout's
+    // timestamp. Skipped entirely: the row keeps the value it held, which is what was true.
+    if (NEVER_ZERO.has(pui) && Number.parseFloat(entry.value) === 0) {
+      if (pui in previous) current[pui] = previous[pui]
+      continue
+    }
     current[pui] = entry.value
     if (previous[pui] === entry.value) continue
     if (pui in previous) moved += 1

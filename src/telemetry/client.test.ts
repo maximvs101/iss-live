@@ -234,6 +234,74 @@ describe('the Lightstreamer client', () => {
     expect(useTelemetryStore.getState().samples.S4000001.value).toBe('0')
   })
 
+  /*
+   * The dropout the per-channel list cannot catch.
+   *
+   * Twenty-two symbols read exactly 0 in the same minute, twice in twenty-two days, and only eight
+   * of them are channels where zero is impossible. The other fourteen — the array voltages among
+   * them — are caught by the shape of the event instead: several unrelated symbols falling to zero
+   * together. The voltages matter most, because a zero that reaches the archive is keyed by the
+   * onboard clock and no later reading overwrites it.
+   */
+  it('drops a batch of symbols that fall to zero together', () => {
+    const send = (pui: string, value: string) =>
+      fire(captured.subscriptionListeners, 'onItemUpdate', {
+        getItemName: () => pui,
+        getValue: (field: string) => (field === 'Value' ? value : null),
+      })
+    const volts = ['S4000001', 'S4000004', 'S6000004', 'S6000001']
+
+    connectTelemetry({ items: volts })
+    for (const pui of volts) send(pui, '159.5')
+    vi.advanceTimersByTime(250)
+    for (const pui of volts) expect(useTelemetryStore.getState().samples[pui].value).toBe('159.5')
+
+    for (const pui of volts) send(pui, '0')
+    vi.advanceTimersByTime(250)
+    // The last real reading, still standing and now a quarter-second older.
+    for (const pui of volts) expect(useTelemetryStore.getState().samples[pui].value).toBe('159.5')
+  })
+
+  it('lets a smaller fall through, because that is a reading', () => {
+    const send = (pui: string, value: string) =>
+      fire(captured.subscriptionListeners, 'onItemUpdate', {
+        getItemName: () => pui,
+        getValue: (field: string) => (field === 'Value' ? value : null),
+      })
+
+    connectTelemetry({ items: ['S4000001', 'S4000004', 'S6000004'] })
+    for (const pui of ['S4000001', 'S4000004', 'S6000004']) send(pui, '159.5')
+    vi.advanceTimersByTime(250)
+    for (const pui of ['S4000001', 'S4000004', 'S6000004']) send(pui, '0')
+    vi.advanceTimersByTime(250)
+
+    // Three arrays at zero is an array offline, not a broadcast fault.
+    expect(useTelemetryStore.getState().samples.S4000001.value).toBe('0')
+  })
+
+  it('does not count a symbol that was already zero', () => {
+    // The eight drive currents publish 0 and nothing else. If holding zero counted as falling to
+    // zero, they alone would trip the guard on every flush and the panel would never update.
+    const send = (pui: string, value: string) =>
+      fire(captured.subscriptionListeners, 'onItemUpdate', {
+        getItemName: () => pui,
+        getValue: (field: string) => (field === 'Value' ? value : null),
+      })
+    const currents = ['S4000002', 'S4000005', 'S6000005', 'S6000002', 'P4000002']
+
+    connectTelemetry({ items: [...currents, 'S4000001'] })
+    for (const pui of currents) send(pui, '0')
+    send('S4000001', '159.5')
+    vi.advanceTimersByTime(250)
+
+    for (const pui of currents) send(pui, '0')
+    send('S4000001', '0')
+    vi.advanceTimersByTime(250)
+
+    // One genuine fall among five symbols that never left zero: not a dropout.
+    expect(useTelemetryStore.getState().samples.S4000001.value).toBe('0')
+  })
+
   it('keeps only the latest update per symbol between flushes', () => {
     connectTelemetry({ items: ['A'] })
     for (const value of ['1', '2', '3']) {

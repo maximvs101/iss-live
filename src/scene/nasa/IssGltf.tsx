@@ -262,9 +262,17 @@ export function IssGltf({ scene, rotation = [0, -Math.PI / 2, 0] }: IssGltfProps
     })
   }, [model])
 
-  // Highlight of the selected or hovered part.
+  /*
+   * Highlight of the selected or hovered part.
+   *
+   * The selection was amber, from when amber was the accent. It is the warning colour now — the
+   * page spends it on a stalled sensor and on nothing else — and lighting a whole module with it
+   * at 0.45 made the largest amber surface in the application read as a fault. Selection is the
+   * same blue as the hover, one step brighter, so the two stay related and neither claims to be
+   * an alarm.
+   */
   useEffect(() => {
-    const highlight = new Color('#ffb03a')
+    const highlight = new Color('#4f9fd8')
     const hoverColor = new Color('#2f6f9f')
 
     for (const [mesh, part] of meshParts) {

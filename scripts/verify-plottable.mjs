@@ -24,6 +24,7 @@
  * frozen and the run reports that rather than failing everything.
  */
 import { readFileSync } from 'node:fs'
+import { CLOCK, subsystemChannels } from './lib/subsystem-channels.mjs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 
@@ -59,14 +60,10 @@ const CLOCKS = new Set(['TIME_000001', 'TIME_000002', 'USLAB000084', 'USLAB00008
 const catalog = JSON.parse(read('src/data/pui-catalog.json'))
 const symbolByPui = new Map(catalog.symbols.map((s) => [s.pui, s]))
 
-// Read as text rather than imported: these modules reach for `import.meta.env`, which does not
-// exist outside Vite. The declarations are regular enough to parse.
-const subsystemsSource = read('src/telemetry/subsystems.ts')
-const declared = []
-for (const match of subsystemsSource.matchAll(/pui: '([A-Z0-9_]+)',\s*\n?\s*label: '([^']*)'/g)) {
-  declared.push({ pui: match[1], label: match[2] })
-}
-const CHANNELS = [...new Map(declared.map((c) => [c.pui, c])).values()]
+// Read through `lib/subsystem-channels`, which is also where the reason lives: the pattern this
+// used — `pui` and `label` on consecutive lines — silently lost TIME_000001, the clock every age
+// below is measured against, and with it every age this script prints.
+const CHANNELS = subsystemChannels()
 const labelOf = (pui) => CHANNELS.find((c) => c.pui === pui)?.label ?? pui
 
 const plottableSource = read('src/telemetry/plottable.ts')
@@ -147,7 +144,10 @@ if (updates === 0) {
 }
 
 const distinctOf = (pui) => seen.get(pui)?.distinct.size ?? 0
-const isEnumerated = (pui) => !!symbolByPui.get(pui)?.values
+// The same two sources the application reads: enumerated in the catalogue, or declared as holding
+// its value. `verify:telemetry` was aligned on this and this script was not.
+const holdsByPui = new Map(CHANNELS.map((c) => [c.pui, c.holds]))
+const isEnumerated = (pui) => !!symbolByPui.get(pui)?.values || holdsByPui.get(pui) === true
 
 /**
  * How long ago the station says it took this reading, in hours.
@@ -155,7 +155,7 @@ const isEnumerated = (pui) => !!symbolByPui.get(pui)?.values
  * Per-symbol timestamps are hours since the start of the year; `TIME_000001` is milliseconds into
  * the same year, so it supplies "now" on the station's own clock and no local time is involved.
  */
-const nowMs = Number.parseFloat(seen.get('TIME_000001')?.raw ?? '')
+const nowMs = Number.parseFloat(seen.get(CLOCK)?.raw ?? '')
 function ageHours(pui) {
   const stamp = Number.parseFloat(seen.get(pui)?.timestamp ?? '')
   if (!Number.isFinite(stamp) || !Number.isFinite(nowMs)) return null
