@@ -25,6 +25,7 @@ import { FreshnessPanel } from './ui/FreshnessPanel'
 import { OrbitProfile } from './ui/charts/OrbitProfile'
 import { ErrorBoundary } from './ui/ErrorBoundary'
 import { SourcesDialog } from './ui/SourcesDialog'
+import { RepositoryLink } from './ui/RepositoryLink'
 import { useSelectionStore } from './ui/selection'
 import { partFromSearch, searchForPart } from './ui/deepLink'
 import './App.css'
@@ -200,6 +201,7 @@ export default function App() {
 
           {/* Last in the header and styled as a plain link: findable, never in the way. */}
           <SourcesDialog />
+          <RepositoryLink />
         </div>
       </header>
 

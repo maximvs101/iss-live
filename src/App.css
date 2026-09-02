@@ -1126,6 +1126,34 @@
   text-decoration-color: var(--accent);
 }
 
+/*
+ * The way out to the repository, beside the way out to the data.
+ *
+ * The same weight as `sources__open` — dim until wanted, accent when reached — because they are
+ * the same kind of thing: two exits from a page that is otherwise all readings. `display: flex`
+ * rather than the inline default, so the mark is centred in whatever height the row takes — the
+ * link stretches to the view switch beside it, 43 px against the drawing's 17 — instead of sitting
+ * on a text baseline it has nothing to share.
+ */
+.app__repo {
+  display: flex;
+  align-items: center;
+  padding: 4px;
+  color: var(--text-dim);
+  transition: color 0.15s;
+}
+
+.app__repo:hover {
+  color: var(--accent);
+}
+
+/* Keyboard reach: the mark is the only control here with no text to outline. */
+.app__repo:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 .sources {
   width: min(620px, calc(100vw - 32px));
   max-height: min(80vh, 760px);
@@ -1813,13 +1841,21 @@
  *
  * Wrapping is the wrong answer on a desktop, where it cost three lines and a quarter of the
  * viewport. Here the viewport is tall and narrow, so a line is cheap and a sideways scrollbar is
- * not. Three rows, ordered by what is needed first rather than by source order: the title with the
- * view switch beside it, then whether the stream is live, then what the station is passing over.
+ * not. Rows ordered by what is needed first rather than by source order: the title, the controls,
+ * then whether the stream is live, then what the station is passing over.
  *
- *     375, live          145 px, no overflow, nothing clipped
- *     375, interrupted   203 px, the message 351 px wide
- *     320                the controls take a fourth row, still no overflow
- *     701 and above      untouched — 68 px live, one row, as before
+ * The title and the controls shared a row until the repository mark joined them. The controls now
+ * measure 280 px and the title 108, which asks 400 of a 351 px line, so the controls take a row of
+ * their own and the header grows by 40. The touch target is not what does it — removing the mark's
+ * 44 px minimum leaves the header at 185 all the same — and lifting the mark onto the title row
+ * instead measures 199, because a 44 px target sets the height of a row that was 24. Both ways
+ * round cost more than the row does.
+ *
+ *     375, live          185 px, no overflow, nothing clipped
+ *     375, interrupted   225 px, the message 351 px wide
+ *     320                the same 185, the controls still on their own row, no overflow
+ *     701 and above      102 px without the mark, 103 with it, one row. The 68 px this table
+ *                        recorded before is stale for reasons older than the mark.
  */
 @media (max-width: 700px) {
   .app__header {
@@ -1899,6 +1935,16 @@
   .plot__select,
   .button {
     min-height: 44px;
+  }
+
+  /* A 17 px mark is a 25 px target with its padding, and a fingertip is about 45 across. Square
+     rather than tall: it sits in a row beside the view switch, and a 44 px column of nothing
+     under it would push the row apart. The row the controls now take for themselves is measured
+     in the comment at the top of this block; it is the wrap that costs the 40 px, not this. */
+  .app__repo {
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
   }
 
   /*
