@@ -108,11 +108,6 @@
   text-transform: uppercase;
 }
 
-.app__brand p {
-  color: var(--text-dim);
-  font-size: 13px;
-}
-
 /*
  * What the station is passing over, in the header.
  *
@@ -136,15 +131,10 @@
  * So it holds its size and the explanation beside it takes the extra line instead, which is what
  * prose is for and it already wraps.
  *
- * That was unaffordable on a tablet until the tagline went: at 768 during an interruption, holding
- * this width squeezed the explanation into a narrow column and grew the header from 102 px to
- * **191**. Dropping "Digital twin of the International Space Station" below 1200 brings the same
- * case to **137**, and the line is never clipped at any width. The costs, measured:
- *
- *     1280, interrupted   102 px with the line, 102 without — free
- *     1024, interrupted   102 px against 68 — 34 px
- *      768, interrupted   137 px against 102 — 35 px
- *      any width, live    no cost at all
+ * That was unaffordable on a tablet while the header still carried a tagline. It was hidden below
+ * 1200 px to pay for this — at 768 during an interruption, holding this width grew the header from
+ * 102 px to 191, and dropping the line brought the same case to 137 — and the tagline has since
+ * gone at every width, so the trade is settled everywhere rather than only where it was measured.
  */
 .now-over {
   flex: 0 0 auto;
@@ -186,19 +176,6 @@
  * the longest sea area — "Now over South Atlantic" — was three pixels short of fitting, which
  * `text-overflow` spends on an ellipsis and two characters.
  */
-/*
- * The tagline goes before the position does.
- *
- * It is decoration — it says nothing the title does not — and it is the widest thing in the row.
- * Trading it buys the position line its full width at every size the application targets, which is
- * a straight swap of something that never changes for something that changes every second.
- */
-@media (max-width: 1200px) {
-  .app__brand p {
-    display: none;
-  }
-}
-
 /* The header on a narrow screen is rebuilt in one block at the end of this file — see there. */
 
 .app__controls {
@@ -456,13 +433,14 @@
  */
 @media (min-width: 901px) {
   .map-view {
-    /* 534 = the 75 px header, the 33 px state band under it, the map's own furniture (54 px with
+    /* 523 = the 64 px header, the 33 px state band under it, the map's own furniture (54 px with
        the legend on one line, 69 with two) and what is left over, which is the reading strip:
        357 px at 1366×768, 439 at 1920×1080, 648 at 2560×1440. The 768-high laptop showed 357 px of
        strip before any of this, so the floor is set exactly where it already stood rather than
        anywhere more comfortable. The band is the whole of the change from 501: it is a row the
-       header did not have, and the map pays for it rather than the readings. */
-    --map-reserve: 534px;
+       header did not have, and the map pays for it rather than the readings. The header itself
+       came back down by 11 px when the tagline left it, and the map takes that back. */
+    --map-reserve: 523px;
     --map-width: min(100%, (100dvh - var(--map-reserve)) * 2, 92dvh);
   }
 }

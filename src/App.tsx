@@ -166,7 +166,6 @@ export default function App() {
       <header className="app__header">
         <div className="app__brand">
           <h1>ISS Live</h1>
-          <p>Digital twin of the International Space Station</p>
         </div>
 
         {/* Moved up from the orbital panel: it is the one line on the page that reads without any
