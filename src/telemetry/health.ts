@@ -58,7 +58,8 @@ export function streamAgeMs(now: number): number | null {
 }
 
 function computeStreamStatus(now: number): StreamStatus {
-  const { connection, connectionDetail, subscribedCount, updateCount } = useTelemetryStore.getState()
+  const { connection, connectionDetail, subscribedCount, updateCount, samples } =
+    useTelemetryStore.getState()
 
   /*
    * Freshness is the station's clock, not ours.
@@ -90,7 +91,7 @@ function computeStreamStatus(now: number): StreamStatus {
    * landed may all be slow ones: measured on a fresh page, two samples in, the newest onboard
    * reading was forty minutes old and the honest answer was "not yet known" rather than "outage".
    */
-  if (subscribedCount > 0 && Object.keys(useTelemetryStore.getState().samples).length < subscribedCount / 2) {
+  if (subscribedCount > 0 && Object.keys(samples).length < subscribedCount / 2) {
     return { ...base, health: 'waiting' }
   }
 

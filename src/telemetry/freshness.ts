@@ -12,7 +12,7 @@
  * would paint the whole grid green over a station that has said nothing for a month.
  */
 import { getSymbol } from '../data/catalog'
-import { LIVE_THRESHOLD_MS, onboardTimestampToDate } from './health'
+import { LIVE_THRESHOLD_MS } from './health'
 import type { TelemetrySample } from './store'
 
 /**
@@ -51,8 +51,9 @@ export function readingOf(pui: string, sample: TelemetrySample | undefined, now:
   const enumerated = !!getSymbol(pui)?.values
   if (!sample) return { pui, state: 'none', ageMs: null, enumerated }
 
-  const measuredAt = sample.timestamp ? onboardTimestampToDate(sample.timestamp, new Date(now)) : null
-  const ageMs = measuredAt ? now - measuredAt.getTime() : now - sample.receivedAt
+  // `onboardAt` is the same parse, done once at receipt where the year is unambiguous — repeating
+  // it here resolved the year against a different clock, and did it for 163 symbols a second.
+  const ageMs = sample.onboardAt !== null ? now - sample.onboardAt : now - sample.receivedAt
 
   if (ageMs <= LIVE_THRESHOLD_MS) return { pui, state: 'live', ageMs, enumerated }
   if (ageMs <= SLOW_MS) return { pui, state: 'minutes', ageMs, enumerated }

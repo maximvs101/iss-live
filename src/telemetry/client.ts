@@ -46,6 +46,19 @@ let lastHistoryWrite = 0
 /** Buffer of the latest value per symbol, emptied on every flush. */
 const pending = new Map<string, TelemetrySample>()
 
+/**
+ * The same, for the archive, and it is a second map because the two empty at different rates.
+ *
+ * The display flushes twenty times for every archive tick, so `pending` at the moment the tick
+ * opens holds only whatever arrived in the last 250 ms — everything else was applied to the store
+ * and cleared. Archiving from it meant the history received one twentieth of a window rather than
+ * a window. Measured on the live stream over 55 s, with all 163 symbols subscribed: **526 points
+ * where 1 956 were intended**, 11 to 26 written per tick instead of 163, and the *median symbol
+ * held one single point* — the snapshot it arrived with, and nothing for the rest of the minute.
+ * The charts read this history.
+ */
+const archive = new Map<string, TelemetrySample>()
+
 function mapConnectionStatus(status: string): ConnectionState {
   if (status.startsWith('CONNECTED:')) return 'connected'
   if (status.startsWith('STALLED')) return 'stalled'
@@ -61,19 +74,37 @@ function flush() {
   pending.clear()
   useTelemetryStore.getState().applyBatch(batch)
 
+  // Carried over to the archive before the buffer is lost, so the tick below sees the whole
+  // interval rather than its last quarter-second. See `archive`.
+  for (const sample of batch) archive.set(sample.pui, sample)
+
   // Sparse archiving: only numeric quantities are kept, since enumerated states mean nothing
   // on a plot.
   const now = Date.now()
   if (now - lastHistoryWrite < HISTORY_INTERVAL_MS) return
   lastHistoryWrite = now
 
-  const points = batch
+  /*
+   * Stamped with the station's clock, not with ours.
+   *
+   * Arrival time is wrong twice over here. It plots a reading where it was *received* rather than
+   * where it was taken, which for a sensor that last spoke a month ago draws a month-old number
+   * at today's date — the one thing this application refuses to do everywhere else. And because
+   * the store is keyed `['pui', 't']`, a fresh arrival time makes a fresh row: every reconnection
+   * re-delivers the last known value of all 163 symbols, so each one filled the ring with copies
+   * of the same reading and pruned real history to make room. On the onboard clock the same
+   * reading has the same key, and the write is an overwrite.
+   *
+   * Eight symbols publish no usable timestamp; arrival is their fallback, as it is everywhere.
+   */
+  const points = [...archive.values()]
     .map((sample) => ({
       pui: sample.pui,
-      t: sample.receivedAt,
+      t: sample.onboardAt ?? sample.receivedAt,
       value: Number.parseFloat(sample.value ?? ''),
     }))
     .filter((point) => Number.isFinite(point.value))
+  archive.clear()
 
   void appendHistory(points).catch((error) => {
     console.warn('[telemetry] local history unavailable:', error)
@@ -162,6 +193,8 @@ export function disconnectTelemetry(): void {
     flushTimer = null
   }
   pending.clear()
+  archive.clear()
+  lastHistoryWrite = 0
   if (client) {
     if (subscription) client.unsubscribe(subscription)
     client.disconnect()

@@ -64,6 +64,7 @@ vi.mock('../history/indexeddb', () => ({ appendHistory: vi.fn().mockResolvedValu
 
 const { connectTelemetry, disconnectTelemetry } = await import('./client')
 const { useTelemetryStore } = await import('./store')
+const { appendHistory } = await import('../history/indexeddb')
 
 /** Drives every registered listener that implements `name`. */
 function fire(listeners: Captured['clientListeners'], name: string, ...args: unknown[]) {
@@ -206,6 +207,87 @@ describe('the Lightstreamer client', () => {
     expect(useTelemetryStore.getState().samples.A.value).toBe('3')
     // Three arrivals, one store entry: the count is of traffic, the sample is the newest.
     expect(useTelemetryStore.getState().updateCount).toBe(1)
+  })
+
+  /**
+   * The archive is not the display buffer, and the two empty at different rates.
+   *
+   * The display flushes every 250 ms and the archive writes every 5 s, so archiving from the
+   * flush's own batch captured one twentieth of an interval. Measured on the live stream over
+   * 55 s with all 163 symbols subscribed: 526 points where 1 956 were intended, and the median
+   * symbol held a single one. Three symbols on three different quarter-seconds are enough to
+   * state the property here.
+   */
+  it('archives everything that arrived in the interval, not the last quarter-second of it', () => {
+    const value = (pui: string, v: string) =>
+      fire(captured.subscriptionListeners, 'onItemUpdate', {
+        getItemName: () => pui,
+        getValue: (field: string) => (field === 'Value' ? v : field === 'TimeStamp' ? '5088.5' : null),
+      })
+
+    connectTelemetry({ items: ['A', 'B', 'C'] })
+
+    // The first flush of a session always archives, so get it out of the way and start the clock.
+    value('A', '1')
+    vi.advanceTimersByTime(250)
+    vi.mocked(appendHistory).mockClear()
+
+    // Three arrivals, three different flushes, all inside one archive interval.
+    value('A', '2')
+    vi.advanceTimersByTime(250)
+    value('B', '3')
+    vi.advanceTimersByTime(250)
+    expect(appendHistory).not.toHaveBeenCalled()
+
+    value('C', '4')
+    vi.advanceTimersByTime(250)
+
+    // The interval elapses, and then one more arrival opens the gate — `flush` returns early
+    // on an empty buffer, so the archive writes when the stream next speaks rather than on a
+    // timer of its own. On a live stream that is every quarter-second.
+    vi.advanceTimersByTime(4500)
+    value('C', '4')
+    vi.advanceTimersByTime(250)
+
+    expect(appendHistory).toHaveBeenCalledTimes(1)
+    const points = vi.mocked(appendHistory).mock.calls[0][0]
+    expect(points.map((point) => point.pui).sort()).toEqual(['A', 'B', 'C'])
+    // And the latest value of each, not the first.
+    expect(points.find((point) => point.pui === 'A')?.value).toBe(2)
+  })
+
+  /**
+   * The archived point is stamped with the station's clock.
+   *
+   * Two things turn on it. A reading is plotted where it was taken rather than where it landed —
+   * a sensor that last spoke a month ago would otherwise draw a month-old number at today's date.
+   * And the store is keyed `['pui', 't']`, so a reconnection — which re-delivers the last known
+   * value of every symbol with a fresh arrival time — writes the same key and overwrites, instead
+   * of filling the ring with copies of one reading.
+   */
+  it('stamps an archived point with the onboard clock, so a re-delivery overwrites it', () => {
+    const deliver = () =>
+      fire(captured.subscriptionListeners, 'onItemUpdate', {
+        getItemName: () => 'A',
+        getValue: (field: string) =>
+          field === 'Value' ? '749.2' : field === 'TimeStamp' ? '5088.5' : null,
+      })
+
+    connectTelemetry({ items: ['A'] })
+    deliver()
+    vi.advanceTimersByTime(250)
+
+    const first = vi.mocked(appendHistory).mock.calls.at(-1)![0]
+    // The same instant the store test pins from the same timestamp: day 212 of 2026, 00:30 UTC.
+    expect(first[0].t).toBe(Date.parse('2026-07-31T00:30:00.000Z'))
+    expect(first[0].t).not.toBe(Date.now())
+
+    // The same reading arriving again five seconds later carries the same key, so `put` replaces.
+    vi.advanceTimersByTime(5000)
+    deliver()
+    vi.advanceTimersByTime(250)
+    const second = vi.mocked(appendHistory).mock.calls.at(-1)![0]
+    expect(second[0].t).toBe(first[0].t)
   })
 
   it('goes quiet on disconnect, and stops flushing', () => {
