@@ -367,17 +367,29 @@ async function gather(env, at, started) {
 
   const changed = {}
   const stamps = {}
-  const current = {}
+  /*
+   * What is held starts from what was held, not from nothing.
+   *
+   * `current` was built only from the symbols that answered this minute, and then written over the
+   * carried row — so a minute where the broadcast said nothing wrote an empty object, and the next
+   * live minute found no previous value for anything. Every symbol then landed in `changed` with
+   * `moved` at zero, and `/report` counted one change for all thirty-eight, on the sensors whose
+   * silence is the whole question.
+   *
+   * Visible in the record on 2 September: 08:39 pushes 0, then 08:40 with `moved 0` and `changed`
+   * carrying all 38 symbols. Each outage in the window produced exactly one of those rows, which
+   * is why the six stalled sensors each read "3 changes" while none of them had moved.
+   *
+   * A symbol that did not answer keeps the value it had. That is what the carried row is for.
+   */
+  const current = { ...previous }
   let moved = 0
   for (const [pui, entry] of seen) {
     // A zero from a channel that cannot read zero is the broadcast dropping out, not the station.
     // Carried through, it is recorded as two changes — down and back — on exactly the sensors this
     // record exists to watch, and `/report` then answers "has it resumed?" with a dropout's
     // timestamp. Skipped entirely: the row keeps the value it held, which is what was true.
-    if (NEVER_ZERO.has(pui) && Number.parseFloat(entry.value) === 0) {
-      if (pui in previous) current[pui] = previous[pui]
-      continue
-    }
+    if (NEVER_ZERO.has(pui) && Number.parseFloat(entry.value) === 0) continue
     current[pui] = entry.value
     if (previous[pui] === entry.value) continue
     if (pui in previous) moved += 1
