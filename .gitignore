@@ -33,11 +33,12 @@ data/nasa-models/iss-igoal-source.glb
 data/collect.out
 data/collect.err
 
-# The event log of the September campaign, untracked for its duration.
+# The local collector's own logs.
 #
-# Thinned, it still writes on the order of a hundred megabytes over a fortnight — one line per
-# change of sixteen symbols, plus a sample a minute of ten more. That is data, and it does not
-# belong in the history of a static site. The liveness log stays tracked: one line a minute is
-# two megabytes, and it is the record of when the broadcast was actually up, which is what makes
-# every other answer readable.
+# The campaign runs on Cloudflare — see worker/ — and has done since 11 August, a cron a minute
+# writing to D1, which is what a record spanning weeks needs: it does not stop when this machine
+# does. `npm run collect` holds a continuous session at 1 Hz and exists to cross-check that Worker,
+# never to be the archive. Its logs are a scratch pad of whatever run is in progress, on the order
+# of a hundred megabytes a fortnight, and they do not belong in the history of a static site.
 data/collect-events.jsonl
+data/collect-liveness.jsonl
