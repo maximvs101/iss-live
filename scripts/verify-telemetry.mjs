@@ -42,12 +42,38 @@ const symbolByPui = new Map(catalog.symbols.map((s) => [s.pui, s]))
 
 // subsystems.ts cannot be imported here: it reads `import.meta.env`, which does not exist
 // outside Vite. The declarations are regular enough to read as text.
+//
+// Read in two steps rather than with one pattern, and the reason is a channel this file lost.
+//
+// It matched `pui: '…',` followed by `label: '…'` with at most a newline between them, which is
+// how every entry but one is written. `TIME_000001` carries a comment on the line between the
+// two, so it never matched — and TIME_000001 is the station's clock, which is what every age in
+// this report is measured against. Losing it failed nothing: `ageDays` returned null for all 162
+// remaining channels, every age printed as "age unknown", and the stalled-sensor check reported
+// **[ok] every continuous measurement is less than a day old** over an empty list, while the
+// application's own freshness panel counted thirteen stopped sensors on the same stream.
+//
+// A pattern spanning two lines of a declaration is a pattern that breaks on a comment. This finds
+// each `pui` and then the first `label` before the next one, which is what the structure promises.
 const subsystemsSource = read('src/telemetry/subsystems.ts')
 const channels = []
-for (const match of subsystemsSource.matchAll(/pui: '([A-Z0-9_]+)',\s*\n?\s*label: '([^']*)'/g)) {
-  channels.push({ pui: match[1], label: match[2] })
+const puiMatches = [...subsystemsSource.matchAll(/pui: '([A-Z0-9_]+)'/g)]
+for (const [index, match] of puiMatches.entries()) {
+  const from = match.index + match[0].length
+  const until = index + 1 < puiMatches.length ? puiMatches[index + 1].index : subsystemsSource.length
+  const slice = subsystemsSource.slice(from, until)
+  const label = /label: '([^']*)'/.exec(slice)
+  // Declared where the labels are: this symbol's timestamp dates a change, not a measurement.
+  channels.push({ pui: match[1], label: label ? label[1] : match[1], holds: /holds: true/.test(slice) })
 }
 const CHANNELS = [...new Map(channels.map((c) => [c.pui, c])).values()]
+
+/** The clock every age is measured against. Named here because losing it is silent otherwise. */
+const CLOCK = 'TIME_000001'
+if (!CHANNELS.some((c) => c.pui === CLOCK)) {
+  console.error(`\n  [FAIL] ${CLOCK} is not among the declared channels — every age reads "unknown".\n`)
+  process.exit(1)
+}
 
 // --- Documented operating ranges ---------------------------------------------------------
 //
@@ -301,6 +327,12 @@ async function main() {
   // "Not-Off Ok" for 28 days is stable, and that is good news, not a fault. For a continuous
   // measurement it marks the last time the sensor produced a number at all — a partial pressure
   // that has not moved in 25 days is a sensor that stopped reporting.
+  // The clock has to have arrived, or every age below is null and every check over them passes on
+  // an empty list. That is exactly how this section spent its life reporting no stalled sensors.
+  if (!Number.isFinite(Number.parseFloat(values.get(CLOCK)?.raw ?? ''))) {
+    fail(`${CLOCK} published no value — no age can be computed, and nothing below is an answer`)
+  }
+
   const analogue = []
   const discrete = []
   const never = []
@@ -314,7 +346,11 @@ async function main() {
       never.push(channel)
       continue
     }
-    ;(symbolByPui.get(channel.pui)?.values ? discrete : analogue).push({ ...channel, days })
+    // The same two sources the application reads: enumerated in the catalogue, or declared as
+    // holding its value. Split any other way and this report and the page disagree about which
+    // sensors have stopped — they did, by six, until `holds` existed.
+    const holds = !!symbolByPui.get(channel.pui)?.values || channel.holds
+    ;(holds ? discrete : analogue).push({ ...channel, days })
   }
   analogue.sort((a, b) => b.days - a.days)
   discrete.sort((a, b) => b.days - a.days)

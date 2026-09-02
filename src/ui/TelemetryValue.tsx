@@ -9,6 +9,7 @@ import { getChannel } from '../telemetry/subsystems'
 import { useSample, useTelemetryStore } from '../telemetry/store'
 import { formatValue, isUnitInferred, unitNote } from '../telemetry/units'
 import { LIVE_THRESHOLD_MS, formatAge, onboardTimestampToDate } from '../telemetry/health'
+import { readingOf } from '../telemetry/freshness'
 
 interface TelemetryValueProps {
   pui: string
@@ -55,17 +56,25 @@ export function TelemetryValue({ pui, showLabel = true, showHint = false }: Tele
   const isStale = ageMs !== null && ageMs > LIVE_THRESHOLD_MS
   const note = unitNote(pui)
 
-  // An old timestamp reads two ways. On an enumerated symbol it dates the last *transition* —
-  // a computer showing the same state for a month is stable, and saying "28 d old" about it
-  // would sound like a fault. On a continuous measurement it dates the last number the sensor
-  // produced, so a month-old partial pressure is a sensor that stopped reporting. Only the
-  // second case is flagged.
-  const isEnumerated = !!symbol.values
-  const isStalled = !isEnumerated && ageMs !== null && ageMs > 24 * 3_600_000
+  /*
+   * An old timestamp reads two ways, and this row asks the same question the freshness rule does.
+   *
+   * On a symbol that reports a state it dates the last *transition* — a computer showing the same
+   * state for a month is stable, and saying "28 d old" about it would sound like a fault. On a
+   * measurement it dates the last number the sensor produced, so a month-old partial pressure is a
+   * sensor that stopped. Only the second is flagged.
+   *
+   * Asked through `readingOf` rather than answered again here. This file had its own copy — the
+   * catalogue's enumeration and a `24 * 3_600_000` written out a second time — and the copy went
+   * on saying "this sensor has not reported since" about the station's year and the count of CMGs
+   * online for as long as the two rules disagreed.
+   */
+  const reading = readingOf(pui, sample, Date.now())
+  const isStalled = reading.state === 'stopped'
   const measuredLabel = measuredAt
     ? `${measuredAt.toISOString().replace('T', ' ').slice(0, 19)} UTC`
     : null
-  const ageTitle = isEnumerated
+  const ageTitle = reading.holds
     ? measuredLabel
       ? `Unchanged since ${measuredLabel}`
       : 'Time since this state last changed'

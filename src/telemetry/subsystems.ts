@@ -45,6 +45,20 @@ export interface Channel {
    * zero at freezing. Those are readings, and they stay.
    */
   neverZero?: boolean
+  /**
+   * The timestamp dates the last *change*, not the last measurement.
+   *
+   * A count, an identifier or a year holds until the thing it names moves, so an old timestamp on
+   * one is good news: four CMGs online for eight days is four CMGs that have not failed. The
+   * catalogue already marks this for symbols with enumerated states, and the freshness rule reads
+   * that flag — but it says nothing about a symbol whose value is simply a number that means a
+   * state. Six of those were being counted as stalled sensors: the year, the CMG count, the crew
+   * laptop count, the active S-band string and the two command counters.
+   *
+   * Not for a measurement that happens to be slow. A partial pressure eight days old is a sensor
+   * that stopped, and it stays `stopped`.
+   */
+  holds?: boolean
 }
 
 interface Section {
@@ -379,7 +393,7 @@ export const SUBSYSTEMS: Subsystem[] = [
         // channels attach to Z1 rather than to parts of their own.
         label: 'Control moment gyroscopes',
         channels: [
-          { pui: 'USLAB000005', label: 'CMGs online', part: 'truss-z1' },
+          { pui: 'USLAB000005', label: 'CMGs online', part: 'truss-z1', holds: true },
           { pui: 'USLAB000001', label: 'CMG-1 online', part: 'truss-z1' },
           { pui: 'USLAB000002', label: 'CMG-2 online', part: 'truss-z1' },
           { pui: 'USLAB000003', label: 'CMG-3 online', part: 'truss-z1' },
@@ -511,7 +525,7 @@ export const SUBSYSTEMS: Subsystem[] = [
           { pui: 'P1000004', label: 'RFG 2 azimuth', part: 'antenna-sasa-3' },
           { pui: 'P1000005', label: 'RFG 2 elevation', part: 'antenna-sasa-3' },
           { pui: 'P1000007', label: 'RFG 2 power', part: 'antenna-sasa-3' },
-          { pui: 'USLAB000092', label: 'Active S-band string' },
+          { pui: 'USLAB000092', label: 'Active S-band string', holds: true },
         ],
       },
       {
@@ -575,9 +589,9 @@ export const SUBSYSTEMS: Subsystem[] = [
             label: 'Station mode',
             hint: 'Standard most of the time. It switches to proximity operations while a spacecraft docks, to external operations during a spacewalk, and to reboost when the thrusters fire to raise the orbit.',
           },
-          { pui: 'USLAB000087', label: 'Crew laptops connected' },
-          { pui: 'USLAB000082', label: 'Standard commands received' },
-          { pui: 'USLAB000083', label: 'Data load commands received' },
+          { pui: 'USLAB000087', label: 'Crew laptops connected', holds: true },
+          { pui: 'USLAB000082', label: 'Standard commands received', holds: true },
+          { pui: 'USLAB000083', label: 'Data load commands received', holds: true },
           { pui: 'USLAB000084', label: 'Onboard time (coarse)' },
           { pui: 'USLAB000085', label: 'Onboard time (fine)' },
         ],
@@ -602,7 +616,7 @@ export const SUBSYSTEMS: Subsystem[] = [
            * is ambiguous without it, so the value is still subscribed and now reads inside that
            * clock: `Day 243 · 31 Aug 2026 · 13:41`.
            */
-          { pui: 'TIME_000002', label: 'Year', hidden: true },
+          { pui: 'TIME_000002', label: 'Year', hidden: true, holds: true },
         ],
       },
       {

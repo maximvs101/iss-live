@@ -64,8 +64,33 @@ describe('readingOf', () => {
     // A mode flag carries the moment it last *changed*. A computer holding one mode for a month is
     // working; painting it as a fault would be the interface lying about the station.
     const reading = readingOf(ENUMERATED, sample(30 * 86_400_000), NOW)
-    expect(reading.enumerated).toBe(true)
+    expect(reading.holds).toBe(true)
     expect(reading.state).toBe('steady')
+  })
+
+  /*
+   * A state does not have to be enumerated to be a state.
+   *
+   * Read from the catalogue alone, the rule saw six numbers holding steady and called every one of
+   * them a stalled sensor: the year, the count of CMGs online, the count of crew laptops, the
+   * active S-band string and the two command counters. Measured on the live stream, they were 12.7,
+   * 7.9, 1.1 and 2.9 days "old" — which is to say the year had not changed since 21 August and four
+   * CMGs had been running for eight days.
+   */
+  it('calls a state published as a plain number steady too', () => {
+    for (const pui of ['TIME_000002', 'USLAB000005', 'USLAB000087', 'USLAB000092']) {
+      const reading = readingOf(pui, sample(12 * 86_400_000), NOW)
+      expect(reading.holds).toBe(true)
+      expect(reading.state).toBe('steady')
+    }
+  })
+
+  it('keeps a slow measurement stopped, however plain its number', () => {
+    // The line between the two: NODE2000001 is a percentage a thermal loop actually measures, and
+    // an old one is an old measurement.
+    const reading = readingOf('NODE2000001', sample(2 * 86_400_000), NOW)
+    expect(reading.holds).toBe(false)
+    expect(reading.state).toBe('stopped')
   })
 
   it('reports nothing received as its own state, not as very old', () => {

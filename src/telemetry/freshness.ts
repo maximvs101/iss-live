@@ -12,17 +12,24 @@
  * would paint the whole grid green over a station that has said nothing for a month.
  */
 import { getSymbol } from '../data/catalog'
+import { getChannel } from './subsystems'
 import { LIVE_THRESHOLD_MS } from './health'
 import type { TelemetrySample } from './store'
 
 /**
  * What a reading's age means, which is not the same thing as the number.
  *
- * `steady` is the distinction that makes this honest. An enumerated symbol carries the moment its
- * state last *changed*, so a computer reporting the same mode for a month is working perfectly and
- * a grid that painted it red would be lying about a fault. A continuous measurement's timestamp
- * dates the last number a sensor produced, and a month there is a sensor that stopped. Same field,
- * opposite meanings, and only the second is `stopped`.
+ * `steady` is the distinction that makes this honest. A symbol that reports a *state* carries the
+ * moment that state last changed, so a computer reporting the same mode for a month is working
+ * perfectly and a grid that painted it red would be lying about a fault. A continuous
+ * measurement's timestamp dates the last number a sensor produced, and a month there is a sensor
+ * that stopped. Same field, opposite meanings, and only the second is `stopped`.
+ *
+ * Which side a symbol falls on was read from the catalogue alone — does it have enumerated values
+ * — and that missed every state published as a plain number. The year, the count of CMGs online,
+ * the count of crew laptops, the active S-band string and the two command counters were all being
+ * reported as stalled sensors for holding exactly the value they should hold. Those are declared
+ * in `subsystems`, channel by channel, and read here.
  */
 export type Freshness = 'live' | 'minutes' | 'hours' | 'stopped' | 'steady' | 'none'
 
@@ -36,8 +43,8 @@ export interface Reading {
   state: Freshness
   /** Null when nothing has arrived, or when the sample carries no usable onboard timestamp. */
   ageMs: number | null
-  /** An enumerated state rather than a measurement — see `steady` above. */
-  enumerated: boolean
+  /** Reports a state rather than a measurement — see `steady` above. */
+  holds: boolean
 }
 
 /**
@@ -48,17 +55,19 @@ export interface Reading {
  * symbol's first timestamped value lands.
  */
 export function readingOf(pui: string, sample: TelemetrySample | undefined, now: number): Reading {
-  const enumerated = !!getSymbol(pui)?.values
-  if (!sample) return { pui, state: 'none', ageMs: null, enumerated }
+  // Enumerated in the catalogue, or declared as holding its value in `subsystems`: both are
+  // states, and neither dates a measurement.
+  const holds = !!getSymbol(pui)?.values || getChannel(pui)?.holds === true
+  if (!sample) return { pui, state: 'none', ageMs: null, holds }
 
   // `onboardAt` is the same parse, done once at receipt where the year is unambiguous — repeating
   // it here resolved the year against a different clock, and did it for 163 symbols a second.
   const ageMs = sample.onboardAt !== null ? now - sample.onboardAt : now - sample.receivedAt
 
-  if (ageMs <= LIVE_THRESHOLD_MS) return { pui, state: 'live', ageMs, enumerated }
-  if (ageMs <= SLOW_MS) return { pui, state: 'minutes', ageMs, enumerated }
-  if (ageMs <= STOPPED_MS) return { pui, state: 'hours', ageMs, enumerated }
-  return { pui, state: enumerated ? 'steady' : 'stopped', ageMs, enumerated }
+  if (ageMs <= LIVE_THRESHOLD_MS) return { pui, state: 'live', ageMs, holds }
+  if (ageMs <= SLOW_MS) return { pui, state: 'minutes', ageMs, holds }
+  if (ageMs <= STOPPED_MS) return { pui, state: 'hours', ageMs, holds }
+  return { pui, state: holds ? 'steady' : 'stopped', ageMs, holds }
 }
 
 export type Tally = Record<Freshness, number>
