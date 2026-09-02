@@ -418,6 +418,57 @@
   }
 }
 
+/*
+ * Wide and short: the map goes beside the readings, not above them.
+ *
+ * Stacked, the map's height is whatever the reading floor leaves, and on a screen that is wide but
+ * not tall that is very little. Measured on a Xiaomi Pad 6S Pro in landscape — 1292 x 677 CSS
+ * pixels — the map came out **308 x 155** inside a column 956 wide: a third of the width it had,
+ * with 648 px of empty background either side of it.
+ *
+ * Side by side it measures **487** at the same viewport, and the readings go from 17 rows in two
+ * columns to 16 in one. That is the whole trade: 58 % more map for one row.
+ *
+ *     1292 x 677    stacked  308 px map, 17 rows      beside  487 px map, 16 rows
+ *     1366 x 700    stacked  354 px map, 24 rows      beside  517 px map, 16 rows
+ *     1366 x 768    stacked  490 px map, 24 rows      beside  517 px map, 17 rows
+ *
+ * So the threshold is not where the two arrangements are equal — they never are, they trade — but
+ * where the stacked map stops being a map. Under about 380 px it is a thumbnail, and that happens
+ * below 712 px of viewport height. Above it the stacked arrangement keeps its three columns of
+ * readings and a map worth looking at, and none of this applies.
+ *
+ * The width floor is 1000 px, not 1200: below that the column cannot hold a map and a reading
+ * column at once, and the layout has already gone to one column by 900.
+ *
+ * Worth knowing if this is ever revisited: a split that gave the readings 646 px instead — two
+ * whole columns — would show about 34 rows at 1292 x 677, and leave the map at 310. Twice the
+ * readings for a map no bigger than the one being complained about, which is the opposite trade
+ * from the one asked for.
+ */
+@media (min-width: 1000px) and (max-height: 712px) {
+  .app__primary,
+  .app__primary--station {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .map-view {
+    /*
+     * Bounded by its own column and by the height it actually has, not by what it must leave
+     * underneath: nothing is underneath any more. 160 px is the header, the state band and the
+     * legend's two or three lines.
+     */
+    --map-width: min(100%, (100dvh - 160px) * 2);
+  }
+
+  /* The readings are beside the map now, so the rule that separated them turns on its side. */
+  .panel--telemetry {
+    border-top: 0;
+    border-left: 1px solid var(--border);
+  }
+}
+
 /* Shown while the 3D view's own bundle is fetched, before the model download even starts. */
 .scene__loading {
   position: absolute;
