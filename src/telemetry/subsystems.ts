@@ -118,7 +118,7 @@ export const SUBSYSTEMS: Subsystem[] = [
           {
             pui: 'S4000007',
             label: 'BGA 1A',
-            hint: 'Angle of the wing about its own mast, over a full 360° of travel. It cancels the beta angle below, so the two should match: each wing sits that many degrees from its own zero — 0° or 180°, depending which way it faces. Past about 40° of beta they off-point on purpose, so one wing does not shadow the next: beta-backtracking.',
+            hint: 'Angle of the wing about its own mast, over a full 360° of travel, from the position where its cells face inboard along the truss. Facing the Sun would read 90° minus beta — or 90° plus, 270° minus, 270° plus, as each wing counts its own way — but the station flies them about 45° short of that on purpose, the "sun slicer" drag-reduction bias, and past about 48° of beta parks most of them at 0° or 180° instead.',
             part: 'saw-1a',
           },
           { pui: 'S4000008', label: 'BGA 3A', part: 'saw-3a' },

@@ -290,6 +290,9 @@ out nothing because the input was a constant.
 
 ### The real defect: a quarter turn between the model and the joint's zero
 
+*Superseded — see "The quarter turn was the wrong half of the answer" below. Kept as written,
+because the reasoning was sound and the coincidence that broke it is the useful part.*
+
 The station publishes a beta gimbal angle measured from the position where the blanket lies in the
 plane perpendicular to the truss. That convention is what makes |BGA| equal |beta| when the arrays
 track the Sun, and the telemetry bears it out — with beta at −22.97°, all eight wings published
@@ -336,6 +339,49 @@ With both corrections in, **six of the eight wings came down to 3.6°–7.5° of
 model's. The other two are the next section. `npm run verify:arrays` rebuilds the geometry from the
 glTF file and the solar vector from the propagator and prints the table, outside the browser, where
 nothing can quietly stop running.
+
+### The quarter turn was the wrong half of the answer
+
+The beta joints were never watched moving. The alpha joints were, and that is what found their
+sign; the beta joints got a zero from the geometry and kept the default sign, and the file said so:
+"a single reading cannot tell this apart from `zero`". The collector then watched them for five
+weeks — 11 August to 14 September 2026, beta from −31° through zero to +57° — and the reading at
+−22.97° that had confirmed |BGA| = |beta| turned out to be the one beta where it holds.
+
+Stripped of any model, the record says this: on every day, every BGA moves at **−1° per degree of
+beta**, and on the two sides of beta zero it does so about two different constants — for 1A,
+`BGA + beta` is 46° while beta is positive and 134° while it is negative, a 90° step taken during
+the three-day broadcast outage of 21–23 August while beta crossed zero. Past about 48° of beta six
+of the eight wings sit at exactly 0° or 180°.
+
+Through the mapping as it stood, that read as an off-Sun angle of **|45° − 2·|beta||**: a V, zero
+at 22.5° on both sides, 47° with the Sun in the orbital plane, then "off-Sun equals beta" once the
+wings were at their stops. Symmetric in |beta|, so not a bias in the alpha chain — the residual no
+gimbal can remove stayed at 1–3° across the whole range — but not the station either: nothing
+tracks the Sun backwards at exactly the tracking rate. A joint turning the wrong way does exactly
+that to a constant offset.
+
+Four combinations of sign and zero fit a single instant. Only one keeps the cells on the same side
+of the Sun on both sides of beta zero — and a blanket has cells on one face only, the model saying
+which by where it deploys the iROSA, on the Sun side of six wings. That combination is **sign −1
+and a half turn**, on all eight: at 0° the cells face inboard along the truss, and a wing facing
+the Sun reads 90° ∓ beta (270° ± beta on the wing of each module that counts the other way).
+Through it, the same record reads as a **constant 43°–45° on every wing, cells toward the Sun
+throughout**, flipping side as beta does — and the station's on-orbit status reports name that:
+BGAs "in Autotrack (solar-tracking, "sun slicer", i.e., drag reduction-biased by 47 deg)", 42.5° at
+higher beta. The wings at their stops past 48° are the station parking them where the bias would
+have carried them past 0°.
+
+So the earlier phrasing had it inside out. "The blanket lies in the plane perpendicular to the
+truss" and "the blanket's normal lies along the truss" describe one pose, not two a quarter turn
+apart; the quarter turn was fitted to the one beta where a 45° bias reads as tracking. What
+survives: the panel normal is local X, the SARJ sign and zeros, and the whole alpha chain. What
+does not: |BGA| = |beta|, the 40° backtracking threshold as the explanation of anything measured
+here, and the log of hand-taken samples in `data/array-offsets.jsonl`, all of which were computed
+through the old mapping. `npm run verify:arrays` now re-derives the zero as the rotation that lays
+the normal along the truss, settles the half turn from the iROSA side, reports which face each
+wing shows the Sun, and passes a wing that is tracking, biased, or parked — never one with its
+back to the Sun, which is the failure the two-sided figure could not see.
 
 ### The S6 roll was the measuring tool, not the model
 
@@ -848,8 +894,10 @@ compensating *seasonal* motion, and beta moves about 4° a day; over a 13-minute
 between paired wings. So the beta gimbals carry a small orbital-rate term on top of the seasonal
 one. It is genuinely small: sampled at three different points in the orbit, |BGA| against |beta|
 came out 19.1° against 23.0°, 22.0° against 23.1°, and 19.2° against 22.9° — a couple of degrees of
-wobble around the equality that ideal two-axis pointing requires, not a departure from it. Whatever
-drives it is below the resolution of anything published here.
+wobble, then read as being around the equality ideal two-axis pointing requires. It was not: the
+collector's record later showed the BGA reading 45° − |beta| there, which happens to equal |beta|
+at 22.5° — see "The quarter turn was the wrong half of the answer". Whatever drives the wobble is
+below the resolution of anything published here.
 
 Two things were also confirmed live, and they matter because they pin the defect on this project
 rather than on the station: both SARJs report mode 5, `AUTOTRACK`; and the port SARJ sits **0.18°

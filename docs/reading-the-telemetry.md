@@ -36,11 +36,15 @@ gimbals are no longer Sun-pointing to prevent solar array-to-solar array shadowi
 being *"off-pointing adjacent SAWs to reduce shadowing on the rear wing"*. The application already
 told its readers about the 40° threshold; it now has somewhere to have got it from.
 
-It matters more than a citation. Every off-Sun sample `verify:arrays` has taken sits **below** that
+It matters more than a citation. Every off-Sun sample `verify:arrays` had taken sat **below** that
 threshold — 31.9° to 33.2° in August, then 16.4° to 17.4°. In that range the station is documented
-as pointing its wings at the Sun, so the 10° to 20° of off-pointing measured there cannot be
-backtracking, and the residue is more likely the model's than the station's. The check now says so
-itself rather than leaving the reader to notice.
+as pointing its wings at the Sun, so the 10° to 20° of off-pointing measured there could not be
+backtracking, and the residue was more likely the model's than the station's. It was: five weeks
+of the collector's record showed the beta joints turning the wrong way in the model, and behind
+that the station flying every wing about 45° off the Sun on purpose at *every* beta — the "sun
+slicer" drag-reduction bias its own status reports describe, not backtracking. The 40° threshold
+explains nothing measured here; the story is in `architecture.md`, "The quarter turn was the wrong
+half of the answer".
 
 The site's telemetry guide links only chapters 1 and 2, but **chapters 3, 4 and 5 exist and are
 unlinked** (6 and beyond return 404). Chapter 4 is the most valuable of the five: it is what

@@ -137,17 +137,24 @@ describe('joint bindings', () => {
 /**
  * The two corrections, and the arithmetic that applies them.
  *
- * Both were wrong for a long time — every beta joint a quarter turn out, both alpha joints turning
- * the wrong way — and neither broke a test or looked wrong in a screenshot. These cannot judge
- * whether the constants are *right*; `npm run verify:arrays` does that against the model and the
- * Sun. They hold the table still, so that a typo in it is not silent.
+ * All ten tracking joints were wrong for a long time — every beta joint a quarter turn out and
+ * turning the wrong way, both alpha joints turning the wrong way — and none of it broke a test or
+ * looked wrong in a screenshot. These cannot judge whether the constants are *right*;
+ * `npm run verify:arrays` does that against the model and the Sun, and the collector's record did
+ * it for the beta joints over 88° of beta. They hold the table still, so that a typo in it is not
+ * silent.
  */
 describe('joint corrections', () => {
-  it('turns every beta joint a quarter turn from its rest pose', () => {
-    // Measured, not chosen: the rotation that lays each blanket in the plane perpendicular to the
-    // truss, which is where the station measures its BGA angle from.
+  it('runs every beta joint against the angle it publishes, a half turn from its rest pose', () => {
+    // Measured, not chosen: with the sign as it stood, five weeks of record read as an off-Sun
+    // angle of |45° − 2·|beta||, which is what a reversed joint does to a constant 45° bias. The
+    // half turn is the rotation that puts the cells inboard along the truss, where the station's
+    // BGA reads zero — see `zero` in the bindings.
     expect(BETA).toHaveLength(8)
-    for (const joint of BETA) expect(joint.zero, joint.node).toBe(90)
+    for (const joint of BETA) {
+      expect(joint.sign, joint.node).toBe(-1)
+      expect(joint.zero, joint.node).toBe(180)
+    }
   })
 
   it('runs both alpha joints against the angle they publish', () => {

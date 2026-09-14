@@ -10,22 +10,30 @@
  *
  * Two parts, in order, because they are answerable independently:
  *
- *   Geometry   Re-derives from the model the constants `nodeMapping` declares — the quarter turn
- *              on each beta joint, the axis each alpha joint turns about, the frame the truss
- *              lands in — and checks the rest orientations are real rotations. No Sun, no clock,
- *              no stream. A change to the model, or a typo in the table, fails here.
+ *   Geometry   Re-derives from the model the constants `nodeMapping` declares — the half turn on
+ *              each beta joint and the side its cells face, the axis each alpha joint turns about,
+ *              the frame the truss lands in — and checks the rest orientations are real rotations.
+ *              No Sun, no clock, no stream. A change to the model, or a typo in the table, fails
+ *              here.
  *
  *   Pointing   Applies the live telemetry and asks where each blanket ends up relative to the Sun.
- *              `off-Sun` is the angle from face-on. `ideal BGA` is the angle that would face the
- *              Sun, found by sweeping rather than by algebra so it assumes nothing about which way
- *              the joint turns. `best reachable` is what no beta angle can remove: large there
- *              means the residual is not in this joint.
+ *              `off-Sun` is the angle from face-on, two-sided. `cells` says which face that is,
+ *              which the two-sided figure cannot: a joint turning the wrong way puts the back of
+ *              the wing to the Sun and reads the same off-Sun angle as one facing it. `ideal BGA`
+ *              is the angle that would face the Sun, found by sweeping rather than by algebra so
+ *              it assumes nothing about which way the joint turns. `best reachable` is what no
+ *              beta angle can remove: large there means the residual is not in this joint.
+ *
+ *              What counts as passing is not "on the Sun". The station flies its wings biased —
+ *              the collector's record read a constant 44° on all eight for five weeks, the "sun
+ *              slicer" drag-reduction bias its status reports put at 42.5° to 47° — and parks them
+ *              at 0° or 180° past about 48° of beta. A wing passes if it is tracking, biased by
+ *              about that much, or parked, with its cells toward the Sun in every case.
  *
  * Exits non-zero if any check fails, so it can be run without reading it.
  *
  * Usage: npm run verify:arrays
  */
-import { appendFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { Matrix4, Quaternion, Vector3 } from 'three'
 import { twoline2satrec } from 'satellite.js'
 import { propagateIss, betaAngle, sunDirectionLvlh } from '../src/orbit/propagator.ts'
@@ -35,8 +43,10 @@ import { JOINT_BINDINGS } from '../src/scene/nasa/nodeMapping.ts'
 import {
   AXES,
   BLANKET_NORMAL,
-  blanketNormal,
   byName,
+  cellNormal,
+  cellSide,
+  cellSideFromIrosa,
   measureWing,
   setJoint,
   worldMatrix,
@@ -93,10 +103,14 @@ if (Math.abs(Math.abs(trussAxis.x) - 1) > 0.01) {
   console.log('  ok    both alpha joints turn about the truss, and the truss lies along scene X')
 }
 
-// The declared `zero` of each beta joint, re-derived: the rotation that lays the blanket in the
-// plane perpendicular to the truss, which is where the station measures its BGA angle from.
-console.log('\n  wing        declared   re-derived   residual')
-for (const binding of JOINT_BINDINGS.filter((b) => b.node.includes('BETA_ROT'))) {
+// The declared `zero` of each beta joint, re-derived in two steps. The station's BGA reads zero
+// with the blanket lying in the plane perpendicular to the truss — its normal *along* the truss —
+// which the geometry alone finds modulo a half turn. The half turn is the side the cells face: at
+// zero they face inboard, and which side of the blanket carries them the model states only
+// indirectly, by where it deploys the iROSA. So the side is read two ways and must agree.
+console.log('\n  wing        declared   re-derived   residual   cells at 0°   cell side (box / iROSA)')
+const wingsDeclared = JOINT_BINDINGS.filter((b) => b.node.includes('BETA_ROT'))
+for (const binding of wingsDeclared) {
   const tiltAt = (angle) => {
     // Bypass `sign` and `zero` here: this asks what the model does, not what the bindings claim.
     const node = byName.get(binding.node)
@@ -113,7 +127,8 @@ for (const binding of JOINT_BINDINGS.filter((b) => b.node.includes('BETA_ROT')))
     const normal = BLANKET_NORMAL.clone()
       .transformDirection(worldMatrix(node))
       .normalize()
-    return (Math.asin(Math.min(1, Math.abs(normal.dot(trussAxis)))) * 180) / Math.PI
+    // Degrees between the blanket's normal and the truss: zero when the normal lies along it.
+    return (Math.acos(Math.min(1, Math.abs(normal.dot(trussAxis)))) * 180) / Math.PI
   }
 
   let best = { angle: 0, tilt: Infinity }
@@ -121,17 +136,28 @@ for (const binding of JOINT_BINDINGS.filter((b) => b.node.includes('BETA_ROT')))
     const tilt = tiltAt(angle)
     if (tilt < best.tilt) best = { angle, tilt }
   }
-  setJoint(binding, 0)
 
   const declared = binding.zero ?? 0
-  // A half turn about the mast puts the blanket back in the same plane, so the two agree modulo 180.
+  // A half turn about the mast puts the normal back along the truss, so the two agree modulo 180.
   const gap = Math.abs((((best.angle - declared) % 180) + 270) % 180 - 90)
+
+  // The half turn itself: with the bindings applied and the joint at its published zero, the
+  // cells must face inboard — towards the station's centre, along the truss.
+  setJoint(binding, 0)
+  const inboard = binding.node.startsWith('STBD') ? -1 : 1
+  const facing = cellNormal(binding).x * inboard
+  const side = cellSide(binding)
+  const irosa = cellSideFromIrosa(binding)
+  const sideAgrees = irosa === null || irosa === side
+
   const name = binding.node.replace('_BETA_ROT', '').replace('PORT_', 'P ').replace('STBD_', 'S ')
   console.log(
     `  ${name.padEnd(10)} ${String(declared).padStart(8)}°   ${best.angle.toFixed(2).padStart(8)}°   ` +
-      `${best.tilt.toFixed(3).padStart(7)}°  ${gap < 0.5 ? 'ok' : 'MISMATCH'}`,
+      `${best.tilt.toFixed(3).padStart(7)}°   ${(facing > 0.99 ? 'inboard' : facing < -0.99 ? 'OUTBOARD' : 'ACROSS').padEnd(11)}` +
+      `   ${side > 0 ? '+X' : '-X'} / ${irosa === null ? 'none' : irosa > 0 ? '+X' : '-X'}` +
+      `  ${gap < 0.5 && facing > 0.99 && sideAgrees ? 'ok' : 'MISMATCH'}`,
   )
-  if (gap >= 0.5) failures += 1
+  if (gap >= 0.5 || facing <= 0.99 || !sideAgrees) failures += 1
 }
 
 // ------------------------------------------------------------- the telemetry
@@ -231,9 +257,6 @@ for (const binding of JOINT_BINDINGS) {
   if (angle !== undefined) setJoint(binding, angle)
 }
 
-/** Angle between a normal and the Sun, taking the blanket as two-sided. */
-const offSun = (normal) => (Math.acos(Math.min(1, Math.abs(normal.dot(sun)))) * 180) / Math.PI
-
 const wings = JOINT_BINDINGS.filter((binding) => binding.node.includes('BETA_ROT'))
 
 console.log(`instant : ${at.toISOString()}`)
@@ -241,24 +264,24 @@ console.log(`beta    : ${beta.toFixed(2)}°   shadow ${orbit.shadow.toFixed(2)}`
 console.log(`SARJ    : port ${telemetry.get('S0000004')?.toFixed(2)}°  starboard ${telemetry.get('S0000003')?.toFixed(2)}°`)
 console.log(`          (they sum to ${((telemetry.get('S0000004') ?? 0) + (telemetry.get('S0000003') ?? 0)).toFixed(2)}°, so the two publish mirrored conventions)\n`)
 
-console.log('wing        published   off-Sun   ideal BGA   offset   best reachable')
+console.log('wing        published   off-Sun   cells    ideal BGA   offset   best reachable')
 // The sweep, the two-sided fold and the irreducible residual are `measureWing`'s, shared with
 // `analyse:offset`. They were written twice for a while and this is the file that would have gone
 // stale: the other one runs unattended over the stored record and nobody reads its arithmetic.
-const offsets = []
 const measured = []
 for (const binding of wings) {
   const published = telemetry.get(binding.pui)
   if (published === undefined) continue
   const wing = measureWing(binding, published, sun)
+  // The one thing the two-sided fold discards, and the thing a reversed joint gets wrong.
+  wing.cellsToSun = cellNormal(binding).dot(sun) > 0
   measured.push(wing)
-  offsets.push({ node: binding.node, offset: wing.offset })
 
   const name = binding.node.replace('_BETA_ROT', '').replace('PORT_', 'P ').replace('STBD_', 'S ')
   console.log(
     `${name.padEnd(10)} ${published.toFixed(1).padStart(8)}° ${wing.off.toFixed(1).padStart(8)}° ` +
-      `${wing.ideal.toFixed(1).padStart(10)}° ${wing.offset.toFixed(1).padStart(7)}° ` +
-      `${wing.irreducible.toFixed(1).padStart(13)}°`,
+      `  ${(wing.cellsToSun ? 'to Sun' : 'AWAY').padEnd(7)}${wing.ideal.toFixed(1).padStart(9)}° ` +
+      `${wing.offset.toFixed(1).padStart(7)}° ${wing.irreducible.toFixed(1).padStart(13)}°`,
   )
 }
 
@@ -305,270 +328,84 @@ Every wing has ${Math.min(...irreducible).toFixed(1)}° or more that no beta ang
   )
 }
 
-const mean = offsets.reduce((sum, { offset }) => sum + offset, 0) / offsets.length
-const spread =
-  Math.max(...offsets.map((o) => o.offset)) - Math.min(...offsets.map((o) => o.offset))
-console.log(`\nrequired offset: mean ${mean.toFixed(1)}°, spread across the eight wings ${spread.toFixed(1)}°`)
-console.log(`|beta| is ${Math.abs(beta).toFixed(1)}° — ideal Sun-pointing needs |BGA| to equal it.`)
-
 /**
- * Are the wings splayed on purpose?
+ * What a wing is allowed to be doing.
  *
- * The second premise this check turned out to have. The first was that the arrays are tracking at
- * all, which the parked guard above now states; this one is that when they track, they track the
- * Sun. They do not always. The two blankets on a mast shadow each other at some geometries, so the
- * station tilts them apart deliberately — beta-backtracking, and the other power and thermal modes
- * that off-point on purpose. Every wing then reads well off the Sun while nothing whatever is wrong.
+ * For a year this check asked every wing to be within `TOLERANCE` of the Sun and, when all eight
+ * were not, kept a log of off-Sun against beta to decide whether the station was off-pointing on
+ * purpose or the joint zeros were out. The collector answered that with five weeks of record
+ * instead of a handful of runs (`analyse:offset`), and the answer was neither: the joints were
+ * turning the wrong way, and behind that the station had been flying a constant bias all along.
  *
- * Observed 09/08/2026 at |beta| 34.5°: all eight wings 17-21° off, and the run went red.
+ * So three states pass, and the two that are not "tracking" are the station's own, documented:
  *
- * Three things have to hold together before that is called deliberate, and each one excludes a
- * failure this script exists to catch:
+ *   tracking   within `TOLERANCE` of the Sun. Not seen yet in the record, but it is what the
+ *              station's Autotrack mode does with no bias commanded.
+ *   parked     directed to 0° or 180°, which the record shows six wings doing past about 48° of
+ *              beta. Cells inboard along the truss, so 90° − |beta| off the Sun — better than the
+ *              bias by then, which is presumably why.
+ *   biased     Autotrack with a bias. The large one is the "sun slicer" — "drag reduction-biased
+ *              by 47 deg", as the on-orbit status reports put it, 42.5° at higher beta — and the
+ *              record read 43° to 45° on all eight wings from 11 August to 1 September 2026. But
+ *              the record also shows single wings held at 20° to 22° for days at high beta, so a
+ *              bias is any angle short of the Sun up to `LARGEST_BIAS` plus the tolerance a
+ *              tracking wing gets for lag and a TLE a few hours old. This check does not know the
+ *              commanded bias — the public stream carries none — so it cannot ask for a value.
  *
- *   the two wings of every module are offset in *opposite* directions
- *       A mapping error with a flipped sign puts every wing out the same way. A splay is
- *       symmetric by construction, because it exists to open a pair apart.
- *   the mean offset is near zero while the individual offsets are large
- *       The same statement from the other side, and the one that fails loudly if a whole side of
- *       the truss is mismapped: the mean would then sit near the offset, not near zero.
- *   no wing has a large irreducible residual
- *       `best reachable` is what no beta angle can remove. Small means the alpha joints *are*
- *       where Sun-tracking puts them and each wing could face the Sun from where it is — it is
- *       commanded elsewhere. Large means the SARJ is not tracking, which is the parked case above
- *       and is not this one.
- *
- * A wing that is genuinely mispointed on its own still fails: it breaks the pairing, and it moves
- * the mean.
+ * In every state the cells face the Sun. A wing whose back is to the Sun is not in any of them
+ * and fails outright: that is exactly what a reversed joint produces, and exactly what a two-sided
+ * off-Sun angle cannot see. So does a wing further off than any bias the station flies, which is
+ * what a zero out by a quarter turn or more looks like.
  */
-const SPLAY_MEAN_LIMIT = 5
-const SPLAY_MIN_MAGNITUDE = 10
+const LARGEST_BIAS = 47
+const PARKED_WITHIN = 2
 
-/** `PORT_BETA_ROT_2A` and `PORT_BETA_ROT_2B` are the two blankets of one mast. */
-const mastOf = (node) => node.replace(/[AB]$/, '')
-const masts = new Map()
-for (const { node, offset } of offsets) {
-  const mast = mastOf(node)
-  masts.set(mast, [...(masts.get(mast) ?? []), offset])
+const stateOf = (wing) => {
+  const published = wing.published
+  const atStop = Math.min(published % 180, 180 - (published % 180)) <= PARKED_WITHIN
+  if (wing.off <= TOLERANCE) return 'tracking'
+  if (atStop) return 'parked'
+  if (wing.off <= LARGEST_BIAS + TOLERANCE) return 'biased'
+  return null
 }
 
-const everyMastOpensApart =
-  masts.size > 0 &&
-  [...masts.values()].every(
-    (pair) => pair.length === 2 && Math.sign(pair[0]) !== Math.sign(pair[1]),
-  )
-
-const splay =
-  !parked &&
-  offsets.length > 0 &&
-  everyMastOpensApart &&
-  Math.abs(mean) <= SPLAY_MEAN_LIMIT &&
-  Math.min(...offsets.map((o) => Math.abs(o.offset))) >= SPLAY_MIN_MAGNITUDE &&
-  Math.max(...irreducible) <= TOLERANCE
-
-if (splay) {
-  console.log(
-    `\nEvery mast is opened apart — its two wings offset in opposite directions, mean ${mean.toFixed(1)}°` +
-      ` over magnitudes of ${Math.min(...offsets.map((o) => Math.abs(o.offset))).toFixed(0)}° and more,` +
-      ` with at most ${Math.max(...irreducible).toFixed(1)}° that no beta angle could remove.` +
-      '\nThe wings could face the Sun from where the alpha joints have put them and do not, so this is' +
-      '\nnot a mispointing of the alpha chain. Whether it is the station opening its masts or the zero' +
-      '\nof every beta joint being out by that much is the question the log below exists to settle.',
-  )
-}
-
-// The station's own tracking is not perfect and neither is a TLE a few hours old, so this is not
-// asking for zero. It is asking that no wing be somewhere else entirely, which is the failure the
-// last three rounds of this work kept producing.
-for (const binding of wings) {
-  const published = telemetry.get(binding.pui)
-  if (published === undefined) continue
-  const off = offSun(blanketNormal(binding))
-  if (off <= TOLERANCE) continue
+const states = new Map()
+for (const wing of measured) {
+  const name = wing.node.replace('_BETA_ROT', '')
   if (parked) {
-    console.log(`  note  ${binding.node} is ${off.toFixed(1)}° off the Sun — the arrays are parked, not mispointed`)
-  } else if (splay) {
-    console.log(
-      `  note  ${binding.node} is ${off.toFixed(1)}° off the Sun — masts opened apart, deliberately` +
-        ' or by a zero error; see below',
-    )
-  } else {
-    fail(`${binding.node} is ${off.toFixed(1)}° off the Sun, over the ${TOLERANCE}° tolerance`)
+    // The alpha guard already showed the truss is not tracking; the wings are wherever the crew
+    // left them, and nothing below can be read from that.
+    if (wing.off > TOLERANCE) console.log(`  note  ${name} is ${wing.off.toFixed(1)}° off the Sun — the arrays are parked, not mispointed`)
+    continue
   }
+  if (!wing.cellsToSun) {
+    fail(`${name} has its back to the Sun — the cells face away, which no mode of the station does`)
+    continue
+  }
+  const state = stateOf(wing)
+  if (state === null) {
+    fail(`${name} is ${wing.off.toFixed(1)}° off the Sun: not tracking, not parked, further than any bias the station flies`)
+    continue
+  }
+  states.set(state, [...(states.get(state) ?? []), name])
+}
+
+for (const [state, names] of states) {
+  console.log(`  ${state.padEnd(9)} ${names.length} wing${names.length === 1 ? '' : 's'}: ${names.map((n) => n.replace(/^(PORT|STBD)_/, '')).join(' ')}`)
 }
 
 // Both wings of a module publish mirrored angles, and so must end up pointing the same way. This
-// catches a swapped pair, which the off-Sun test alone would miss when both are wrong together.
+// catches a swapped pair, which the state test alone would miss when both land in a passing state.
 const spreadAcrossWings =
-  Math.max(...wings.map((b) => offSun(blanketNormal(b)))) -
-  Math.min(...wings.map((b) => offSun(blanketNormal(b))))
-if (spreadAcrossWings > 10) {
+  Math.max(...measured.map((w) => w.off)) - Math.min(...measured.map((w) => w.off))
+if (!parked && states.size === 1 && spreadAcrossWings > 10) {
   fail(`the eight wings disagree by ${spreadAcrossWings.toFixed(1)}° about where the Sun is`)
 }
 
-/*
- * The question the splay guard above cannot answer on its own.
- *
- * When every wing sits well off the Sun, two explanations fit the same instant. The station may be
- * opening its masts apart on purpose — the guard's case — or the zero of every beta joint may be
- * out by that amount, which is the last unverified assumption in the joint mapping: the rest pose
- * comes from the model, and nothing has ever confronted it with the sky. A constant error would
- * even wear the guard's signature, because the model's rest orientations are already mirrored
- * between the two wings of a mast, so one offset appears as +d on one and -d on the other.
- *
- * What separates them is not visible in a snapshot. A zero error is a constant: the same offset at
- * every beta. A deliberate off-point tracks beta — it exists to stop one blanket shadowing the next,
- * which only happens as the Sun climbs out of the orbital plane, and it vanishes at low beta.
- *
- * So each run appends what it measured, and once the log spans enough beta the answer falls out of
- * the spread. Beta moves a few degrees a day over a roughly two-month cycle; a handful of runs
- * across a week is enough.
- *
- * The alpha joints need none of this and are already settled: `best reachable` is what no beta angle
- * can remove, so it belongs to the alpha chain alone, and it reads a degree or two.
- */
-const LOG = new URL('../data/array-offsets.jsonl', import.meta.url)
-const magnitudes = offsets.map((o) => Math.abs(o.offset)).sort((a, b) => a - b)
-const median = magnitudes[Math.floor(magnitudes.length / 2)]
-
-const sample = {
-  at: at.toISOString(),
-  beta: Number(beta.toFixed(2)),
-  shadow: Number(orbit.shadow.toFixed(2)),
-  medianOffset: Number(median.toFixed(2)),
-  worstIrreducible: Number(Math.max(...irreducible).toFixed(2)),
-  parked,
-}
-mkdirSync(new URL('.', LOG), { recursive: true })
-appendFileSync(LOG, `${JSON.stringify(sample)}\n`)
-
-const history = readFileSync(LOG, 'utf8')
-  .split('\n')
-  .filter(Boolean)
-  .map((line) => JSON.parse(line))
-  .filter((s) => !s.parked)
-
-console.log(`\nBeta against off-Sun offset — ${history.length} sample(s) in data/array-offsets.jsonl`)
-for (const s of history.slice(-8)) {
-  console.log(
-    `  ${s.at.slice(0, 16).replace('T', ' ')}  |beta| ${Math.abs(s.beta).toFixed(1).padStart(5)}°` +
-      `  offset ${s.medianOffset.toFixed(1).padStart(5)}°  ${s.shadow >= 0.5 ? 'eclipse' : 'sunlit'}`,
-  )
-}
-
-const betas = history.map((s) => Math.abs(s.beta))
-const betaSpread = betas.length ? Math.max(...betas) - Math.min(...betas) : 0
-
-/**
- * Above this the station off-points its wings on purpose; below it, they follow the Sun.
- *
- * Not a figure of ours. NASA's own account of the analysis code that models this system states it
- * plainly: "At solar beta angles above 40°, the beta gimbals are no longer Sun-pointing to prevent
- * solar array-to-solar array shadowing", and defines the manoeuvre as "off-pointing adjacent SAWs
- * to reduce shadowing on the rear wing" — *Development and Use of the SPACE Computer Code for
- * Analyzing the Space Station Electrical Power System*, NTRS 20180007791, 2018.
- *
- * It matters here because it says when a deliberate off-point is available as an explanation and
- * when it is not. Every sample taken so far sits below it.
- */
-const BACKTRACK_BETA = 40
-
-if (betaSpread < 8) {
-  console.log(
-    `\n  Not settled yet: these samples span ${betaSpread.toFixed(1)}° of |beta|, and it takes about` +
-      '\n  8° to tell a constant offset from one that follows the Sun out of the orbital plane.' +
-      '\n  Run this again over the coming days.',
-  )
-} else {
-  const low = history.filter((s) => Math.abs(s.beta) <= Math.min(...betas) + betaSpread / 3)
-  const high = history.filter((s) => Math.abs(s.beta) >= Math.max(...betas) - betaSpread / 3)
-  const mean = (xs) => xs.reduce((sum, s) => sum + s.medianOffset, 0) / xs.length
-  const lowMean = mean(low)
-  const highMean = mean(high)
-  console.log(
-    `\n  low |beta| (${low.length} samples): offset ${lowMean.toFixed(1)}°` +
-      `\n  high |beta| (${high.length} samples): offset ${highMean.toFixed(1)}°`,
-  )
-
-  /*
-   * Fitted rather than thresholded, because "the offset varies with beta" does not settle this.
-   *
-   * The first version answered yes or no on whether the two groups differed by more than 4°, and
-   * declared the joint zeros exonerated when they did. That lets through the one case worth
-   * catching: a constant zero error *plus* a deliberate off-point on top of it varies with beta
-   * exactly like a pure off-point, and differs only in where the relation lands at beta zero.
-   *
-   * So the line is fitted and its intercept reported. A deliberate off-point has nothing to
-   * off-point from when the Sun lies in the orbital plane, so the honest reading is: slope says
-   * how much follows the Sun, intercept says how much does not — and it is the intercept that a
-   * zero error would produce.
-   */
-  const n = history.length
-  const xs = history.map((s) => Math.abs(s.beta))
-  const ys = history.map((s) => s.medianOffset)
-  const meanX = xs.reduce((a, b) => a + b, 0) / n
-  const meanY = ys.reduce((a, b) => a + b, 0) / n
-  let sxy = 0
-  let sxx = 0
-  for (let i = 0; i < n; i += 1) {
-    sxy += (xs[i] - meanX) * (ys[i] - meanY)
-    sxx += (xs[i] - meanX) ** 2
-  }
-  const slope = sxx === 0 ? 0 : sxy / sxx
-  const intercept = meanY - slope * meanX
-  const residual = Math.sqrt(
-    ys.reduce((sum, y, i) => sum + (y - (slope * xs[i] + intercept)) ** 2, 0) / n,
-  )
-
-  console.log(
-    `\n  fitted over ${n} samples: offset = ${slope.toFixed(2)} x |beta| + ${intercept.toFixed(1)}°` +
-      `  (residual ${residual.toFixed(2)}°)`,
-  )
-
-  if (Math.abs(highMean - lowMean) < 4) {
-    console.log(
-      '\n  The offset does not follow beta. That is the signature of a zero error in the beta\n' +
-        '  joints, not of a deliberate off-point — the mapping needs correcting by that amount.',
-    )
-  } else if (Math.abs(intercept) < 2) {
-    console.log(
-      '\n  The offset follows beta and goes to nothing as beta does, which is what a deliberate\n' +
-        '  off-point looks like and a constant zero error cannot. The joint zeros are exonerated.',
-    )
-  } else {
-    console.log(
-      `\n  The offset follows beta, so it is not a constant zero error alone. But the fit does not\n` +
-        `  pass through the origin: ${Math.abs(intercept).toFixed(1)}° remains at beta zero, where a deliberate off-point\n` +
-        '  would have nothing left to do. That residue is the size a zero error would have to be.',
-    )
-    // Two clusters can fit any straight line; only spread-out samples can tell one from a curve.
-    const clusters = new Set(xs.map((x) => Math.round(x / 5))).size
-    if (clusters < 4) {
-      console.log(
-        `\n  Not conclusive: these ${n} samples fall in ${clusters} groups of |beta|, and a line through\n` +
-          '  two groups extrapolates rather than measures. The intercept is only real if it survives\n' +
-          '  samples spread across the range — keep running this as beta moves.',
-      )
-    }
-  }
-
-  /*
-   * The one thing that decides whether "deliberate off-point" is even on the table.
-   *
-   * Below 40° of beta the station is documented as Sun-pointing its wings; the off-pointing that
-   * this whole log exists to distinguish from a zero error only begins above it. So a slope
-   * measured entirely under that threshold is not evidence of a deliberate manoeuvre — it is an
-   * offset that varies with beta for some other reason, and the most likely other reason is ours.
-   */
-  const belowThreshold = betas.filter((b) => b < BACKTRACK_BETA).length
-  if (belowThreshold === betas.length) {
-    console.log(
-      `\n  And every one of these ${n} samples sits below |beta| ${BACKTRACK_BETA}°, where the station is\n` +
-        '  documented as Sun-pointing its wings (NTRS 20180007791). Beta-backtracking cannot be what\n' +
-        `  the offset is, in this range. Whatever the ${Math.abs(intercept).toFixed(1)}° and the slope are, they are more likely\n` +
-        '  to be ours than the station\'s — a sample above 40° is what would settle it.',
-    )
-  }
-}
+console.log(
+  `\n|beta| is ${Math.abs(beta).toFixed(1)}°. A wing facing the Sun reads 90° ∓ beta (or 270° ± beta on the wing that` +
+    `\ncounts the other way); the sun-slicer bias sits about 45° short of that, and a parked wing at 0° or 180°.`,
+)
 
 console.log(
   failures === 0

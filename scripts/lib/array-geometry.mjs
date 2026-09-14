@@ -110,6 +110,73 @@ export function blanketNormal(binding) {
 /** The eight beta joints, in the order `nodeMapping` declares them. */
 export const WINGS = JOINT_BINDINGS.filter((binding) => binding.node.includes('BETA_ROT'))
 
+// ------------------------------------------------------------ the cell side
+
+/**
+ * Centre of a node's mesh, in the frame of the joint above it.
+ *
+ * From the accessor's declared bounds rather than the vertices: the model is Draco-compressed and
+ * the bounds are the one thing about a mesh the file states in the clear.
+ */
+function meshCentreInJoint(node, joint) {
+  const mesh = gltf.meshes[gltf.nodes[node.index].mesh]
+  const bounds = gltf.accessors[mesh.primitives[0].attributes.POSITION]
+  const centre = new Vector3(...bounds.min.map((v, k) => (v + bounds.max[k]) / 2))
+  const toJoint = new Matrix4()
+  for (let n = node; n && n.index !== joint.index; n = nodes[n.parent]) toJoint.premultiply(n.local)
+  return centre.applyMatrix4(toJoint)
+}
+
+/**
+ * Which way, along the joint's own X, a wing's cells face: +1 or -1.
+ *
+ * A blanket has cells on one side only, and the model does not say which: both faces share one
+ * double-sided material. What the model does hold is where the iROSA sits — the roll-out array
+ * deployed *in front of* the legacy blanket, on its Sun side, six of eight wings have one — and,
+ * on every wing, the blanket box offset a little from the mast axis. The two agree on all six
+ * wings that have both: the cells are on the side away from the box's offset. The offset is used
+ * here because every wing has it; `verify:arrays` checks it against the iROSA on the six where
+ * it can.
+ *
+ * Without this, every off-Sun figure is two-sided, and a joint turning the wrong way is invisible:
+ * a wing with its back to the Sun reads the same as one facing it.
+ */
+export function cellSide(binding) {
+  const joint = byName.get(binding.node)
+  const blanket = descendants(joint).find(
+    (n) => /(_Array_\d[AB]|_\d[AB]_Array)$/.test(n.name) && gltf.nodes[n.index].mesh !== undefined,
+  )
+  return meshCentreInJoint(blanket, joint).x < 0 ? 1 : -1
+}
+
+/** The same, read off the iROSA where the wing has one deployed; `null` where it does not. */
+export function cellSideFromIrosa(binding) {
+  const joint = byName.get(binding.node)
+  const irosa = descendants(joint).find(
+    (n) => /^IROSA_Deployed_[SP]\d\d[AB]$/.test(n.name) && gltf.nodes[n.index].mesh !== undefined,
+  )
+  if (!irosa) return null
+  const blanket = descendants(joint).find(
+    (n) => /(_Array_\d[AB]|_\d[AB]_Array)$/.test(n.name) && gltf.nodes[n.index].mesh !== undefined,
+  )
+  return meshCentreInJoint(irosa, joint).x > meshCentreInJoint(blanket, joint).x ? 1 : -1
+}
+
+function descendants(node) {
+  const out = []
+  const visit = (n) => {
+    out.push(n)
+    for (const child of n.children) visit(nodes[child])
+  }
+  visit(node)
+  return out
+}
+
+/** Unit normal of the side of the blanket that carries the cells, in the scene frame. */
+export function cellNormal(binding) {
+  return blanketNormal(binding).multiplyScalar(cellSide(binding))
+}
+
 // ------------------------------------------------------- the Sun, and the wings
 
 /** Where the station is and where the Sun is from it, at one instant. */

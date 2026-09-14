@@ -28,17 +28,18 @@ export interface JointBinding {
   /**
    * Degrees between the model's resting orientation and the joint's published zero.
    *
-   * Needed because the two are not the same thing. The station publishes a beta gimbal angle
-   * measured from the position where the blanket lies in the plane perpendicular to the truss —
-   * that is what makes |BGA| equal |beta| when the arrays are tracking the Sun — while the model
-   * was built with the blanket's normal lying *along* the truss, a quarter turn away.
+   * Needed because the two are not the same thing. The station's beta gimbal reads 0° with the
+   * blanket lying in the plane perpendicular to the truss — its cells facing *inboard, along the
+   * truss* — and the model's rest pose has the blanket's normal along the truss too, but with the
+   * cells outboard: a half turn away, on all eight wings.
    *
-   * The figure is not fitted to make the picture look right. `npm run verify:arrays` sweeps each
-   * joint for the rotation that puts its blanket perpendicular to the truss, from the geometry
-   * alone with no reference to where the Sun is, and returns **residual 0.000° on all eight** — at
-   * 90.00° on six of them and 270.00° on 1A and 1B, which is the same plane reached the other way
-   * round. The check therefore compares modulo 180°. The Sun serves as the check rather than as
-   * the input.
+   * For a year this said a quarter turn, on the reasoning that a BGA measured from that plane
+   * would read |beta| when tracking the Sun, and one reading at |beta| 23° agreed with it: all
+   * eight wings published 19° to 22°. That was a coincidence, and the collector's record is what
+   * exposed it — see `sign` below. The current figure is not fitted to the picture either:
+   * `npm run verify:arrays` sweeps each joint for the rotation that lays the blanket's normal
+   * along the truss, from the geometry alone, and finds it at 0° or 180° on every wing; which of
+   * the two is settled by where the model puts the iROSA, deployed on the cell side of six wings.
    */
   zero?: number
   /**
@@ -51,6 +52,17 @@ export interface JointBinding {
    * measured over three samples spanning 46° of travel, where the published change and the fitted
    * correction summed to **23.80° against 23.79° of orbit**, and the implied constant held at
    * 170.0°, 171.5°, 172.1°.
+   *
+   * The beta joints were watched the same way, only later and over a much longer travel: the
+   * collector's record from 11 August to 14 September 2026 spans beta from −31° to +57°. Over all
+   * of it, every BGA moved at −1° per degree of beta while the sign as it stood needed +1, and
+   * the "off-Sun" figure came out as |45° − 2·|beta||: zero at 22.5° on both sides of beta zero,
+   * 47° with the Sun in the orbital plane. That V is what a sign error looks like through a
+   * two-sided measurement. With the sign reversed and the zero a half turn, the same record reads
+   * as a constant 44° on every wing, cells toward the Sun throughout, flipping side as beta does —
+   * which is the station's documented "sun slicer" drag-reduction bias of 42.5° to 47°. Of the four
+   * combinations of sign and zero, it is the only one that keeps the cells toward the Sun on both
+   * sides of beta zero.
    *
    * This is why the angles are no longer applied raw. They were, and it looked defensible: the
    * eight wing planes came out 5° apart, which is what parallel arrays should do — but they were
@@ -79,10 +91,10 @@ export function jointAngle(binding: JointBinding, published: number): number {
  * two wings of a module count their angles in opposite directions. The model's rest orientations
  * carry the same mirroring, so those cancel and need no correction here.
  *
- * What did need correcting is in `zero` and `sign` above — a quarter turn on every beta joint, and
- * the direction of travel on both alpha joints. Neither is visible in a single frame, which is why
- * both survived so long: the eight wing planes came out 5° apart either way, parallel to each
- * other and collectively pointing somewhere the Sun was not.
+ * What did need correcting is in `zero` and `sign` above — the direction of travel on all ten
+ * tracking joints, and a half turn on every beta joint. Neither is visible in a single frame, which
+ * is why both survived so long: the eight wing planes came out 5° apart either way, parallel to
+ * each other and collectively pointing somewhere the Sun was not.
  */
 export const JOINT_BINDINGS: JointBinding[] = [
   // Alpha joints: the whole outboard truss tracks the Sun, one turn per orbit. Both run opposite
@@ -91,16 +103,19 @@ export const JOINT_BINDINGS: JointBinding[] = [
   { node: 'PORT_ALPHA_ROT', pui: 'S0000004', part: 'sarj-port', axis: 'z', sign: -1, zero: 171.2 },
   { node: 'STBD_ALPHA_ROT', pui: 'S0000003', part: 'sarj-stbd', axis: 'z', sign: -1, zero: 187.9 },
 
-  // Beta joints: orientation of each wing about its own mast. See `zero` above for the quarter
-  // turn between the model's rest pose and the angle the station publishes.
-  { node: 'PORT_BETA_ROT_2A', pui: 'P4000007', part: 'saw-2a', axis: 'z', zero: 90 },
-  { node: 'PORT_BETA_ROT_4A', pui: 'P4000008', part: 'saw-4a', axis: 'z', zero: 90 },
-  { node: 'PORT_BETA_ROT_2B', pui: 'P6000008', part: 'saw-2b', axis: 'z', zero: 90 },
-  { node: 'PORT_BETA_ROT_4B', pui: 'P6000007', part: 'saw-4b', axis: 'z', zero: 90 },
-  { node: 'STBD_BETA_ROT_1A', pui: 'S4000007', part: 'saw-1a', axis: 'z', zero: 90 },
-  { node: 'STBD_BETA_ROT_3A', pui: 'S4000008', part: 'saw-3a', axis: 'z', zero: 90 },
-  { node: 'STBD_BETA_ROT_1B', pui: 'S6000008', part: 'saw-1b', axis: 'z', zero: 90 },
-  { node: 'STBD_BETA_ROT_3B', pui: 'S6000007', part: 'saw-3b', axis: 'z', zero: 90 },
+  // Beta joints: orientation of each wing about its own mast. All eight run opposite to the
+  // published angle, like the alpha joints, and all eight sit a half turn from the model's rest
+  // pose: at 0° the cells face inboard along the truss. A wing facing the Sun therefore reads
+  // 90° − beta on 1A and 3B, 90° + beta on 2A and 4B, and the mirror of each — 270° + beta,
+  // 270° − beta — on the wing of the same module that counts the other way round.
+  { node: 'PORT_BETA_ROT_2A', pui: 'P4000007', part: 'saw-2a', axis: 'z', sign: -1, zero: 180 },
+  { node: 'PORT_BETA_ROT_4A', pui: 'P4000008', part: 'saw-4a', axis: 'z', sign: -1, zero: 180 },
+  { node: 'PORT_BETA_ROT_2B', pui: 'P6000008', part: 'saw-2b', axis: 'z', sign: -1, zero: 180 },
+  { node: 'PORT_BETA_ROT_4B', pui: 'P6000007', part: 'saw-4b', axis: 'z', sign: -1, zero: 180 },
+  { node: 'STBD_BETA_ROT_1A', pui: 'S4000007', part: 'saw-1a', axis: 'z', sign: -1, zero: 180 },
+  { node: 'STBD_BETA_ROT_3A', pui: 'S4000008', part: 'saw-3a', axis: 'z', sign: -1, zero: 180 },
+  { node: 'STBD_BETA_ROT_1B', pui: 'S6000008', part: 'saw-1b', axis: 'z', sign: -1, zero: 180 },
+  { node: 'STBD_BETA_ROT_3B', pui: 'S6000007', part: 'saw-3b', axis: 'z', sign: -1, zero: 180 },
 
   // Gamma joints: the radiator swings about the truss axis, across its three panels.
   { node: 'PORT_TRRJ_GAMMA_ROT', pui: 'S0000002', part: 'trrj-port', axis: 'x' },
