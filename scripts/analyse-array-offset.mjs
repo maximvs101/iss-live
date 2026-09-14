@@ -2,8 +2,11 @@
  * The off-Sun offset of every wing, for every minute the collector recorded.
  *
  * `verify:arrays` answers the same question from a live session, one sample at a time, whenever
- * someone runs it. Thirteen samples in, they fall in three clusters of beta, and that is exactly
- * why the question is still open: a line through three clusters extrapolates rather than measures.
+ * someone runs it. Thirteen samples in, they fell in three clusters of beta, and that is exactly
+ * why the question stayed open for a year: a line through three clusters extrapolates rather than
+ * measures. This is what closed it — five weeks of record read as a constant 44° on every wing
+ * once the beta joints were found to be turning the wrong way, the station's sun-slicer bias, not
+ * the backtracking above 40° that NTRS 20180007791 describes and that nothing here ever measured.
  *
  * The collector has been recording the inputs all along without being asked to — the eight gimbal
  * angles, the two rotary joints and the measured beta are all in its WATCH list. So the same
@@ -28,7 +31,12 @@
  *
  *     wrangler d1 execute iss-collector --remote --json --command \
  *       "SELECT at, changed FROM liveness WHERE changed IS NOT NULL ORDER BY at" > rows.json
- *     npm run analyse:offset -- rows.json
+ *     npm run analyse:offset -- rows.json [iss.tle]
+ *
+ * The element set is fetched from Celestrak unless a file holding one is given. Give one: Celestrak
+ * blocks an address that asks too often — a few runs in a row is enough — and answers with an HTML
+ * page, which this script refuses rather than measures against. A file also keeps every run on the
+ * same frame, so two tables can be compared.
  */
 import { readFileSync } from 'node:fs'
 import { twoline2satrec } from 'satellite.js'
@@ -37,15 +45,12 @@ import { WINGS, geometryAt, geometryFromState, measureAll } from './lib/array-ge
 
 const CELESTRAK = 'https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=TLE'
 
-/** Above this the station stops Sun-pointing on purpose — NTRS 20180007791. */
-const BACKTRACK_BETA = 40
-
 /**
  * Coarser than the live check's 0.25°, because this runs thousands of times rather than once.
  *
  * A degree of sweep costs a degree of resolution on `ideal`, which the fitted slope does not
- * notice: the offsets being chased are ten to twenty degrees and their scatter within one beta
- * value is already four.
+ * notice: the offsets being chased are forty-odd degrees and their scatter within one beta value
+ * is already four.
  */
 const SWEEP_STEP = 1
 
@@ -75,16 +80,27 @@ const ALPHA_TOLERANCE = 15
 const SARJ_MOVED_MIN = 0.5
 const STBD_SARJ = 'S0000003'
 
-const file = process.argv[2]
+const [file, tleFile] = process.argv.slice(2)
 if (!file) {
-  console.error('usage: npm run analyse:offset -- rows.json')
+  console.error('usage: npm run analyse:offset -- rows.json [iss.tle]')
   process.exit(2)
 }
 
 const rows = JSON.parse(readFileSync(file, 'utf8'))[0].results
-const response = await fetch(CELESTRAK)
-const [, line1, line2] = (await response.text()).trim().split('\n').map((line) => line.trim())
-const satrec = twoline2satrec(line1, line2)
+
+const tleText = tleFile ? readFileSync(tleFile, 'utf8') : await (await fetch(CELESTRAK)).text()
+const tleLines = tleText.trim().split('\n').map((line) => line.trim())
+const line1 = tleLines.find((line) => line.startsWith('1 25544'))
+const line2 = tleLines.find((line) => line.startsWith('2 25544'))
+const satrec = line1 && line2 ? twoline2satrec(line1, line2) : null
+if (!satrec || !Number.isFinite(satrec.jdsatepoch)) {
+  console.error(
+    `no element set for the ISS in ${tleFile ?? CELESTRAK}: it starts "${tleLines[0]?.slice(0, 60)}".` +
+      (tleFile ? '' : '\nCelestrak answers a blocked address with an HTML page; save a set to a file and pass it as the second argument.'),
+  )
+  process.exit(2)
+}
+console.log(`element set: ${line1.slice(0, 32)}… epoch ${new Date((satrec.jdsatepoch - 2_440_587.5) * 86_400_000).toISOString().slice(0, 16)}\n`)
 
 /**
  * The joints a wing's pointing actually depends on: its own gimbal, and the alpha joint carrying
@@ -368,7 +384,7 @@ if (samples.length === 0) process.exit(0)
 
 const betas = samples.map((sample) => Math.abs(sample.beta))
 console.log(`|beta| covered: ${Math.min(...betas).toFixed(1)}° to ${Math.max(...betas).toFixed(1)}°`)
-console.log(`samples above ${BACKTRACK_BETA}°: ${betas.filter((b) => b >= BACKTRACK_BETA).length}\n`)
+console.log()
 
 /*
  * Binned by whole degrees of |beta| rather than fitted straight away.
@@ -430,13 +446,6 @@ console.log(
     `\nA zero error of k degrees can never read better than k, so any constant error in the mapping` +
     `\nis at most ${best.toFixed(1)}°. Whatever the rest of the spread is, it is not a fixed offset.`,
 )
-
-if (betas.every((b) => b < BACKTRACK_BETA)) {
-  console.log(
-    `\nEvery sample sits below |beta| ${BACKTRACK_BETA}°, where the station is documented as` +
-      '\nSun-pointing its wings. Backtracking cannot be what this offset is.',
-  )
-}
 
 /*
  * The comparison the whole record was collected for.
