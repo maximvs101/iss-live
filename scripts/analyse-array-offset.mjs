@@ -20,6 +20,12 @@
  * forward. That is exact rather than approximate: a symbol absent from a row is one that did not
  * move.
  *
+ * The frame comes from the station's own state vector where the record has it, and from an
+ * element set propagated to the instant where it does not. The only set to hand is today's, and a
+ * set describes a day a month ago with the station some minutes from where it was along the orbit
+ * — which once threw away every minute at negative beta as "not tracking". That drift is measured
+ * off the record and taken out before anything is measured; see `alongTrackShift`.
+ *
  *     wrangler d1 execute iss-collector --remote --json --command \
  *       "SELECT at, changed FROM liveness WHERE changed IS NOT NULL ORDER BY at" > rows.json
  *     npm run analyse:offset -- rows.json
@@ -97,22 +103,20 @@ const BETA_PUI = 'USLAB000040'
 /**
  * The station's own J2000 state vector, when the record has it.
  *
- * Recorded from 30/08/2026. Before that the frame had to be propagated, and the results degrade
- * with the age of the element set used — see `geometryFromState`. Rows without it are still
- * measured, and counted separately so the split is visible rather than assumed away.
+ * Recorded from 30/08/2026. Before that the frame has to be propagated from an element set, and
+ * the only one to hand is today's — see `alongTrackShift` for what that costs and how the record
+ * pays for it itself. Rows without the vector are still measured, and counted separately so the
+ * split is visible rather than assumed away.
  */
 const STATE_PUIS = ['USLAB000032', 'USLAB000033', 'USLAB000034', 'USLAB000035', 'USLAB000036', 'USLAB000037']
 
+// ------------------------------------------------------ one: rebuild the state
+
 /** Carried forward: a symbol absent from a row is a symbol that did not move. */
 const held = new Map()
-const samples = []
+/** Every row with all its joints known, as the values held at that instant. */
+const instants = []
 let skippedIncomplete = 0
-let notTracking = 0
-let parked = 0
-let fromStation = 0
-let propagated = 0
-let previousSarj = null
-let previousAt = null
 
 for (const row of rows) {
   const stamps = row.stamps ? JSON.parse(row.stamps) : {}
@@ -145,7 +149,169 @@ for (const row of rows) {
   const at = Number.isFinite(stampHours) && stampHours > 0
     ? new Date(Date.UTC(new Date(row.at).getUTCFullYear(), 0, 1) + (stampHours - 24) * 3_600_000)
     : new Date(row.at)
-  const hasState = STATE_PUIS.every((pui) => held.has(pui))
+  instants.push({
+    rowAt: row.at,
+    at,
+    values: new Map(held),
+    hasState: STATE_PUIS.every((pui) => held.has(pui)),
+  })
+}
+
+// ------------------------------------- two: the frame, and what today's elements cost
+
+/** Julian date of an instant, for the age of the element set: days, like the epoch it is compared to. */
+const julianDay = (date) => date.getTime() / 86_400_000 + 2_440_587.5
+
+/**
+ * The shift along the orbit that today's element set needs to describe a day in the past.
+ *
+ * Beta survives a stale element set — propagated and published agree to 0.04° nineteen days out —
+ * but the local frame does not: it turns with the station's place along the orbit at about 3.9° a
+ * minute, and along-track error is exactly what a stale set accumulates, quadratically as drag
+ * takes the orbit down. Measured on the record before this existed: the residual no gimbal can
+ * remove ran 2° on the day of the set's epoch, 18° twenty-five days before it, 32° at thirty-four
+ * — and every one of those minutes, all of them at negative beta, was thrown away as "the alpha
+ * joints not tracking". They were tracking. The frame was somewhere else.
+ *
+ * An element set from the right week would fix it, and none is to be had: Celestrak serves only
+ * the current one and the archives want an account. So the record supplies its own. An along-track
+ * error is a clock error, and the alpha joints keep that clock — a tracking SARJ says exactly where
+ * along the orbit the station was. For a subsample of propagated minutes, the shift is swept for
+ * the one that lets the wings reach the Sun, and where it brings the residual down to what the
+ * state-vector days show, the minute counts as a fix. A parabola in the age of the set is then
+ * fitted through the fixes and applied to every propagated minute, including the ones that were
+ * not tracking — the shift is a property of the element set, not of the minute.
+ *
+ * This leans on the premise the whole script already leans on, that the alpha joints track the
+ * Sun. The fit is what keeps it honest: a minute the SARJ was not tracking finds no shift that
+ * brings the residual down, and is left out. On the record it was measured on, the fit runs from
+ * −10 minutes at thirty-four days' age to +0.5 at sixteen, within 0.7 min of every day's median.
+ */
+const SHIFT_SWEEP_MINUTES = 15
+const SHIFT_SUBSAMPLE = 15
+/** A shift is a fix only if it brings the residual down to what the alpha chain shows anyway. */
+const SHIFT_CONVERGED = 5
+const SHIFT_MIN_FIXES = 20
+/**
+ * A fix further than this from the first fit is a false minimum — a minute the sweep could bring
+ * under the threshold at the wrong shift — and is dropped before the fit that counts. The drift is
+ * smooth by nature; on the record it was measured on, the day medians sit within 0.7 min of it.
+ */
+const SHIFT_OUTLIER_MINUTES = 2
+
+/** Least squares for minutes = a + b·age + c·age², by the normal equations. */
+function parabolaThrough(fixes) {
+  const S = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
+  const R = [0, 0, 0]
+  for (const { age, minutes } of fixes) {
+    const p = [1, age, age * age]
+    for (let r = 0; r < 3; r += 1) {
+      R[r] += p[r] * minutes
+      for (let c = 0; c < 3; c += 1) S[r][c] += p[r] * p[c]
+    }
+  }
+  for (let k = 0; k < 3; k += 1) {
+    for (let r = k + 1; r < 3; r += 1) {
+      const f = S[r][k] / S[k][k]
+      for (let c = k; c < 3; c += 1) S[r][c] -= f * S[k][c]
+      R[r] -= f * R[k]
+    }
+  }
+  const coefficient = [0, 0, 0]
+  for (let r = 2; r >= 0; r -= 1) {
+    let sum = R[r]
+    for (let c = r + 1; c < 3; c += 1) sum -= S[r][c] * coefficient[c]
+    coefficient[r] = sum / S[r][r]
+  }
+  const minutesAtAge = (age) => coefficient[0] + coefficient[1] * age + coefficient[2] * age * age
+  const rms = Math.sqrt(
+    fixes.reduce((sum, { age, minutes }) => sum + (minutes - minutesAtAge(age)) ** 2, 0) /
+      fixes.length,
+  )
+  return { minutesAtAge, rms }
+}
+
+function alongTrackShift(propagatedInstants) {
+  const fixes = []
+  for (let k = 0; k < propagatedInstants.length; k += SHIFT_SUBSAMPLE) {
+    const instant = propagatedInstants[k]
+    const residualAt = (minutes) => {
+      const geometry = geometryAt(satrec, new Date(instant.at.getTime() + minutes * 60_000))
+      if (!geometry) return Infinity
+      // Coarse: the sweep is over minutes, and a degree of resolution on `ideal` does not matter.
+      const measured = measureAll(instant.values, geometry.sun, 2)
+      return measured.length < WINGS.length
+        ? Infinity
+        : Math.max(...measured.map((wing) => wing.irreducible))
+    }
+    let best = { minutes: 0, residual: Infinity }
+    for (let m = -SHIFT_SWEEP_MINUTES; m <= SHIFT_SWEEP_MINUTES; m += 1) {
+      const residual = residualAt(m)
+      if (residual < best.residual) best = { minutes: m, residual }
+    }
+    for (let m = best.minutes - 1; m <= best.minutes + 1; m += 0.25) {
+      const residual = residualAt(m)
+      if (residual < best.residual) best = { minutes: m, residual }
+    }
+    if (best.residual <= SHIFT_CONVERGED) {
+      fixes.push({ age: julianDay(instant.at) - satrec.jdsatepoch, minutes: best.minutes })
+    }
+  }
+  const sampled = Math.ceil(propagatedInstants.length / SHIFT_SUBSAMPLE)
+  if (fixes.length < SHIFT_MIN_FIXES) return { sampled, fixes: fixes.length, minutesAt: () => 0 }
+
+  const first = parabolaThrough(fixes)
+  const kept = fixes.filter(
+    ({ age, minutes }) => Math.abs(minutes - first.minutesAtAge(age)) <= SHIFT_OUTLIER_MINUTES,
+  )
+  const fit = kept.length >= SHIFT_MIN_FIXES ? parabolaThrough(kept) : first
+  const ages = fixes.map((fix) => fix.age)
+  const oldest = Math.min(...ages)
+  const youngest = Math.max(...ages)
+  return {
+    sampled,
+    fixes: fixes.length,
+    kept: kept.length >= SHIFT_MIN_FIXES ? kept.length : fixes.length,
+    rms: fit.rms,
+    ageSpan: [oldest, youngest],
+    minutesSpan: [fit.minutesAtAge(oldest), fit.minutesAtAge(youngest)],
+    minutesAt: (date) => fit.minutesAtAge(julianDay(date) - satrec.jdsatepoch),
+  }
+}
+
+const propagatedInstants = instants.filter((instant) => !instant.hasState)
+const shift = satrec && propagatedInstants.length ? alongTrackShift(propagatedInstants) : null
+
+if (shift) {
+  // Age is signed — negative for rows older than the element set, which is the usual case — and
+  // reported as days of separation, whichever way round.
+  const ages = propagatedInstants.map((instant) => Math.abs(julianDay(instant.at) - satrec.jdsatepoch))
+  const apart = `${Math.min(...ages).toFixed(0)} to ${Math.max(...ages).toFixed(0)} days from its epoch`
+  const signed = (minutes) => `${minutes >= 0 ? '+' : '−'}${Math.abs(minutes).toFixed(1)} min`
+  console.log(
+    shift.rms === undefined
+      ? `${propagatedInstants.length} minutes without the state vector, propagated from an element set ${apart};` +
+          `\n  only ${shift.fixes} of ${shift.sampled} sampled minutes fixed the along-track drift of that set, too few to` +
+          '\n  correct it — those minutes are measured as propagated, and read as the alpha joints not tracking as the set ages.\n'
+      : `${propagatedInstants.length} minutes without the state vector, propagated from an element set ${apart}.` +
+          `\n  Its along-track drift, fixed on ${shift.fixes} of ${shift.sampled} sampled minutes where the alpha joints track` +
+          ` (${shift.kept} kept, fit rms ${shift.rms.toFixed(2)} min),` +
+          `\n  runs from ${signed(shift.minutesSpan[0])} at ${Math.abs(shift.ageSpan[0]).toFixed(0)} days to` +
+          ` ${signed(shift.minutesSpan[1])} at ${Math.abs(shift.ageSpan[1]).toFixed(0)}, and is applied to all of them.\n`,
+  )
+}
+
+// ----------------------------------------------------------- three: measure
+
+const samples = []
+let notTracking = 0
+let parked = 0
+let fromStation = 0
+let propagated = 0
+let previousSarj = null
+let previousAt = null
+
+for (const { rowAt, at, values: held, hasState } of instants) {
   const geometry = hasState
     ? geometryFromState(
         STATE_PUIS.slice(0, 3).map((pui) => held.get(pui)),
@@ -153,7 +319,7 @@ for (const row of rows) {
         at,
       )
     : satrec
-      ? geometryAt(satrec, at)
+      ? geometryAt(satrec, new Date(at.getTime() + shift.minutesAt(at) * 60_000))
       : null
   if (!geometry) continue
   if (hasState) fromStation += 1
@@ -183,7 +349,7 @@ for (const row of rows) {
     continue
   }
   samples.push({
-    at: row.at,
+    at: rowAt,
     beta: geometry.beta,
     published: held.get(BETA_PUI) ?? null,
     medianOff: off[Math.floor(off.length / 2)],
@@ -194,8 +360,9 @@ for (const row of rows) {
 }
 
 console.log(
-  `${samples.length} minutes measured, ${skippedIncomplete} skipped before all joints were known, ` +
-    `${notTracking} dropped with the alpha joints not tracking\n`,
+  `${samples.length} minutes measured (${fromStation} from the station's own state vector, ${propagated} propagated), ` +
+    `${skippedIncomplete} skipped before all joints were known,\n${notTracking} dropped with the alpha joints not tracking, ` +
+    `${parked} with the starboard SARJ parked\n`,
 )
 if (samples.length === 0) process.exit(0)
 
