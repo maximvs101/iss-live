@@ -10,6 +10,7 @@ import { useSample, useTelemetryStore } from '../telemetry/store'
 import { formatValue, isUnitInferred, unitNote } from '../telemetry/units'
 import { LIVE_THRESHOLD_MS, formatAge, onboardTimestampToDate } from '../telemetry/health'
 import { readingOf } from '../telemetry/freshness'
+import { useNow } from './useNow'
 
 interface TelemetryValueProps {
   pui: string
@@ -40,6 +41,10 @@ export function TelemetryValue({ pui, showLabel = true, showHint = false }: Tele
     pui === 'TIME_000001' ? Number(state.samples['TIME_000002']?.value) || null : null,
   )
 
+  // A clock that ticks, so the age below keeps counting through an outage — the one time nothing
+  // else will re-render this row. See `useNow` for what it used to do instead.
+  const now = useNow()
+
   if (!symbol) return null
 
   const label = channel?.label ?? symbol.description
@@ -48,11 +53,7 @@ export function TelemetryValue({ pui, showLabel = true, showHint = false }: Tele
   // Several channels re-send month-old readings continuously; timing from arrival would present
   // them as fresh. Arrival time is the fallback for the rare sample with no usable timestamp.
   const measuredAt = sample?.timestamp ? onboardTimestampToDate(sample.timestamp) : null
-  const ageMs = measuredAt
-    ? Date.now() - measuredAt.getTime()
-    : sample
-      ? Date.now() - sample.receivedAt
-      : null
+  const ageMs = measuredAt ? now - measuredAt.getTime() : sample ? now - sample.receivedAt : null
   const isStale = ageMs !== null && ageMs > LIVE_THRESHOLD_MS
   const note = unitNote(pui)
 
@@ -69,7 +70,7 @@ export function TelemetryValue({ pui, showLabel = true, showHint = false }: Tele
    * on saying "this sensor has not reported since" about the station's year and the count of CMGs
    * online for as long as the two rules disagreed.
    */
-  const reading = readingOf(pui, sample, Date.now())
+  const reading = readingOf(pui, sample, now)
   const isStalled = reading.state === 'stopped'
   const measuredLabel = measuredAt
     ? `${measuredAt.toISOString().replace('T', ' ').slice(0, 19)} UTC`

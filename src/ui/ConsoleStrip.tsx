@@ -14,6 +14,7 @@
 import { useEffect, useState } from 'react'
 import { useOrbitStore } from '../orbit/useOrbit'
 import { NowOver } from './NowOver'
+import { formatLatitude, formatLongitude } from '../orbit/coordinates'
 
 /** UTC, to the second, because a console's timebase is UTC and nothing else. */
 function useGmt(): string {
@@ -91,23 +92,4 @@ function Cell({
       </dd>
     </div>
   )
-}
-
-/*
- * Two decimals, not three, because the third was never a measurement.
- *
- * A thousandth of a degree is about 110 m. What this position is actually worth is 0.79 km, which
- * is how far it sits from `api.wheretheiss.at` given the same elements — and that is agreement
- * between two SGP4 propagations, not accuracy against the station, which is looser still and grows
- * with the age of the elements. Printing a digit worth 110 m on a figure uncertain by 800 claims a
- * precision nothing here has. Two decimals is 1.1 km, which is honestly the resolution available.
- *
- * These lived in the orbital panel until the position moved up here; they came with it.
- */
-function formatLatitude(value: number): string {
-  return `${Math.abs(value).toFixed(2)}° ${value >= 0 ? 'N' : 'S'}`
-}
-
-function formatLongitude(value: number): string {
-  return `${Math.abs(value).toFixed(2)}° ${value >= 0 ? 'E' : 'W'}`
 }

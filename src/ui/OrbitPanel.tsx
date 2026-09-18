@@ -29,11 +29,13 @@ export function OrbitPanel() {
       <h2 className="panel__title">Orbit</h2>
 
       {/*
-        Position, altitude, speed and illumination moved to the console strip under the title,
-        where they are on screen in both views instead of only this one. What stays here is what
-        the strip cannot say in a cell: the shape of the orbit, and the comparison between the
-        angle this application computes and the one the station measures — which is the whole
-        reason both are on the page, and why beta appears twice on purpose.
+        Position, altitude and speed moved to the console strip under the title, where they are
+        on screen in both views instead of only this one. What stays here is what the strip cannot
+        say in a cell: the shape of the orbit, and the comparison between the angle this
+        application computes and the one the station measures — which is the whole reason both
+        are on the page, and why beta appears twice on purpose. Illumination is in both places
+        deliberately: the strip's cell says which, and this one carries the explanation of why a
+        station over darkness can still be in sunlight.
       */}
       <div className="metric-grid">
         <Metric label="Orbital period" value={state ? `${state.periodMinutes.toFixed(2)} min` : '—'} />

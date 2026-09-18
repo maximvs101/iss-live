@@ -10,6 +10,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { useElementWidth } from '../../ui/useElementWidth'
 import { useOrbitStore } from '../../orbit/useOrbit'
+import { formatLatitude, formatLongitude } from '../../orbit/coordinates'
 import { landPolygons } from './coastlines'
 import { MapAnnouncement } from './MapAnnouncement'
 import { IssMarker, IssShape } from './IssMarker'
@@ -258,16 +259,17 @@ export function MapView() {
               invisible. */}
           <path d={night.path} fill="#01050a" opacity={0.5} />
 
-          {/* Where the Sun is directly overhead — the centre of the lit hemisphere. */}
+          {/* Where the Sun is directly overhead — the centre of the lit hemisphere. Pale rather
+              than green: green is the station's colour here, and the legend needs the two apart. */}
           <g>
             <title>
-              {`Sun overhead — ${Math.abs(night.subsolar.latitude).toFixed(1)}° ${night.subsolar.latitude >= 0 ? 'N' : 'S'}, ${Math.abs(night.subsolar.longitude).toFixed(1)}° ${night.subsolar.longitude >= 0 ? 'E' : 'W'}`}
+              {`Sun overhead — ${formatLatitude(night.subsolar.latitude, 1)}, ${formatLongitude(night.subsolar.longitude, 1)}`}
             </title>
             <circle
               cx={lonToX(night.subsolar.longitude, SIZE)}
               cy={latToY(night.subsolar.latitude, SIZE)}
               r={4}
-              fill="#4ade80"
+              fill="#e6edf5"
               opacity={0.9}
             />
             <circle
@@ -275,7 +277,7 @@ export function MapView() {
               cy={latToY(night.subsolar.latitude, SIZE)}
               r={9}
               fill="none"
-              stroke="#4ade80"
+              stroke="#e6edf5"
               strokeWidth={0.6}
               opacity={0.4}
             />
@@ -312,7 +314,7 @@ export function MapView() {
           {state && (
             <g>
               <title>
-                {`Station — ${Math.abs(state.latitude).toFixed(2)}° ${state.latitude >= 0 ? 'N' : 'S'}, ${Math.abs(state.longitude).toFixed(2)}° ${state.longitude >= 0 ? 'E' : 'W'}`}
+                {`Station — ${formatLatitude(state.latitude)}, ${formatLongitude(state.longitude)}`}
               </title>
               <IssMarker
                 x={lonToX(state.longitude, SIZE)}
@@ -376,14 +378,11 @@ function TrackTickMark({ tick }: { tick: TrackTick }) {
  * middle of the ocean explains nothing on its own, and the map carries three different circles.
  */
 function MapLegend({ subsolar }: { subsolar: { latitude: number; longitude: number } }) {
-  const format = (value: number, positive: string, negative: string) =>
-    `${Math.abs(value).toFixed(1)}° ${value >= 0 ? positive : negative}`
-
   return (
     <ul className="map-legend">
       <li>
         <span className="map-legend__swatch map-legend__swatch--sun" />
-        Sun overhead — {format(subsolar.latitude, 'N', 'S')}, {format(subsolar.longitude, 'E', 'W')}
+        Sun overhead — {formatLatitude(subsolar.latitude, 1)}, {formatLongitude(subsolar.longitude, 1)}
       </li>
       <li>
         {/* The real silhouette rather than a coloured square: the legend is only useful if what

@@ -145,13 +145,6 @@
 }
 
 
-/*
- * And on a tablet held upright the brand's tagline goes too.
- *
- * It is the widest decorative thing in the row and it says nothing the title does not. Without it
- * the longest sea area — "Now over South Atlantic" — was three pixels short of fitting, which
- * `text-overflow` spends on an ellipsis and two characters.
- */
 /* The header on a narrow screen is rebuilt in one block at the end of this file — see there. */
 
 .app__controls {
@@ -310,9 +303,12 @@
   flex: none;
 }
 
+/* Pale, like the disc it stands for, and unlike the green that everything belonging to the
+   station is drawn in — the marker, the track ahead and the visibility circle. Until this it
+   was the same green as the track, and the legend had two entries in one colour. */
 .map-legend__swatch--sun {
-  background: #4ade80;
-  box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.22);
+  background: var(--text-strong);
+  box-shadow: 0 0 0 2px rgb(230 237 245 / 0.22);
 }
 
 /*
@@ -437,9 +433,14 @@
  *     1366 x 768    stacked  490 px map, 24 rows      beside  517 px map, 17 rows
  *
  * So the threshold is not where the two arrangements are equal — they never are, they trade — but
- * where the stacked map stops being a map. Under about 380 px it is a thumbnail, and that happens
- * below 712 px of viewport height. Above it the stacked arrangement keeps its three columns of
- * readings and a map worth looking at, and none of this applies.
+ * where the stacked map stops being a map. Under about 380 px wide it is a thumbnail, and that
+ * happens below 712 px of viewport height. Above it the stacked arrangement keeps its three columns
+ * of readings and a map worth looking at, and none of this applies.
+ *
+ * The 712 is derived, not chosen: a media query cannot read a custom property, so it is
+ * `--map-reserve` (523) plus half of that 380 px width, since the map is twice as wide as it is
+ * tall — 523 + 190 = 713, and the query fires at and below 712. Change `--map-reserve` and this
+ * number, in both queries that carry it, must move with it.
  *
  * The width floor is 1000 px, not 1200: below that the column cannot hold a map and a reading
  * column at once, and the layout has already gone to one column by 900.
@@ -489,7 +490,7 @@
   bottom: 14px;
   font-size: 12px;
   color: var(--text-dim);
-  background: rgba(7, 10, 16, 0.72);
+  background: rgb(var(--scrim) / 0.72);
   padding: 5px 10px;
   border-radius: 2px;
   pointer-events: none;
@@ -548,7 +549,7 @@
   padding: 7px 10px;
   border: 1px solid var(--border-strong);
   border-radius: 2px;
-  background: rgba(7, 10, 16, 0.92);
+  background: rgb(var(--scrim) / 0.92);
   backdrop-filter: blur(4px);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
   /* The label must never intercept the pointer it is following. */
@@ -1803,7 +1804,7 @@
   height: 40px;
   padding: 0;
   border: 0;
-  background: rgba(7, 10, 16, 0.6);
+  background: rgb(var(--scrim) / 0.6);
   color: var(--text-strong);
   font-size: 20px;
   line-height: 1;
@@ -1833,18 +1834,18 @@
 }
 
 .part-photo__arrow:hover {
-  background: rgba(5, 8, 12, 0.85);
+  background: rgb(var(--scrim) / 0.85);
   color: var(--text-strong);
 }
 
 .part-photo__arrow--back {
   left: 0;
-  border-radius: 0 4px 4px 0;
+  border-radius: 0 2px 2px 0;
 }
 
 .part-photo__arrow--next {
   right: 0;
-  border-radius: 2px 0 0 4px;
+  border-radius: 2px 0 0 2px;
 }
 
 /* Always visible: it is the only cue that there is more than one picture. */
@@ -1854,7 +1855,7 @@
   bottom: 6px;
   padding: 1px 6px;
   border-radius: 999px;
-  background: rgba(7, 10, 16, 0.7);
+  background: rgb(var(--scrim) / 0.7);
   font-family: var(--mono);
   font-size: 10px;
   color: var(--text-dim);
@@ -2001,7 +2002,7 @@
   gap: 5px;
   padding: 3px 8px 3px 5px;
   border-radius: 999px;
-  background: rgba(7, 10, 16, 0.72);
+  background: rgb(var(--scrim) / 0.72);
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -2034,7 +2035,7 @@
   padding: 6px 12px;
   border: 1px solid rgba(255, 176, 58, 0.35);
   border-radius: 2px;
-  background: rgba(7, 10, 16, 0.82);
+  background: rgb(var(--scrim) / 0.82);
   font-size: 12px;
   line-height: 1.45;
   color: var(--text-dim);

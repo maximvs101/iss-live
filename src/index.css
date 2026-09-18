@@ -22,6 +22,12 @@
   --bg-panel-alt: #0d1720;
   --border: #16202c;
   --border-strong: #243545;
+  /*
+   * The page background as three channels, for the translucent grounds that sit over the scene
+   * and the photographs: `rgb(var(--scrim) / 0.7)`. Seven of them carried a hand-typed
+   * rgba(7, 10, 16) that belonged to no palette this file has had.
+   */
+  --scrim: 5 8 12;
 
   --text: #9fb0c3;
   /*
