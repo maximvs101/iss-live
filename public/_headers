@@ -40,6 +40,25 @@
 /index.html
   Cache-Control: public, max-age=0, must-revalidate
 
+# The readable pages are HTML too, and they change at every build like the entry point does:
+# not fingerprinted, so not cacheable for long. Their one stylesheet is not fingerprinted either
+# — a day is the compromise between re-fetching eight kilobytes and a restyle that takes a day
+# to reach a returning reader.
+/station/
+  Cache-Control: public, max-age=0, must-revalidate
+
+/telemetry/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+/about/
+  Cache-Control: public, max-age=0, must-revalidate
+
+/sitemap.xml
+  Cache-Control: public, max-age=3600
+
+/pages.css
+  Cache-Control: public, max-age=86400, stale-while-revalidate=86400
+
 # Preview deployments stay out of the index.
 #
 # Every deploy is also served at <hash>.iss-live.pages.dev and the branch aliases, each a complete

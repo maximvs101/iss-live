@@ -26,6 +26,7 @@ import { ErrorBoundary } from './ui/ErrorBoundary'
 import { SourcesDialog } from './ui/SourcesDialog'
 import { ConsoleStrip } from './ui/ConsoleStrip'
 import { RepositoryLink } from './ui/RepositoryLink'
+import { SiteFooter } from './ui/SiteFooter'
 import { useSelectionStore } from './ui/selection'
 import { partFromSearch, searchForPart } from './ui/deepLink'
 import './App.css'
@@ -243,6 +244,7 @@ export default function App() {
           {view === 'station' ? <InspectorPanel /> : <OrbitPanel />}
           <FreshnessPanel />
           <OrbitProfile />
+          <SiteFooter />
         </aside>
       </main>
     </div>

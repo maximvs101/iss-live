@@ -578,7 +578,10 @@ export const SUBSYSTEMS: Subsystem[] = [
     label: 'Command & data',
     tagline:
       'Around fifty redundant computers run the station, in three tiers. The top tier is two-fault tolerant: three identical command-and-control machines, one hot, one warm backup processing data without commanding, and one cold.',
-    disciplines: ['ODIN', 'ODIN/VVO', 'CDH', 'N/A'],
+    // The catalogue's 'N/A' is left out: it is the placeholder its filter list ends with, not a
+    // console, and it was being printed as one — "monitored by the ODIN, ODIN/VVO, CDH, N/A
+    // consoles" — on the page and in the rail alike.
+    disciplines: ['ODIN', 'ODIN/VVO', 'CDH'],
     sections: [
       {
         id: 'station',

@@ -1,0 +1,329 @@
+/*
+ * The readable pages — the station, the six subsystems, how it works.
+ *
+ * The same console the application is set in: one monospaced face, the same four grounds and the
+ * same text ramp, the values from src/index.css copied here because these pages do not load the
+ * application's stylesheet and should not — they are eight kilobytes of prose each, and the
+ * application's sheet is sized for a dashboard. Contrast is the ramp that already clears AA:
+ * text 8.7:1, dim 6.6:1, idle 5.0:1 on the panel ground.
+ *
+ * Prose, not a dashboard: a measure of about 72 characters, generous leading, and nothing that
+ * moves. The one thing kept from the console is the eyebrow — the small uppercase line over a
+ * heading — because it is how the application labels a section and the pages should read as the
+ * same place.
+ */
+:root {
+  --bg: #05080c;
+  --bg-panel: #090e15;
+  --bg-panel-alt: #0d1720;
+  --border: #16202c;
+  --border-strong: #243545;
+  --text: #9fb0c3;
+  --text-dim: #8698b0;
+  --text-strong: #e6edf5;
+  --idle: #70839a;
+  --live: #4ade80;
+  --mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.6 var(--mono);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The underline is the cue that this is a link, so it is drawn in a colour that can be seen:
+   --border-strong on the ground was 1.6:1, close to invisible; --text-dim is 6.6:1. */
+a {
+  color: var(--text-strong);
+  text-decoration: underline;
+  text-decoration-color: var(--text-dim);
+  text-underline-offset: 3px;
+}
+
+a:hover {
+  text-decoration-color: var(--text-strong);
+}
+
+code {
+  font-family: var(--mono);
+  font-size: 0.92em;
+  color: var(--text-strong);
+}
+
+/* --- Header and footer, shared by every page --- */
+
+.site {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 22px;
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+
+.site__brand {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--text-strong);
+}
+
+.site__nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  font-size: 12px;
+}
+
+.site__nav a {
+  color: var(--text-dim);
+  text-decoration: none;
+  padding: 4px 0;
+}
+
+.site__nav a:hover,
+.site__nav a[aria-current='page'] {
+  color: var(--text-strong);
+  box-shadow: inset 0 -2px 0 var(--text-dim);
+}
+
+.site__foot {
+  margin-top: auto;
+  padding: 20px 24px 28px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-panel);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.site__foot p {
+  max-width: 72ch;
+  margin: 0;
+}
+
+/* --- The page --- */
+
+.page {
+  width: min(100% - 48px, 76ch);
+  margin: 0 auto;
+  padding: 36px 0 56px;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-dim);
+}
+
+h1 {
+  margin: 0 0 14px;
+  font-size: 30px;
+  line-height: 1.2;
+  font-weight: 600;
+  color: var(--text-strong);
+  text-wrap: balance;
+}
+
+h2 {
+  margin: 0 0 12px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-dim);
+}
+
+.lead {
+  margin: 0 0 12px;
+  font-size: 17px;
+  line-height: 1.55;
+  color: var(--text);
+  text-wrap: pretty;
+}
+
+.note {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+  text-wrap: pretty;
+}
+
+.block {
+  margin-top: 36px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.block p {
+  margin: 0 0 12px;
+  text-wrap: pretty;
+}
+
+/* --- Channels: a term, its symbol, and the sentence that explains it --- */
+
+.channels {
+  margin: 0;
+}
+
+.channel {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.channel:last-child {
+  border-bottom: 0;
+}
+
+.channel dt {
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.channel__meta {
+  margin-left: 8px;
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--idle);
+}
+
+.channel dd {
+  margin: 4px 0 0;
+  color: var(--text);
+  text-wrap: pretty;
+}
+
+/* The channels that have no explanation yet: named, with their symbol and unit, in one line each. */
+.bare {
+  margin: 0 0 8px;
+  padding: 0 0 0 1.2em;
+  color: var(--text);
+}
+
+.bare li {
+  padding: 2px 0;
+}
+
+/* --- Parts --- */
+
+.parts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.parts li {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.parts li:last-child {
+  border-bottom: 0;
+}
+
+.parts__name {
+  font-weight: 600;
+}
+
+.parts__designation {
+  margin-left: 8px;
+  font-size: 12px;
+  color: var(--idle);
+}
+
+.parts p {
+  margin: 4px 0 0;
+}
+
+.parts__reports {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+/* --- The reference table --- */
+
+.refs {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.refs th,
+.refs td {
+  padding: 10px 12px 10px 0;
+  vertical-align: top;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.refs th {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  font-weight: 500;
+}
+
+.refs td:first-child {
+  width: 42%;
+  padding-right: 20px;
+}
+
+/* --- Previous / next --- */
+
+.pager {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 36px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+
+@media (max-width: 600px) {
+  .site {
+    padding: 12px 16px;
+  }
+
+  .page {
+    width: min(100% - 32px, 76ch);
+    padding-top: 24px;
+  }
+
+  h1 {
+    font-size: 24px;
+  }
+
+  /*
+   * Still a table on a phone. Flattening it to blocks and hiding the header row read better in
+   * a screenshot and took the table's semantics with it: a screen reader heard fifteen rows of
+   * loose text with no "Document" / "What it settles" pairing. Two columns fit a phone as they
+   * are; the first just gives up its fixed share.
+   */
+  .refs td:first-child {
+    width: auto;
+    padding-right: 12px;
+  }
+
+  .refs {
+    font-size: 12px;
+  }
+}

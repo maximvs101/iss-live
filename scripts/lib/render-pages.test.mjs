@@ -1,0 +1,165 @@
+/**
+ * The page renderers, held to the three things a crawler needs and a template loses silently.
+ *
+ * Small fixtures rather than the real declarations: the build script runs the renderers over the
+ * real data and checks the same invariants there, so this is about the shape of the output —
+ * escaping, the canonical, the nav marking its own page, hidden channels left out — on inputs
+ * chosen to break them.
+ */
+import { describe, expect, it } from 'vitest'
+import {
+  escapeHtml,
+  firstSentence,
+  inlineMarkdown,
+  parseReferences,
+  renderSitemap,
+  renderStation,
+  renderSubsystem,
+} from './render-pages.mjs'
+
+const subsystem = {
+  id: 'eps',
+  label: 'Power',
+  tagline: 'Eight wings & two joints.',
+  disciplines: ['SPARTAN'],
+  sections: [
+    {
+      id: 'sarj',
+      label: 'Solar alpha rotary joint',
+      channels: [
+        { pui: 'S0000004', label: 'Port SARJ angle', hint: "It turns once per orbit, and it's <not> fast.", part: 'sarj-port' },
+        { pui: 'S0000008', label: 'Port SARJ mode', part: 'sarj-port' },
+        { pui: 'TIME_000002', label: 'Year', hidden: true },
+      ],
+    },
+  ],
+}
+const order = ['eps', 'eclss']
+const symbols = {
+  S0000004: { description: 'SARJ angle', units: 'DEG' },
+  S0000008: { description: 'SARJ mode', values: { 0: 'AUTOTRACK' } },
+}
+const parts = {
+  'sarj-port': { id: 'sarj-port', name: 'Port SARJ', designation: 'Solar Alpha Rotary Joint', category: 'power', summary: 'Turns "the port wings".' },
+}
+
+describe('escaping', () => {
+  it('turns the four characters that break HTML into entities', () => {
+    expect(escapeHtml(`<a href="x">&'`)).toBe('&lt;a href=&quot;x&quot;&gt;&amp;\'')
+  })
+
+  it('takes the first sentence for a description, and the whole text when there is one', () => {
+    expect(firstSentence('One. Two.')).toBe('One.')
+    expect(firstSentence('Just this')).toBe('Just this')
+  })
+})
+
+describe('a subsystem page', () => {
+  const page = renderSubsystem({
+    subsystem,
+    order,
+    unitOf: (pui) => symbols[pui]?.units ?? null,
+    symbolOf: (pui) => symbols[pui],
+    partOf: (id) => parts[id],
+  })
+
+  it('lives at its slug and says so in its canonical', () => {
+    expect(page.path).toBe('/telemetry/power/')
+    expect(page.html).toContain('rel="canonical" href="https://iss-live.pages.dev/telemetry/power/"')
+  })
+
+  it('escapes the hint and the tagline rather than trusting them', () => {
+    expect(page.html).toContain("and it's &lt;not&gt; fast.")
+    expect(page.html).not.toContain('<not>')
+    expect(page.html).toContain('Eight wings &amp; two joints.')
+  })
+
+  it('leaves a hidden channel out, as the page does', () => {
+    expect(page.html).not.toContain('TIME_000002')
+    expect(page.html).toContain('S0000004')
+  })
+
+  it('lists a channel without a hint by name, and never prints the catalogue description as one', () => {
+    // The catalogue's own strings are terse, sometimes misspelt and once wrong about which
+    // segment a channel sits on; a blank is better than one of those dressed as an explanation.
+    expect(page.html).toContain('<li id="S0000008">Port SARJ mode')
+    expect(page.html).toContain('a state')
+    expect(page.html).not.toContain('<dd>SARJ mode</dd>')
+  })
+
+  it('keeps the description tag short enough for a result snippet', () => {
+    const description = /<meta name="description" content="([^"]*)"/.exec(page.html)[1]
+    expect(description.length).toBeLessThanOrEqual(155)
+    expect(description).toContain('1 of them explained')
+  })
+
+  it('names the h1 as the structured data headline', () => {
+    const ld = JSON.parse(/<script type="application\/ld\+json">(.*?)<\/script>/s.exec(page.html)[1])
+    expect(ld.headline).toBe('Power')
+  })
+
+  it('links the parts it mentions into the twin', () => {
+    expect(page.html).toContain('href="/?part=sarj-port"')
+    expect(page.html).toContain('Turns &quot;the port wings&quot;.')
+  })
+
+  it('marks its own entry in the nav and offers the next subsystem', () => {
+    expect(page.html).toContain('href="/telemetry/power/" aria-current="page"')
+    expect(page.html).toContain('rel="next" href="/telemetry/life-support/"')
+    expect(page.html).not.toContain('rel="prev"')
+  })
+
+  it('has exactly one h1 and a JSON-LD article', () => {
+    expect(page.html.match(/<h1[\s>]/g)).toHaveLength(1)
+    const ld = JSON.parse(/<script type="application\/ld\+json">(.*?)<\/script>/s.exec(page.html)[1])
+    expect(ld['@type']).toBe('TechArticle')
+    expect(ld.url).toBe('https://iss-live.pages.dev/telemetry/power/')
+  })
+})
+
+describe('the station page', () => {
+  const page = renderStation({
+    parts: [parts['sarj-port'], { id: 'cupola', name: 'Cupola', category: 'module', summary: 'Windows.' }],
+    categoryLabels: { power: 'Power', module: 'Pressurised module' },
+    reportsIn: (id) => (id === 'sarj-port' ? [{ id: 'eps', label: 'Power' }] : []),
+  })
+
+  it('groups modules first and links a part to the pages that explain it', () => {
+    expect(page.html.indexOf('Pressurised module')).toBeLessThan(page.html.indexOf('id="c-power"'))
+    expect(page.html).toContain('Reports in <a href="/telemetry/power/">Power</a>.')
+    expect(page.html).toContain('id="cupola"')
+  })
+})
+
+describe('the reference table', () => {
+  it('reads the first markdown table and renders its links', () => {
+    const md = `# Title\n\nintro\n\n| Document | What it settles |\n|---|---|\n| [Guide](https://x.example/g) (2015) | the **CMG** figures — see below |\n| plain \`code\` | *italics* & more |\n\nafter\n\n| Other | table |\n|---|---|\n| no | no |\n`
+    const refs = parseReferences(md)
+    expect(refs).toHaveLength(2)
+    expect(refs[0].documentHtml).toBe('<a href="https://x.example/g" rel="noopener">Guide</a> (2015)')
+    expect(refs[0].settlesHtml).toBe('the <strong>CMG</strong> figures')
+    expect(refs[1].documentHtml).toBe('plain <code>code</code>')
+    expect(refs[1].settlesHtml).toBe('<em>italics</em> &amp; more')
+  })
+
+  it('escapes what it does not understand instead of passing it through', () => {
+    expect(inlineMarkdown('<script>alert(1)</script>')).toBe('&lt;script&gt;alert(1)&lt;/script&gt;')
+  })
+
+  it('keeps a URL that carries parentheses whole', () => {
+    expect(inlineMarkdown('[Foo](https://en.wikipedia.org/wiki/Foo_(bar)) and')).toBe(
+      '<a href="https://en.wikipedia.org/wiki/Foo_(bar)" rel="noopener">Foo</a> and',
+    )
+  })
+
+  it('drops the doc-internal "see below" from a settles cell', () => {
+    const md = '| Document | What it settles |\n|---|---|\n| [A](https://a.example/) | the bus — see below |\n'
+    expect(parseReferences(md)[0].settlesHtml).toBe('the bus')
+  })
+})
+
+describe('the sitemap', () => {
+  it('lists every path under the site', () => {
+    expect(renderSitemap(['/', '/about/'])).toContain('<loc>https://iss-live.pages.dev/about/</loc>')
+  })
+})

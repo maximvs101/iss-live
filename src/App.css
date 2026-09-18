@@ -1678,6 +1678,51 @@
   margin-top: 0;
 }
 
+/* --- The guide, at the foot of the side column --- */
+
+/*
+ * Where the readable pages are linked from.
+ *
+ * At the end of the side column rather than in a footer row under the whole page: a row costs
+ * height on every screen, and this project has measured what 33 px of chrome does to the map on
+ * a short one. The side column scrolls on its own, so here it costs nothing above the fold, and on
+ * a phone — where the column stacks last — it is simply the end of the page.
+ */
+.app__footer {
+  padding: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.app__footer-title {
+  margin: 0 0 8px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  color: var(--text-dim);
+}
+
+.app__footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.app__footer-links a {
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: var(--border-strong);
+  text-underline-offset: 3px;
+}
+
+.app__footer-links a:hover {
+  color: var(--text-strong);
+  text-decoration-color: var(--text-strong);
+}
+
 /* --- Part photograph --- */
 
 .part-photo {

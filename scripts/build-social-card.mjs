@@ -125,14 +125,29 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" 
   </g>
 </svg>`
 
-await sharp(Buffer.from(svg), { density: 96 }).png({ compressionLevel: 9 }).toFile(out)
+/*
+ * Rasterised at the size the SVG declares — and then checked, because the first version was not.
+ *
+ * `density: 96` against sharp's 72 dpi baseline scaled the 1200 × 630 drawing to 1600 × 840, and
+ * the log line printed the constants rather than the file, so the card shipped at the wrong size
+ * under tags declaring the right one. The density is left at the default and the dimensions are
+ * read back from the output.
+ */
+await sharp(Buffer.from(svg)).resize(W, H).png({ compressionLevel: 9 }).toFile(out)
+
+const { width, height } = await sharp(out).metadata()
+if (width !== W || height !== H) {
+  console.error(`
+The card came out ${width}x${height}, not ${W}x${H}.`)
+  process.exit(1)
+}
 
 // The same leap-of-faith guard the icons have: an SVG whose text fell back to nothing would
 // rasterise a map with no title, and nothing downstream would notice.
 const bytes = (await readFile(out)).length
 const stats = await sharp(out).extract({ left: 60, top: 60, width: 420, height: 70 }).stats()
 const titleSpread = Math.max(...stats.channels.map((c) => c.max - c.min))
-console.log(`social-card.png  ${W}x${H}  ${(bytes / 1024).toFixed(1)} kB  title-area contrast spread ${titleSpread}`)
+console.log(`social-card.png  ${width}x${height}  ${(bytes / 1024).toFixed(1)} kB  title-area contrast spread ${titleSpread}`)
 if (titleSpread < 120) {
   console.error('\nThe title area is nearly uniform — the text did not render. Check the fonts sharp can see.')
   process.exit(1)
