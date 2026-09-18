@@ -116,7 +116,7 @@ export const SUBSYSTEMS: Subsystem[] = [
           {
             pui: 'S0000009',
             label: 'Starboard SARJ mode',
-            hint: 'Same states as the port joint, and normally autotrack too. This is the joint that failed: eleven weeks after it was switched on in June 2007 its drag began climbing, and a spacewalker lifting a thermal cover found fine metal shavings across the race ring. Operation was halted; on STS-126 the crew scraped and greased the ring and replaced all twelve trundle bearings.',
+            hint: 'Same states as the port joint, and normally autotrack too. This is the joint that failed: eleven weeks after it was switched on in June 2007 its drag began climbing, and a spacewalker lifting a thermal cover found fine metal shavings across the race ring. Operation was halted; on STS-126 the crew scraped and greased the ring and replaced eleven of the twelve trundle bearings — the twelfth had come off a year earlier, for examination on the ground.',
             part: 'sarj-stbd',
           },
         ],

@@ -129,6 +129,18 @@ describe('the station page', () => {
     expect(page.html).toContain('Reports in <a href="/telemetry/power/">Power</a>.')
     expect(page.html).toContain('id="cupola"')
   })
+
+  it('refuses a part whose category the page has no place for, rather than counting it and losing it', () => {
+    // The lead says "N parts" from the array and the sections come from a fixed category order:
+    // a part in a category the order does not name was counted and never listed, silently.
+    expect(() =>
+      renderStation({
+        parts: [{ id: 'quest', name: 'Quest', category: 'airlock', summary: 'The door.' }],
+        categoryLabels: { airlock: 'Airlock' },
+        reportsIn: () => [],
+      }),
+    ).toThrow(/quest.*airlock/)
+  })
 })
 
 describe('the reference table', () => {
@@ -155,6 +167,18 @@ describe('the reference table', () => {
   it('drops the doc-internal "see below" from a settles cell', () => {
     const md = '| Document | What it settles |\n|---|---|\n| [A](https://a.example/) | the bus — see below |\n'
     expect(parseReferences(md)[0].settlesHtml).toBe('the bus')
+  })
+
+  it('keeps an escaped pipe inside a cell instead of cutting the cell at it', () => {
+    // The doc writes `\|` sixty-nine times outside this table; the first one written inside it
+    // split the row into three cells and the page showed the front half of the sentence.
+    const md = '| Document | What it settles |\n|---|---|\n| Mimic | SARJ modes \\| TRRJ modes |\n'
+    expect(parseReferences(md)[0].settlesHtml).toBe('SARJ modes | TRRJ modes')
+  })
+
+  it('stops the build on a row that does not have two cells', () => {
+    const md = '| Document | What it settles |\n|---|---|\n| A | B | C |\n'
+    expect(() => parseReferences(md)).toThrow(/three cells/)
   })
 })
 

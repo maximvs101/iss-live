@@ -306,6 +306,15 @@ ${where}
  */
 export function renderStation({ parts, categoryLabels, reportsIn, builtAt }) {
   const path = '/station/'
+  // A category the order does not name has no section, and a part in it would be counted in the
+  // lead — "39 parts" — and never listed. Loud, because nothing downstream would notice: the smoke
+  // checks read the title, the h1 and the canonical, not the count.
+  const unplaced = parts.filter((p) => !CATEGORY_ORDER.includes(p.category))
+  if (unplaced.length) {
+    throw new Error(
+      `station page: no place for ${unplaced.map((p) => `${p.id} (${p.category})`).join(', ')} — add the category to CATEGORY_ORDER`,
+    )
+  }
   const groups = CATEGORY_ORDER.map((category) => ({
     category,
     label: categoryLabels[category] ?? category,
@@ -476,9 +485,18 @@ export function parseReferences(markdown) {
       continue
     }
     inTable = true
-    const cells = line.slice(1, line.lastIndexOf('|')).split('|').map((c) => c.trim())
-    if (cells.length < 2) continue
+    // Split on the pipes that are cell walls, not on a `\|` written inside a cell: the doc uses
+    // that escape sixty-nine times outside this table, and the first one inside it cut a sentence
+    // in half without a word from the build. The escape is undone once the walls are known.
+    const cells = line
+      .slice(1, line.lastIndexOf('|'))
+      .split(/(?<!\\)\|/)
+      .map((c) => c.trim().replace(/\\\|/g, '|'))
     if (/^-+$/.test(cells[0]) || cells[0] === 'Document') continue
+    if (cells.length !== 2) {
+      const count = ['no', 'one', 'two', 'three', 'four'][cells.length] ?? String(cells.length)
+      throw new Error(`reference table: a row has ${count} cells, not two — ${line.slice(0, 80)}`)
+    }
     // The doc points at its own following paragraphs with "— see below"; the page has no below.
     const settles = cells[1].replace(/\s*—\s*see below\s*$/, '')
     rows.push({ documentHtml: inlineMarkdown(cells[0]), settlesHtml: inlineMarkdown(settles) })
