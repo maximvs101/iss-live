@@ -26,6 +26,7 @@
     "verify:orbit": "node scripts/verify-orbit.mjs",
     "verify:scene": "node scripts/verify-scene.mjs",
     "build:icons": "node scripts/build-icons.mjs",
+    "build:card": "node scripts/build-social-card.mjs",
     "build:model": "node scripts/build-iss-model.mjs",
     "build:model:mobile": "node scripts/build-iss-model-mobile.mjs",
     "build:earth": "node scripts/build-earth-textures.mjs",

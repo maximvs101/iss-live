@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  One URL, on purpose. The application is a single document: `?part=cupola` selects a module in
+  it rather than opening another page, and every deployment host is a copy the canonical link
+  already folds back here. The day the modules get pages of their own, this is where they go.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://iss-live.pages.dev/</loc>
+    <changefreq>weekly</changefreq>
+  </url>
+</urlset>

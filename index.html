@@ -5,13 +5,54 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-    <meta name="theme-color" content="#0d121b" />
+    <!-- The header's ground, --bg-panel. It was left on the palette before the console. -->
+    <meta name="theme-color" content="#090e15" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
       content="An educational digital twin of the International Space Station: NASA public telemetry, real-time orbital position and 3D exploration of the modules."
     />
     <title>ISS Live — digital twin of the International Space Station</title>
+
+    <!--
+      One address for the site, whatever address it was opened at.
+
+      Every deployment gets its own host — 03d103e6.iss-live.pages.dev and the like — and each one
+      serves the whole site, indexable, so without this a crawler finds a fresh copy per deploy.
+      The deep link `?part=cupola` is the same document with a selection made, so it resolves to
+      the root too.
+    -->
+    <link rel="canonical" href="https://iss-live.pages.dev/" />
+
+    <!--
+      What a link to the site unfurls into when it is shared.
+
+      The image is drawn by scripts/build-social-card.mjs from the same coastlines the map uses, and
+      claims no position, time or reading: a card is not telemetry. 1200 x 630 is the one size
+      every renderer agrees on.
+    -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="ISS Live" />
+    <meta property="og:url" content="https://iss-live.pages.dev/" />
+    <meta property="og:title" content="ISS Live — digital twin of the International Space Station" />
+    <meta
+      property="og:description"
+      content="Live telemetry, orbital position and a 3D twin of the station, from NASA's public broadcast. Nothing invented, ages stated."
+    />
+    <meta property="og:image" content="https://iss-live.pages.dev/social-card.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="A dark world map with the station's ground track drawn as a green sine curve, titled ISS Live."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="ISS Live — digital twin of the International Space Station" />
+    <meta
+      name="twitter:description"
+      content="Live telemetry, orbital position and a 3D twin of the station, from NASA's public broadcast."
+    />
+    <meta name="twitter:image" content="https://iss-live.pages.dev/social-card.png" />
   </head>
   <body>
     <div id="root"></div>

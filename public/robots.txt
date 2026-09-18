@@ -1,0 +1,10 @@
+# Everything a crawler could index is welcome. What is not worth its time is the 113 MB of
+# textures, models and decoder that only the 3D view fetches: nothing there is content, and a
+# crawler that walks them spends the site's bandwidth on files it cannot read.
+User-agent: *
+Allow: /
+Disallow: /textures/
+Disallow: /models/
+Disallow: /draco/
+
+Sitemap: https://iss-live.pages.dev/sitemap.xml

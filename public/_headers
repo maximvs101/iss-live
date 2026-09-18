@@ -39,3 +39,13 @@
 
 /index.html
   Cache-Control: public, max-age=0, must-revalidate
+
+# Preview deployments stay out of the index.
+#
+# Every deploy is also served at <hash>.iss-live.pages.dev and the branch aliases, each a complete
+# copy of the site. The canonical link in index.html tells a crawler which one counts; this tells
+# it not to index the others at all, which is the stronger statement. The pattern matches one
+# label before the project host — the hash or the branch — and not the production host itself,
+# which has none.
+https://:version.iss-live.pages.dev/*
+  X-Robots-Tag: noindex
