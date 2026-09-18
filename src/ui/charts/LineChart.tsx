@@ -102,10 +102,29 @@ export function LineChart({
   }, [points, height, width])
 
   if (!scale) {
+    /*
+     * The same box before the data as after it.
+     *
+     * The empty state was a one-line dashed note, and the drawn chart is a 150-unit-tall svg plus
+     * a readout: when the first points landed, every chart on the page grew and everything under
+     * it moved — 0.042 of layout shift on the guide alone. So the empty state draws the same svg,
+     * with the message inside it, and the same readout line under it.
+     */
     return (
       <figure className="chart">
         <figcaption className="chart__title">{title}</figcaption>
-        <p className="chart__empty">{emptyMessage}</p>
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          className="chart__svg chart__svg--empty"
+          role="img"
+          aria-label={`${title}: ${emptyMessage}`}
+        >
+          <rect x="0.5" y="0.5" width={width - 1} height={height - 1} fill="none" />
+          <text x={width / 2} y={height / 2} textAnchor="middle" dominantBaseline="middle">
+            {emptyMessage}
+          </text>
+        </svg>
+        <p className="chart__readout">0 points</p>
       </figure>
     )
   }
@@ -143,6 +162,9 @@ export function LineChart({
         viewBox={`0 0 ${width} ${height}`}
         className="chart__svg"
         role="img"
+        /* The figcaption names the figure, not the drawing: an svg with role="img" and no name is
+           an image a screen reader announces as nothing. What the drawing shows, in words. */
+        aria-label={`${title}: ${points.length} points, latest ${last.value.toFixed(precision)}${unit ? ` ${unit}` : ''}`}
         onMouseMove={handleMove}
         onMouseLeave={() => setHover(null)}
       >

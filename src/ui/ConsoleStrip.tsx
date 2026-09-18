@@ -41,7 +41,14 @@ export function ConsoleStrip() {
      * Chrome or Safari, so Alt, Vel, Beta and Illum simply could not be read without a pointer.
      * `tabIndex` makes it a stop that arrow keys scroll; the group needs a name once it is one.
      */
-    <dl className="console-strip" tabIndex={0} role="group" aria-label="Vehicle state">
+    <div className="console-strip" tabIndex={0} role="group" aria-label="Vehicle state">
+      {/*
+        The list inside the scroller, not the scroller itself. `role="group"` on the <dl> made it
+        focusable and named and, in the same move, took its list semantics away: every <dt> and
+        <dd> lost its parent list and Lighthouse flagged all sixteen. The div scrolls and carries
+        the name; the <dl> stays a <dl>.
+      */}
+      <dl className="console-strip__cells">
       {/* The place first: it is the only cell a reader can use without knowing what the others
           mean, and the two that follow are the same position in figures. */}
       <NowOver />
@@ -56,7 +63,8 @@ export function ConsoleStrip() {
         value={sunlit === null ? '—' : sunlit ? 'sunlit' : 'shadow'}
         tone={sunlit === null ? undefined : sunlit ? 'live' : 'idle'}
       />
-    </dl>
+      </dl>
+    </div>
   )
 }
 

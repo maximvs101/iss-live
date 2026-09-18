@@ -121,36 +121,38 @@ export function OrbitProfile() {
         <p className="panel__empty">Computing orbital profile…</p>
       )}
 
+      {/*
+        Both charts, from the first render. Mounted only once the profile existed, the box went
+        from nothing to two charts a moment after load and pushed the guide under it down —
+        measured at 0.044 of layout shift on a desktop. Empty, a chart draws a frame of the same
+        height with the message inside it, so the column is its final shape before the orbit is.
+      */}
       <div ref={box}>
-        {profile && (
-          <>
-            <LineChart
-              points={profile.altitude}
-              title="Altitude"
-              unit="km"
-              bands={profile.shadowBands}
-              precision={1}
-              width={width}
-            />
+        <LineChart
+          points={profile?.altitude ?? []}
+          title="Altitude"
+          unit="km"
+          bands={profile?.shadowBands}
+          precision={1}
+          width={width}
+          emptyMessage="Computing the orbit…"
+        />
 
-            <LineChart
-              points={profile.latitude}
-              title="Latitude overflown"
-              unit="°"
-              bands={profile.shadowBands}
-              precision={1}
-              width={width}
-            />
-          </>
-        )}
+        <LineChart
+          points={profile?.latitude ?? []}
+          title="Latitude overflown"
+          unit="°"
+          bands={profile?.shadowBands}
+          precision={1}
+          width={width}
+          emptyMessage="Computing the orbit…"
+        />
       </div>
 
-      {profile && (
-        <p className="panel__footnote">
-          Profile computed by SGP4 propagation. The orbit is near-circular: the altitude variation
-          seen here comes from the shape of the Earth, which is flattened at the poles.
-        </p>
-      )}
+      <p className="panel__footnote">
+        Profile computed by SGP4 propagation. The orbit is near-circular: the altitude variation
+        seen here comes from the shape of the Earth, which is flattened at the poles.
+      </p>
     </section>
   )
 }

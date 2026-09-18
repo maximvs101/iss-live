@@ -14,16 +14,15 @@ export function OrbitPanel() {
   const beta = useOrbitStore((store) => store.beta)
   const elements = useOrbitStore((store) => store.elements)
 
-  if (!state) {
-    return (
-      <section className="panel">
-        <h2 className="panel__title">Orbit</h2>
-        <p className="panel__empty">Computing position…</p>
-      </section>
-    )
-  }
-
-  const sunlit = state.shadow < 0.5
+  /*
+   * The same panel before the first position as after it, with dashes where the figures go.
+   *
+   * It used to be a one-line "Computing position…" that grew into the full panel a moment later,
+   * and everything under it in the side column — freshness, the two plots, the guide — jumped
+   * down to make room. Lighthouse measured that jump at 0.144 of cumulative layout shift on a
+   * desktop, most of the page's total, for a state that lasts under a second.
+   */
+  const sunlit = state ? state.shadow < 0.5 : null
 
   return (
     <section className="panel">
@@ -37,8 +36,8 @@ export function OrbitPanel() {
         reason both are on the page, and why beta appears twice on purpose.
       */}
       <div className="metric-grid">
-        <Metric label="Orbital period" value={`${state.periodMinutes.toFixed(2)} min`} />
-        <Metric label="Visibility circle" value={`${state.footprintKm.toFixed(0)} km`} />
+        <Metric label="Orbital period" value={state ? `${state.periodMinutes.toFixed(2)} min` : '—'} />
+        <Metric label="Visibility circle" value={state ? `${state.footprintKm.toFixed(0)} km` : '—'} />
         <Metric
           label="Beta angle (computed)"
           value={beta === null ? '—' : `${beta.toFixed(2)}°`}
@@ -46,8 +45,8 @@ export function OrbitPanel() {
         />
         <Metric
           label="Illumination"
-          value={sunlit ? 'sunlit' : 'in shadow'}
-          accent={sunlit ? 'sun' : 'shadow'}
+          value={sunlit === null ? '—' : sunlit ? 'sunlit' : 'in shadow'}
+          accent={sunlit === null ? undefined : sunlit ? 'sun' : 'shadow'}
           hint="Whether the station is lit, not the ground below it. At 420 km it keeps seeing the Sun for about ten minutes after sunset underneath — which is why it can be sunlit while flying over darkness, and why it is visible from the ground at dusk."
         />
       </div>
@@ -58,14 +57,25 @@ export function OrbitPanel() {
         <TelemetryValue pui="USLAB000039" />
       </div>
 
-      {elements && (
-        <p className="panel__footnote">
-          Position computed by SGP4 propagation of orbital elements from{' '}
-          {elements.epoch.toLocaleString('en-GB', { timeZone: 'UTC' })} UTC. Checked against an
-          independent propagation of the same elements, it agrees to about a kilometre on the
-          ground — which is why the coordinates stop at two decimals.
-        </p>
-      )}
+      <p className="panel__footnote">
+        {elements ? (
+          <>
+            Position computed by SGP4 propagation of orbital elements from{' '}
+            {elements.epoch.toLocaleString('en-GB', { timeZone: 'UTC' })} UTC. Checked against an
+            independent propagation of the same elements, it agrees to about a kilometre on the
+            ground — which is why the coordinates stop at two decimals.
+          </>
+        ) : (
+          // The same paragraph, occupied, so the panel is its final height before the elements
+          // land rather than growing four lines when they do.
+          <>
+            Position computed by SGP4 propagation of orbital elements from Celestrak, which are
+            being fetched. Checked against an independent propagation of the same elements, it
+            agrees to about a kilometre on the ground — which is why the coordinates stop at two
+            decimals.
+          </>
+        )}
+      </p>
     </section>
   )
 }

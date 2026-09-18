@@ -265,7 +265,11 @@ ${parts
         <p class="eyebrow">Telemetry · ${e(subsystem.label)}</p>
         <h1>${e(subsystem.label)}</h1>
         <p class="lead">${e(subsystem.tagline)}</p>
-        <p class="note">${channels.length} of the station's public readings belong here — NASA's catalogue files them under ${e(disciplines.join(', '))}. They are live on <a href="/">the console</a>; ${explained} of them carry an explanation below, and the rest are listed so you know what the station reports.</p>
+        <p class="note">${channels.length} of the station's public readings belong here — NASA's catalogue files them under ${e(disciplines.join(', '))}. They are live on <a href="/">the console</a>${
+          explained === channels.length
+            ? ', and each one is explained below.'
+            : `; ${explained} of them carry an explanation below, and the rest are listed so you know what the station reports.`
+        }</p>
 ${sections}
 ${where}
         <nav class="pager" aria-label="Other subsystems">

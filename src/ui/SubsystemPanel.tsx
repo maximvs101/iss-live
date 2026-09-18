@@ -58,38 +58,43 @@ export function SubsystemPanel() {
         */}
         <nav className="rail" aria-label="Subsystems">
           <div className="rail__inner">
-            <p className="rail__head" id="subsystems-head">
+            {/* An h2, because the panel's sections are h3 and the page's title is h1: as a <p> it
+                left a hole in the outline that Lighthouse reported. It still names the section. */}
+            <h2 className="rail__head" id="subsystems-head">
               Subsystems
-            </p>
+            </h2>
             {RAIL.map((item) => {
               const stopped = stoppedCounts[item.id] ?? 0
               return (
-                <button
-                  key={item.id}
-                  type="button"
-                  aria-pressed={item.id === active}
-                  /*
-                   * The two figures are drawn, not spoken as part of the name. Left as plain
-                   * spans they became the button's accessible name — "Life support 32 7, toggle
-                   * button" — two integers a listener has no way to read.
-                   */
-                  aria-label={`${item.label}: ${item.puis.length} channels, ${stopped} stopped`}
-                  className={`rail__item${item.id === active ? ' rail__item--active' : ''}`}
-                  onClick={() => setActive(item.id)}
-                >
-                  <span className="rail__label" aria-hidden="true">
-                    {item.label}
-                  </span>
-                  <span className="rail__count" aria-hidden="true">
-                    {item.puis.length}
-                  </span>
-                  <span
-                    className={`rail__flag${stopped > 0 ? ' rail__flag--on' : ''}`}
-                    aria-hidden="true"
+                /*
+                 * The two figures sit beside the button, not inside it.
+                 *
+                 * Inside, they were the button's visible text — "Life support 32 7" — and an
+                 * aria-label that read otherwise broke WCAG's label-in-name rule, which
+                 * Lighthouse measures with aria-hidden text included. So the button's text is the
+                 * label alone, what the figures mean rides in it as visually hidden words, and the
+                 * figures themselves are drawn over the button's right edge by a sibling that
+                 * takes no clicks and is hidden from assistive technology.
+                 */
+                <div key={item.id} className="rail__row">
+                  <button
+                    type="button"
+                    aria-pressed={item.id === active}
+                    className={`rail__item${item.id === active ? ' rail__item--active' : ''}`}
+                    onClick={() => setActive(item.id)}
                   >
-                    {stopped > 0 ? stopped : '·'}
+                    {item.label}
+                    <span className="visually-hidden">
+                      , {item.puis.length} channels, {stopped} stopped
+                    </span>
+                  </button>
+                  <span className="rail__counts" aria-hidden="true">
+                    <span className="rail__count">{item.puis.length}</span>
+                    <span className={`rail__flag${stopped > 0 ? ' rail__flag--on' : ''}`}>
+                      {stopped > 0 ? stopped : '·'}
+                    </span>
                   </span>
-                </button>
+                </div>
               )
             })}
             {subsystem && <p className="rail__consoles">{subsystem.disciplines.join(', ')}</p>}
