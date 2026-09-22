@@ -12,7 +12,31 @@ export function parseGeonamesLine(text) {
     country: c[8],
     population: Number(c[14]),
     timeZone: c[17],
+    featureCode: c[7],
   }
+}
+
+/*
+ * A place a reader would name as a town. GeoNames files city districts (PPLX — "Paris 15 Vaugirard",
+ * "Dubai Marina") and historical or abandoned places (PPLH, PPLQ, PPLW) in the same list, and 817
+ * districts sit above the population floor, each one crowding a real city out of the search.
+ */
+const NOT_TOWNS = new Set(['PPLX', 'PPLH', 'PPLQ', 'PPLW'])
+export function isTown(city) {
+  return !NOT_TOWNS.has(city.featureCode)
+}
+
+/**
+ * Numbered districts the feature code does not catch: Paris's arrondissements are coded PPL like
+ * any town and Marseille's PPLA5. A name that is another town's name in the same country followed
+ * by a number — "Paris 15 Vaugirard", "Marseille 08" — is a part of that town, not another one.
+ */
+export function dropDistricts(cities) {
+  const names = new Set(cities.map((c) => `${normalise(c.name)}|${c.country}`))
+  return cities.filter((city) => {
+    const numbered = /^(.+?) \d+(?: |$)/.exec(normalise(city.name))
+    return !numbered || !names.has(`${numbered[1]}|${city.country}`)
+  })
 }
 
 const byPopulation = (a, b) => b.population - a.population || a.id - b.id

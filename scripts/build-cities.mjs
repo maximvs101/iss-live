@@ -12,7 +12,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { gzipSync, inflateRawSync } from 'node:zlib'
-import { buildPackets, parseGeonamesLine } from './lib/cities-format.mjs'
+import { buildPackets, dropDistricts, isTown, parseGeonamesLine } from './lib/cities-format.mjs'
 
 const SOURCE = 'https://download.geonames.org/export/dump/cities15000.zip'
 const OUT = new URL('../public/cities/', import.meta.url)
@@ -56,12 +56,13 @@ const cities = text
   .filter(Boolean)
   .map(parseGeonamesLine)
   .filter((c) => c.name && Number.isFinite(c.latitude) && Number.isFinite(c.longitude) && c.timeZone)
-  .filter((c) => c.population >= MIN_POPULATION)
+  .filter((c) => c.population >= MIN_POPULATION && isTown(c))
 
 // A truncated download or a changed format would otherwise ship a short list without a word.
 if (cities.length < 5_000) throw new Error(`only ${cities.length} cities parsed — the download is short or the format changed`)
 
-const packets = buildPackets(cities)
+const towns = dropDistricts(cities)
+const packets = buildPackets(towns)
 const slugs = new Set()
 for (const packet of packets.values()) {
   for (const row of packet.rows) {
@@ -82,4 +83,4 @@ for (const [key, packet] of [...packets].sort()) {
     `${key}.json  ${String(packet.rows.length).padStart(5)} cities  ${(json.length / 1024).toFixed(0).padStart(4)} kB  ${(gz / 1024).toFixed(0).padStart(3)} kB gz`,
   )
 }
-console.log(`\n${cities.length} cities, ${packets.size} files, ${(total / 1024).toFixed(0)} kB compressed in all`)
+console.log(`\n${towns.length} cities, ${packets.size} files, ${(total / 1024).toFixed(0)} kB compressed in all`)

@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { assignSlugs, buildPackets, parseGeonamesLine } from './cities-format.mjs'
+import { assignSlugs, buildPackets, dropDistricts, isTown, parseGeonamesLine } from './cities-format.mjs'
 
-const line = (id, name, ascii, lat, lon, cc, pop, tz) =>
-  [id, name, ascii, '', lat, lon, 'P', 'PPL', cc, '', '', '', '', '', pop, '', '', tz, '2024-01-01'].join('\t')
+const line = (id, name, ascii, lat, lon, cc, pop, tz, code = 'PPL') =>
+  [id, name, ascii, '', lat, lon, 'P', code, cc, '', '', '', '', '', pop, '', '', tz, '2024-01-01'].join('\t')
 
 describe('cities format', () => {
   it('reads the columns it needs from a GeoNames line', () => {
-    expect(parseGeonamesLine(line('2988507', 'Paris', 'Paris', '48.85341', '2.3488', 'FR', '2138551', 'Europe/Paris'))).toEqual({
+    expect(parseGeonamesLine(line('2988507', 'Paris', 'Paris', '48.85341', '2.3488', 'FR', '2138551', 'Europe/Paris', 'PPLC'))).toEqual({
       id: 2988507,
       name: 'Paris',
       ascii: 'Paris',
@@ -15,7 +15,33 @@ describe('cities format', () => {
       country: 'FR',
       population: 2138551,
       timeZone: 'Europe/Paris',
+      featureCode: 'PPLC',
     })
+  })
+
+  it('keeps towns and leaves out the districts GeoNames files beside them', () => {
+    // "Paris 15 Vaugirard" came up under "par", beside Paris: a district is where a city is, not
+    // another city, and 817 of them sit above the population floor.
+    const parsed = (code) => parseGeonamesLine(line('1', 'X', 'X', '0', '0', 'FR', '60000', 'Europe/Paris', code))
+    expect(isTown(parsed('PPLC'))).toBe(true)
+    expect(isTown(parsed('PPLA2'))).toBe(true)
+    expect(isTown(parsed('PPLX'))).toBe(false)
+    expect(isTown(parsed('PPLH'))).toBe(false)
+  })
+
+  it('also leaves out the numbered districts GeoNames codes as towns', () => {
+    // Paris's arrondissements are coded PPL like any town, Marseille's PPLA5: what gives them away
+    // is a name that is another town's name in the same country, followed by a number.
+    const city = (id, name, country = 'FR') => ({ id, name, ascii: name, country, population: 100000 })
+    const kept = dropDistricts([
+      city(1, 'Paris'),
+      city(2, 'Paris 15 Vaugirard'),
+      city(3, 'Marseille'),
+      city(4, 'Marseille 08'),
+      city(5, 'Paris 15', 'US'), // no Paris in that country here: a name, not a district
+      city(6, '6th of October City', 'EG'),
+    ])
+    expect(kept.map((c) => c.id)).toEqual([1, 3, 5, 6])
   })
 
   it('gives the biggest namesake the plain slug and numbers the rest', () => {
