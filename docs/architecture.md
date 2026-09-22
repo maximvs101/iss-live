@@ -1134,3 +1134,36 @@ behind the near side, and reading a position off a sphere is slower than reading
 flat map answers the question better, so the globe went rather than staying as a second way to do
 the same thing. That took roughly 200 kB of three.js off the map view, and left `Globe`,
 `GroundTrack`, `StationOnGlobe`, the scene frame and the camera store with nothing to do.
+
+### The passes page
+
+`/passes/` answers the question the public actually asks about the station — when can I see it — and
+is the site's second Vite entry (`passes/index.html`), not a route in the console. The difference is
+the whole point: its HTML carries the explanatory text a search engine indexes and a reader without
+JavaScript can read, and its script loads React, satellite.js and its own 7 kB, but none of three.js,
+Lightstreamer, the atlas or the marine areas. `scripts/build-pages.mjs` proves that on every build by
+walking Vite's manifest from the entry, and stops the build if a heavy chunk is reachable — a bare
+`import 'three'` would not prove it, because three declares no side effects and is tree-shaken away;
+the check was shown to bite with a real use.
+
+The header and footer are the eight rendered pages' own, injected by a small Vite plugin from
+`siteHeader`/`siteFooter` in `render-pages.mjs`: one list of pages, not two.
+
+Everything is computed in the browser (`src/passes/`): `findPasses` samples every 30 s over five
+days and refines rises, sets and the visible stretch by bisection — 31 passes over Paris in 19 ms,
+so no worker. A pass is visible where the station is at least 10° up, the Sun at least 6° below the
+observer's horizon, and the station out of the Earth's shadow. A pass can be seen in two stretches
+either side of the shadow's edge; the peak and the brightness come from the visible samples only.
+
+Cities come from GeoNames `cities15000` (CC BY 4.0), prepared once by `npm run build:cities` into
+one file per first letter under `public/cities/`. Two cuts, both measured: a population floor of
+50,000 (at 15,000 the "s" file alone was 105 kB compressed; at 50,000 it is 35 kB, all 27 files
+329 kB), and districts — GeoNames' PPLX, and the arrondissements of Paris and Marseille it codes as
+towns — which crowded real cities out of the search. A link names a city (`?city=lyon-fr`), never a
+position; a browser position is rounded to 0.1° before anything uses it.
+
+The list arrives after the first paint, and pushed the text under it down by 0.449 of layout shift.
+The room is claimed before the first paint by a script in the page's head, which sets a class on
+`<html>` when a place is on its way, and `PassesApp` lets it go once the list is there.
+
+Verified against Skyfield by `npm run verify:passes`; see `docs/passes-verification.md`.
