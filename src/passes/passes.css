@@ -1,0 +1,217 @@
+/* The pass finder, on top of /pages.css and its tokens. */
+:root {
+  --warn: #ffb03a;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.passes {
+  margin: 20px 0 32px;
+}
+
+.locate {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.locate__here,
+.link {
+  font: inherit;
+  color: var(--text-strong);
+  background: none;
+  border: 1px solid var(--border-strong);
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.link {
+  border: 0;
+  padding: 0;
+  text-decoration: underline;
+  text-decoration-color: var(--text-dim);
+}
+
+.locate__search {
+  position: relative;
+  flex: 1 1 220px;
+}
+
+.locate__search input {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  color: var(--text-strong);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  padding: 6px 10px;
+}
+
+.locate__options {
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  right: 0;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+}
+
+.locate__options li {
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.locate__options li[aria-selected='true'] {
+  background: var(--bg-panel-alt);
+  color: var(--text-strong);
+}
+
+.passes__place,
+.passes__notice,
+.passes__summary,
+.passes__age {
+  margin: 12px 0;
+}
+
+.passes__notice,
+.passes__hint {
+  color: var(--text-dim);
+}
+
+.passes__age {
+  color: var(--text-dim);
+  font-size: 0.9em;
+}
+
+.passes__age--stale {
+  color: var(--warn);
+}
+
+.passes__list {
+  list-style: none;
+  margin: 12px 0;
+  padding: 0;
+}
+
+.pass {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  border-top: 1px solid var(--border);
+  padding: 8px 0;
+}
+
+.pass--off {
+  color: var(--idle);
+}
+
+.pass__main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1 1 0;
+  min-width: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.pass__text {
+  display: flex;
+  flex-direction: column;
+}
+
+.pass__when {
+  color: var(--text-strong);
+}
+
+.pass__brightness {
+  color: var(--live);
+}
+
+.pass__note {
+  color: var(--text-dim);
+  font-size: 0.9em;
+}
+
+.pass__calendar {
+  font: inherit;
+  background: none;
+  border: 1px solid var(--border-strong);
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.sky {
+  display: block;
+}
+
+.sky--mini {
+  width: 46px;
+  height: 46px;
+  flex: none;
+}
+
+.sky-figure {
+  flex-basis: 100%;
+  margin: 8px 0 4px;
+}
+
+.sky-figure .sky {
+  width: min(100%, 320px);
+  margin: 0 auto;
+}
+
+.sky__horizon {
+  fill: var(--bg-panel);
+  stroke: var(--border-strong);
+}
+
+.sky__ring {
+  fill: none;
+  stroke: var(--border);
+}
+
+.sky__seen {
+  stroke: var(--live);
+}
+
+.sky__unseen {
+  stroke: var(--idle);
+  stroke-dasharray: 4 4;
+}
+
+.sky__peak {
+  fill: var(--text-strong);
+}
+
+.sky__end {
+  fill: var(--live);
+}
+
+.sky__cardinal {
+  fill: var(--text-strong);
+  font: 11px var(--mono);
+  text-anchor: middle;
+}
+
+.sky__scale,
+.sky__time {
+  fill: var(--text-dim);
+  font: 8px var(--mono);
+}
