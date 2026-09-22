@@ -45,3 +45,4 @@ data/collect-liveness.jsonl
 
 # Brainstorming visual companion
 .superpowers/
+.cache/
