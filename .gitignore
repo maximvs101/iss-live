@@ -42,3 +42,6 @@ data/collect.err
 # of a hundred megabytes a fortnight, and they do not belong in the history of a static site.
 data/collect-events.jsonl
 data/collect-liveness.jsonl
+
+# Brainstorming visual companion
+.superpowers/
