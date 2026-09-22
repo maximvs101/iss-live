@@ -1,7 +1,7 @@
 /**
  * The way from the console to the pages that explain it.
  *
- * Eight readable pages exist beside the application — the station module by module, one per
+ * Nine readable pages exist beside the application — the station module by module, one per
  * subsystem with every channel explained, and how the numbers are made. They are rendered at build
  * time from the same declarations this page runs on (see scripts/build-pages.mjs), and a page
  * nobody links to is a page nobody finds: neither a reader nor a crawler. So the links live here,
@@ -12,6 +12,7 @@
  * without JavaScript, which is the whole point of them.
  */
 const PAGES = [
+  { href: '/passes/', label: 'When to see it' },
   { href: '/station/', label: 'The station, module by module' },
   { href: '/telemetry/power/', label: 'Power' },
   { href: '/telemetry/life-support/', label: 'Life support' },

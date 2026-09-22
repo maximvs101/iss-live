@@ -12,9 +12,12 @@ import {
   firstSentence,
   inlineMarkdown,
   parseReferences,
+  renderAbout,
   renderSitemap,
   renderStation,
   renderSubsystem,
+  siteFooter,
+  siteHeader,
 } from './render-pages.mjs'
 
 const subsystem = {
@@ -185,5 +188,22 @@ describe('the reference table', () => {
 describe('the sitemap', () => {
   it('lists every path under the site', () => {
     expect(renderSitemap(['/', '/about/'])).toContain('<loc>https://iss-live.pages.dev/about/</loc>')
+  })
+})
+
+describe('the shared chrome', () => {
+  it('lists the passes page in every header and marks it on its own page', () => {
+    expect(siteHeader('/about/')).toContain('<a href="/passes/">Passes</a>')
+    expect(siteHeader('/passes/')).toContain('<a href="/passes/" aria-current="page">Passes</a>')
+    expect(siteFooter()).toContain('href="/about/"')
+  })
+})
+
+describe('the about page', () => {
+  it('credits GeoNames under its licence', () => {
+    const page = renderAbout({ references: [], channelCount: 163, partCount: 39, photographedCount: 20 })
+    expect(page.html).toContain('Six sources')
+    expect(page.html).toContain('GeoNames')
+    expect(page.html).toContain('CC BY 4.0')
   })
 })

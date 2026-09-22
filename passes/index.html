@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#090e15" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="stylesheet" href="/pages.css" />
+    <title>When to see the ISS — visible passes over your city — ISS Live</title>
+    <meta
+      name="description"
+      content="Every pass of the International Space Station over your sky for the next five days: when to look, where, how bright — and why you can't see the others."
+    />
+    <!-- One address for every ?city= variant: a thousand near-identical URLs is what a search engine calls thin. -->
+    <link rel="canonical" href="https://iss-live.pages.dev/passes/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="ISS Live" />
+    <meta property="og:url" content="https://iss-live.pages.dev/passes/" />
+    <meta property="og:title" content="When to see the ISS — ISS Live" />
+    <meta
+      property="og:description"
+      content="Every pass over your sky for the next five days, the ones you can see and why you can't see the others. Computed in your browser."
+    />
+    <meta property="og:image" content="https://iss-live.pages.dev/social-card.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="A dark world map with the station's ground track drawn as a green sine curve, titled ISS Live."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="When to see the ISS — ISS Live" />
+    <meta name="twitter:description" content="Every pass over your sky for the next five days, and why you can't see the others." />
+    <meta name="twitter:image" content="https://iss-live.pages.dev/social-card.png" />
+    <meta
+      name="twitter:image:alt"
+      content="A dark world map with the station's ground track drawn as a green sine curve, titled ISS Live."
+    />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "When to see the ISS",
+        "url": "https://iss-live.pages.dev/passes/",
+        "description": "Visible passes of the International Space Station over any city for the next five days, computed in the browser from Celestrak's orbital elements.",
+        "applicationCategory": "EducationalApplication",
+        "operatingSystem": "Any",
+        "isAccessibleForFree": true,
+        "inLanguage": "en",
+        "isPartOf": { "@type": "WebSite", "name": "ISS Live", "url": "https://iss-live.pages.dev/" }
+      }
+    </script>
+  </head>
+  <body>
+    <!--site-header-->
+    <main class="page">
+      <article>
+        <p class="eyebrow">Passes</p>
+        <h1>When to see the ISS</h1>
+        <p class="lead">
+          Every pass of the International Space Station over your sky for the next five days — the ones you can
+          see, and why you can’t see the others.
+        </p>
+
+        <div id="passes-app" class="passes">
+          <noscript>
+            <p class="note">
+              The list of passes is computed in your browser and needs JavaScript. Everything below reads without it.
+            </p>
+          </noscript>
+        </div>
+
+        <section class="block" aria-labelledby="why">
+          <h2 id="why">Why you can’t always see it</h2>
+          <p>
+            The station makes no light of its own: what you see is sunlight bouncing off its solar wings and
+            radiators. So three things have to hold at once. The station has to be in sunlight, your sky has to be
+            dark — the Sun at least six degrees below your horizon, the end of civil twilight — and it has to be high
+            enough to clear the trees and the haze, which here means ten degrees.
+          </p>
+          <p>
+            That is why the good passes come in the hour or two after dusk and before dawn. In the middle of the night
+            the station is usually in the Earth’s shadow, overhead but dark. In daytime it is lit, but so is the sky.
+            And for weeks at a time, depending on how the orbit sits against the Sun, a city gets no visible pass at
+            all. The list says which of these rules each pass out.
+          </p>
+        </section>
+
+        <section class="block" aria-labelledby="bright">
+          <h2 id="bright">How bright is “very bright”</h2>
+          <p>
+            At its best the station outshines every star and every planet but Venus. The estimate here starts from its
+            standard magnitude of −1.8 — its brightness at 1,000 km with half of it lit, the figure most often quoted —
+            and corrects for how far it is from you and the angle between you, the station and the Sun, treating it as
+            a matt sphere.
+          </p>
+          <p>
+            It is not a sphere. It is a cross of flat panels whose attitude decides how much light comes your way, and
+            its real brightness can differ from the estimate by a whole magnitude either way. So the list says it in
+            words — <em>very bright</em> (brighter than −2.5), <em>bright</em> (brighter than −1), <em>visible but
+            faint</em> — and keeps the number for whoever hovers over the word.
+          </p>
+        </section>
+
+        <section class="block" aria-labelledby="where">
+          <h2 id="where">Your location stays here</h2>
+          <p>
+            Nothing is sent anywhere. The passes are computed in this page, from the station’s orbital elements and
+            the position you give it. If you use your location, it is rounded to a tenth of a degree — about ten
+            kilometres, which moves a pass by seconds — before anything uses it, and it is never put in a link. A link
+            you share names a city, not a place.
+          </p>
+          <p>
+            The city list is fetched a letter at a time, only the letter you type. The page remembers your choice in
+            your own browser, and “change” forgets it.
+          </p>
+        </section>
+
+        <section class="block" aria-labelledby="five">
+          <h2 id="five">Why five days</h2>
+          <p>
+            The station’s orbit decays a little every day and is raised by engine burns that are not announced in
+            advance. The orbital elements the page uses are usually less than a day old, and five days ahead their
+            prediction is still good to well under a minute — unless a reboost happens in between, which can move a
+            pass by several minutes. The age of the elements is shown under the list. For a pass you care about, check
+            again on the day.
+          </p>
+        </section>
+
+        <section class="block" aria-labelledby="sources">
+          <h2 id="sources">Sources</h2>
+          <p>
+            Orbital elements from <a href="https://celestrak.org/" rel="noopener">Celestrak</a>, NORAD object 25544,
+            propagated with SGP4 — the same computation as <a href="/">the live console</a>. City names and time zones
+            from <a href="https://www.geonames.org/" rel="noopener">GeoNames</a>, under
+            <a href="https://creativecommons.org/licenses/by/4.0/" rel="noopener">CC BY 4.0</a>. The times are checked
+            against an independent implementation, Skyfield, to within ten seconds; <a href="/about/">how it works</a>
+            says more.
+          </p>
+        </section>
+      </article>
+    </main>
+    <!--site-footer-->
+    <script type="module" src="/src/passes/main.tsx"></script>
+  </body>
+</html>

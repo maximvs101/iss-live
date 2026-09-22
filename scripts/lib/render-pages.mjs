@@ -63,6 +63,7 @@ export function clampDescription(text, max = 155) {
 
 const NAV = [
   { href: '/station/', label: 'The station' },
+  { href: '/passes/', label: 'Passes' },
   { href: '/telemetry/power/', label: 'Power' },
   { href: '/telemetry/life-support/', label: 'Life support' },
   { href: '/telemetry/thermal/', label: 'Thermal' },
@@ -71,6 +72,27 @@ const NAV = [
   { href: '/telemetry/command-and-data/', label: 'Command & data' },
   { href: '/about/', label: 'How it works' },
 ]
+
+/** The header every page wears, the passes page included — one list of pages, not two. */
+export function siteHeader(path) {
+  return `<header class="site">
+      <a class="site__brand" href="/">ISS Live</a>
+      <nav class="site__nav" aria-label="Pages">
+        ${NAV.map((item) => `<a href="${item.href}"${item.href === path ? ' aria-current="page"' : ''}>${e(item.label)}</a>`).join('\n        ')}
+      </nav>
+    </header>`
+}
+
+export function siteFooter() {
+  return `<footer class="site__foot">
+      <p>
+        Every reading on <a href="/">the live page</a> is measured on board and broadcast publicly
+        by NASA, or computed here from Celestrak's orbital elements. Nothing is invented; when a
+        value is old, its age is stated. <a href="/about/">How it works</a> ·
+        <a href="https://github.com/maximvs101/iss-live" rel="noopener">Source code</a>
+      </p>
+    </footer>`
+}
 
 /**
  * One layout for every page.
@@ -131,23 +153,11 @@ export function layout({ path, title, headline, description, body, jsonLd, image
     <script type="application/ld+json">${JSON.stringify(ld).replace(/</g, '\\u003c')}</script>
   </head>
   <body>
-    <header class="site">
-      <a class="site__brand" href="/">ISS Live</a>
-      <nav class="site__nav" aria-label="Pages">
-        ${NAV.map((item) => `<a href="${item.href}"${item.href === path ? ' aria-current="page"' : ''}>${e(item.label)}</a>`).join('\n        ')}
-      </nav>
-    </header>
+    ${siteHeader(path)}
     <main class="page">
 ${body}
     </main>
-    <footer class="site__foot">
-      <p>
-        Every reading on <a href="/">the live page</a> is measured on board and broadcast publicly
-        by NASA, or computed here from Celestrak's orbital elements. Nothing is invented; when a
-        value is old, its age is stated. <a href="/about/">How it works</a> ·
-        <a href="https://github.com/maximvs101/iss-live" rel="noopener">Source code</a>
-      </p>
-    </footer>
+    ${siteFooter()}
   </body>
 </html>
 `
@@ -383,13 +393,14 @@ export function renderAbout({ references, channelCount, partCount, photographedC
         <p class="lead">ISS Live is a static page. Nothing runs on a server: your browser opens NASA's public telemetry broadcast directly, computes the station's position itself, and draws what it gets. There is no account, no key, and no value invented when one is missing.</p>
 
         <section class="block" aria-labelledby="sources">
-          <h2 id="sources">Five sources</h2>
+          <h2 id="sources">Six sources</h2>
           <dl class="channels">
             <div class="channel"><dt>NASA public telemetry, through Lightstreamer</dt><dd>${channelCount} readings — power, life support, thermal, attitude, communications, onboard computers — pushed to the browser over a WebSocket from <code>push.lightstreamer.com</code>, adapter set <code>ISSLIVE</code>. The same broadcast that NASA's ISSLive! site used and that Lightstreamer's reference client still reads. It comes and goes: the broadcast has been silent for days at a time, and the page says so rather than showing yesterday's numbers as today's.</dd></div>
             <div class="channel"><dt>Celestrak, orbital elements for NORAD object 25544</dt><dd>The station's position, speed, altitude and the solar beta angle are computed in the browser by SGP4 propagation of these elements. Checked once against an independent service that propagates its own elements, the position came within a kilometre on the ground — which is why the coordinates stop at two decimals, and why the map keeps working when the telemetry does not.</dd></div>
             <div class="channel"><dt>NASA 3D Resources</dt><dd>The 3D model is NASA's IGOAL build of the station, structured by module and by joint, prepared once into a compressed file. Its rotary joints and solar-wing gimbals are driven by the telemetry, so the wings on screen turn the way the real ones report turning.</dd></div>
             <div class="channel"><dt>NASA Image and Video Library</dt><dd>For ${photographedCount} of the ${partCount} parts, a photograph searched by title from NASA's public archive, with its credit and its date. The rest — the rotary joints, most stowage platforms, a few antennas — have no photograph that shows them and would be misrepresented by one that does not; they show none.</dd></div>
             <div class="channel"><dt>Natural Earth</dt><dd>The coastlines on the map, at 1:110,000,000, and the marine areas that name what the station is over — "the Coral Sea", "the Mozambique Channel" — by point-in-polygon against real outlines rather than a table of guesses.</dd></div>
+            <div class="channel"><dt>GeoNames, cities of more than 15,000 people</dt><dd>The place names and time zones behind the city search on <a href="/passes/">when to see the ISS</a>, from <a href="https://www.geonames.org/" rel="noopener">geonames.org</a> under <a href="https://creativecommons.org/licenses/by/4.0/" rel="noopener">CC BY 4.0</a>. Only the letter being typed is fetched, and no position leaves the browser.</dd></div>
           </dl>
         </section>
 

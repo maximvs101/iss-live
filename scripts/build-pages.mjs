@@ -16,7 +16,7 @@
  *
  * Usage: node scripts/build-pages.mjs            (run by `npm run build`)
  */
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createServer } from 'vite'
@@ -32,6 +32,19 @@ import {
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const dist = resolve(root, 'dist')
+
+/**
+ * The three things a crawler needs and a template can lose silently: a title, one h1, and a
+ * canonical that names its own path — and enough text to be worth indexing.
+ */
+function checkPage(page) {
+  const problems = []
+  if (!/<title>[^<]{10,}<\/title>/.test(page.html)) problems.push('no title')
+  if ((page.html.match(/<h1[\s>]/g) ?? []).length !== 1) problems.push('not exactly one h1')
+  if (!page.html.includes(`rel="canonical" href="${SITE}${page.path}"`)) problems.push('canonical does not match path')
+  if (page.html.length < 4_000) problems.push(`only ${page.html.length} bytes`)
+  if (problems.length) throw new Error(`${page.path}: ${problems.join(', ')}`)
+}
 
 const vite = await createServer({
   root,
@@ -86,14 +99,7 @@ try {
   ]
 
   for (const page of pages) {
-    // Every page is checked for the three things a crawler needs and a template can lose
-    // silently: a title, one h1, and a canonical that names its own path.
-    const problems = []
-    if (!/<title>[^<]{10,}<\/title>/.test(page.html)) problems.push('no title')
-    if ((page.html.match(/<h1[\s>]/g) ?? []).length !== 1) problems.push('not exactly one h1')
-    if (!page.html.includes(`rel="canonical" href="${SITE}${page.path}"`)) problems.push('canonical does not match path')
-    if (page.html.length < 4_000) problems.push(`only ${page.html.length} bytes`)
-    if (problems.length) throw new Error(`${page.path}: ${problems.join(', ')}`)
+    checkPage(page)
 
     const dir = resolve(dist, `.${page.path}`)
     await mkdir(dir, { recursive: true })
@@ -101,7 +107,29 @@ try {
     console.log(`${page.path.padEnd(36)} ${(page.html.length / 1024).toFixed(1).padStart(6)} kB`)
   }
 
-  const paths = ['/', ...pages.map((p) => p.path)]
+  // The passes page is built by Vite, not rendered here, and gets the same checks — plus two of
+  // its own: the chrome placeholders were replaced, and its chunks carry none of the heavy ones.
+  const passesHtml = await readFile(resolve(dist, 'passes/index.html'), 'utf8')
+  checkPage({ path: '/passes/', html: passesHtml })
+  if (passesHtml.includes('<!--site-')) throw new Error('/passes/: the site header or footer was not injected')
+
+  const manifest = JSON.parse(await readFile(resolve(dist, '.vite/manifest.json'), 'utf8'))
+  const reached = new Set()
+  const walk = (key) => {
+    if (reached.has(key) || !manifest[key]) return
+    reached.add(key)
+    for (const next of [...(manifest[key].imports ?? []), ...(manifest[key].dynamicImports ?? [])]) walk(next)
+  }
+  walk('passes/index.html')
+  const heavy = [...reached].filter((key) =>
+    /three|lightstreamer|world-atlas|topojson|marine|StationView|draco/i.test(`${key} ${manifest[key].file}`),
+  )
+  if (heavy.length) throw new Error(`/passes/ pulls in ${heavy.join(', ')}`)
+  console.log(`${'/passes/'.padEnd(36)} ${(passesHtml.length / 1024).toFixed(1).padStart(6)} kB  ${reached.size} chunks, none heavy`)
+  // The manifest is a build artefact, not something to serve.
+  await rm(resolve(dist, '.vite'), { recursive: true, force: true })
+
+  const paths = ['/', '/passes/', ...pages.map((p) => p.path)]
   await writeFile(resolve(dist, 'sitemap.xml'), renderSitemap(paths))
   console.log(`sitemap.xml                          ${paths.length} URLs`)
 

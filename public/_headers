@@ -53,6 +53,14 @@
 /about/
   Cache-Control: public, max-age=0, must-revalidate
 
+/passes/
+  Cache-Control: public, max-age=0, must-revalidate
+
+# The city files change only when build:cities is rerun, which is rare; a week keeps repeat
+# searches free without pinning anyone to old data for long.
+/cities/*
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+
 /sitemap.xml
   Cache-Control: public, max-age=3600
 

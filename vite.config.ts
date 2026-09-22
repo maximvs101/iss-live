@@ -1,14 +1,32 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+import { fileURLToPath } from 'node:url'
+import { siteFooter, siteHeader } from './scripts/lib/render-pages.mjs'
+
+/*
+ * The passes page wears the same header and footer as the eight rendered pages, from the same
+ * function: a second copy of the navigation would drift the first time a page is added.
+ */
+function siteChrome(): Plugin {
+  return {
+    name: 'site-chrome',
+    transformIndexHtml(html, ctx) {
+      if (!ctx.path.startsWith('/passes/')) return html
+      return html.replace('<!--site-header-->', siteHeader('/passes/')).replace('<!--site-footer-->', siteFooter())
+    },
+  }
+}
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), siteChrome()],
   worker: {
     // satellite.js embeds a WebAssembly module whose worker uses top-level `await`. The default
     // iife format cannot compile that; the ES format can.
     format: 'es',
   },
   build: {
+    // Read by build-pages.mjs to prove the passes page pulls in nothing heavy, then deleted.
+    manifest: true,
     /*
      * The default 500 kB warning is raised rather than obeyed.
      *
@@ -19,6 +37,11 @@ export default defineConfig({
      */
     chunkSizeWarningLimit: 620,
     rolldownOptions: {
+      // Two documents: the console, and the passes page with its own small script.
+      input: {
+        main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        passes: fileURLToPath(new URL('./passes/index.html', import.meta.url)),
+      },
       output: {
         // Split the dependencies away from the application code.
         //
