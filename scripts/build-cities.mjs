@@ -2,20 +2,28 @@
  * The city list behind the search box on /passes/, from GeoNames.
  *
  * Run by hand, like build:marine, and the output is committed: the build never touches the network,
- * and a change in the data is a commit someone can read. GeoNames `cities15000` — every place over
- * 15,000 people — under CC BY 4.0, which asks for the attribution the page and /about/ carry.
+ * and a change in the data is a commit someone can read. GeoNames `cities15000`, kept above the population
+ * floor set below, under CC BY 4.0, which asks for the attribution the page and /about/ carry.
  *
  * One file per first letter, so the page fetches only the letter being typed, and a shared link
  * `?city=lyon-fr` only the "l" file.
  *
  * Usage: npm run build:cities            (downloads about 3 MB)
  */
-import { mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { gzipSync, inflateRawSync } from 'node:zlib'
 import { buildPackets, parseGeonamesLine } from './lib/cities-format.mjs'
 
 const SOURCE = 'https://download.geonames.org/export/dump/cities15000.zip'
 const OUT = new URL('../public/cities/', import.meta.url)
+/*
+ * GeoNames' floor is 15,000, but that is 34,000 places and a 105 kB file for the letter "s" alone —
+ * more than the whole page. The floor is set by what one letter costs a visitor, measured on
+ * 22 September 2026: at 25,000 the "s" file is still 70 kB; at 50,000 it is 38 kB and all 27 files
+ * come to 353 kB. A town below the floor has a listed neighbour within a few tens of kilometres,
+ * which moves a pass by seconds, and "Use my location" covers everyone.
+ */
+const MIN_POPULATION = Number(process.env.MIN_POPULATION ?? 50_000)
 
 /** The one file in a zip archive, read through the central directory. No dependency needed. */
 function unzipOnly(buffer) {
@@ -34,17 +42,24 @@ function unzipOnly(buffer) {
   throw new Error(`zip method ${method} not supported`)
 }
 
-const response = await fetch(SOURCE)
-if (!response.ok) throw new Error(`${SOURCE}: HTTP ${response.status}`)
-const text = unzipOnly(Buffer.from(await response.arrayBuffer()))
+// Kept in .cache/ so that trying another population floor does not download the archive again.
+const CACHE = new URL('../.cache/cities15000.zip', import.meta.url)
+if (!existsSync(CACHE)) {
+  const response = await fetch(SOURCE)
+  if (!response.ok) throw new Error(`${SOURCE}: HTTP ${response.status}`)
+  mkdirSync(new URL('./', CACHE), { recursive: true })
+  writeFileSync(CACHE, Buffer.from(await response.arrayBuffer()))
+}
+const text = unzipOnly(readFileSync(CACHE))
 const cities = text
   .split('\n')
   .filter(Boolean)
   .map(parseGeonamesLine)
   .filter((c) => c.name && Number.isFinite(c.latitude) && Number.isFinite(c.longitude) && c.timeZone)
+  .filter((c) => c.population >= MIN_POPULATION)
 
 // A truncated download or a changed format would otherwise ship a short list without a word.
-if (cities.length < 20_000) throw new Error(`only ${cities.length} cities parsed — expected about 26,000`)
+if (cities.length < 5_000) throw new Error(`only ${cities.length} cities parsed — the download is short or the format changed`)
 
 const packets = buildPackets(cities)
 const slugs = new Set()
