@@ -8,6 +8,14 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="stylesheet" href="/pages.css" />
+    <script>
+      // Before the first paint: a place is on its way (a ?city= link, or one remembered), so the
+      // list's room is held now rather than pushed in under the text later. PassesApp lets it go.
+      try {
+        if (/[?&]city=/.test(location.search) || localStorage.getItem('iss-live.passes-place'))
+          document.documentElement.classList.add('passes-expecting')
+      } catch (e) {}
+    </script>
     <title>When to see the ISS — visible passes over your city — ISS Live</title>
     <meta
       name="description"

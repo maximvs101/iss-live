@@ -87,6 +87,28 @@ describe('PassesApp', () => {
     await screen.findByText(/None of the next \d+ passes can be seen from Tromsø, Norway/)
   })
 
+  it('holds a screen of room while a known place loads, so the text below does not jump', async () => {
+    // Lighthouse measured 0.449 of layout shift on /passes/?city=paris-fr: the list arrived after
+    // load and pushed every paragraph under it down the screen. The room is claimed before the first
+    // paint by a class the page's head sets on <html>; the app lets it go once the list is there.
+    document.documentElement.classList.add('passes-expecting')
+    let release: (e: OrbitalElements) => void = () => {}
+    const slow = () => new Promise<OrbitalElements>((resolve) => (release = resolve))
+    render(<PassesApp loadElements={slow} clock={clock} storage={memoryStorage()} search="?city=paris-fr" geolocation={null} fetcher={fetcher} />)
+    await screen.findByText('Paris, France')
+    expect(document.documentElement.classList.contains('passes-expecting')).toBe(true)
+    release(elements)
+    await screen.findAllByRole('button', { name: /Add the .* pass to your calendar/ })
+    expect(document.documentElement.classList.contains('passes-expecting')).toBe(false)
+  })
+
+  it('lets the room go when a link names no known city', async () => {
+    document.documentElement.classList.add('passes-expecting')
+    render(<PassesApp loadElements={loadElements} clock={clock} storage={memoryStorage()} search="?city=atlantis-xx" geolocation={null} fetcher={fetcher} />)
+    await screen.findByText(/not one we know/)
+    expect(document.documentElement.classList.contains('passes-expecting')).toBe(false)
+  })
+
   it('works with storage blocked', async () => {
     render(
       <PassesApp loadElements={loadElements} clock={clock} storage={null} search="?city=paris-fr" geolocation={null} fetcher={fetcher} />,

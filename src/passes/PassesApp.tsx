@@ -50,6 +50,8 @@ export function PassesApp({
   const [notice, setNotice] = useState<string | null>(null)
   const [shared, setShared] = useState(false)
   const [now, setNow] = useState(clock)
+  // A place is on its way — from the link or from memory — and the page should not know it yet.
+  const [awaiting, setAwaiting] = useState(() => initialChoice(search, storage) !== null)
 
   useEffect(() => {
     let live = true
@@ -72,6 +74,7 @@ export function PassesApp({
     if (!choice) return
     resolveChoice(choice, fetcher).then((resolved) => {
       if (!live) return
+      setAwaiting(false)
       if (resolved) setPlace(resolved)
       else if (choice.source === 'url') setNotice('That city link is not one we know. Search for the city instead.')
     })
@@ -117,6 +120,18 @@ export function PassesApp({
       // Dismissed by the visitor: nothing to report.
     }
   }
+
+  /*
+   * A screen's height held while a known place and its passes load. Without it the list arrived
+   * after the first paint and pushed every paragraph below it down: Lighthouse measured 0.449 of
+   * layout shift on /passes/?city=paris-fr. The room has to exist before the first paint, so the
+   * page's head claims it with a class on <html>; this lets it go once there is nothing to wait
+   * for. The list, once there, is taller than a screen, so letting go moves nothing.
+   */
+  const pending = awaiting || (place !== null && passes === null)
+  useEffect(() => {
+    if (!pending) document.documentElement.classList.remove('passes-expecting')
+  }, [pending])
 
   const age = elements ? elementsAgeHours(elements, now) : null
   const stale = elements !== null && (elements.source === 'secours' || (age ?? 0) > 72)

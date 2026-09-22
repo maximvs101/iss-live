@@ -16,6 +16,19 @@
   margin: 20px 0 32px;
 }
 
+/*
+ * Room claimed before the first paint, so nothing below moves when the tool arrives: the height of
+ * the location bar always, and a whole screen when a place is on its way (set in the page's head,
+ * let go by PassesApp — see `pending` there).
+ */
+#passes-app {
+  min-height: 38px;
+}
+
+.passes-expecting #passes-app {
+  min-height: 100svh;
+}
+
 .locate {
   display: flex;
   flex-wrap: wrap;
