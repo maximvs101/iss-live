@@ -17,6 +17,7 @@
     "preview": "vite preview",
     "build:catalog": "node scripts/build-catalog.mjs",
     "build:marine": "node scripts/build-marine.mjs",
+    "build:cities": "node scripts/build-cities.mjs",
     "audit:photos": "node --experimental-strip-types scripts/audit-photos.mjs",
     "analyse:offset": "node --experimental-strip-types scripts/analyse-array-offset.mjs",
     "sample:orbit": "node scripts/sample-orbit.mjs",
