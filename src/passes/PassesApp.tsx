@@ -24,6 +24,14 @@ import {
   type Place,
 } from './place.ts'
 
+/*
+ * Past this, no times are shown at all. The drift of a set of elements grows with its age, and the
+ * built-in set dates from late July: on a first visit with Celestrak unreachable, two months on,
+ * it gave minute-precise times under a note that they "can move by minutes". Up to three days the
+ * age is shown plainly, from three it is shown in amber, and from fourteen the list gives way.
+ */
+const MAX_ELEMENTS_AGE_HOURS = 14 * 24
+
 export interface PassesAppProps {
   loadElements?: () => Promise<OrbitalElements>
   clock?: () => number
@@ -90,12 +98,14 @@ export function PassesApp({
     }
   }, [search, storage, fetcher])
 
+  const age = elements ? elementsAgeHours(elements, now) : null
+  const tooOld = age !== null && age > MAX_ELEMENTS_AGE_HOURS
   const passes = useMemo(
     () =>
-      elements && place
+      elements && place && !tooOld
         ? findPasses(positionFrom(elements.satrec), place.kind === 'city' ? place.city : place, new Date(now))
         : null,
-    [elements, place, now],
+    [elements, place, now, tooOld],
   )
 
   const choose = (next: Place) => {
@@ -135,12 +145,11 @@ export function PassesApp({
    * page's head claims it with a class on <html>; this lets it go once there is nothing to wait
    * for. The list, once there, is taller than a screen, so letting go moves nothing.
    */
-  const pending = awaiting || (place !== null && passes === null)
+  const pending = awaiting || (place !== null && passes === null && !tooOld)
   useEffect(() => {
     if (!pending) document.documentElement.classList.remove('passes-expecting')
   }, [pending])
 
-  const age = elements ? elementsAgeHours(elements, now) : null
   const stale = elements !== null && (elements.source === 'secours' || (age ?? 0) > 72)
 
   return (
@@ -172,6 +181,13 @@ export function PassesApp({
 
       {place && !elements && <p className="note">Loading the station’s orbit…</p>}
       {place && passes && <PassList passes={passes} place={place} now={now} />}
+      {place && tooOld && (
+        <p className="passes__notice" role="status">
+          The station’s orbital elements in hand are {Math.round(age! / 24)} days old — too old to give the times of
+          passes: the station will be minutes away from where they put it. The current set could not be fetched; try
+          again later.
+        </p>
+      )}
 
       {elements && age !== null && (
         <p className={stale ? 'passes__age passes__age--stale' : 'passes__age'}>

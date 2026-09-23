@@ -86,6 +86,17 @@ describe('PassesApp', () => {
     expect(document.documentElement.classList.contains('passes-expecting')).toBe(false)
   })
 
+  it('shows no times at all from elements too old to give them', async () => {
+    // The built-in set dates from late July. If the current one cannot be fetched on a first visit,
+    // two months later, minute-precise times came out of it under a note saying they "can move by
+    // minutes" — when the drift is by then far larger.
+    const old = async (): Promise<OrbitalElements> => ({ ...elements, source: 'secours' })
+    const twoMonthsOn = () => Date.parse('2026-09-23T00:00:00Z')
+    render(<PassesApp loadElements={old} clock={twoMonthsOn} storage={memoryStorage()} search="?city=paris-fr" geolocation={null} fetcher={fetcher} />)
+    await screen.findByText(/too old to give the times of passes/)
+    expect(screen.queryAllByRole('button', { name: /Add the .* pass to your calendar/ })).toHaveLength(0)
+  })
+
   // Review focus 2, at the page
   it('explains a week with nothing to see', async () => {
     const tromso: Fetcher = async () => ({
