@@ -241,7 +241,11 @@ function buildPass(position: Position, observer: Observer, rise: Sample, set: Sa
 }
 
 export function findPasses(position: Position, observer: Observer, from: Date, days = 5): Pass[] {
-  const start = from.getTime() - LOOKBACK_MINUTES * 60_000
+  // On absolute multiples of the step, not on "now": the bisections start from the grid, so a grid
+  // that moved with the clock moved every instant found with it — by the milliseconds a timer
+  // drifts, enough to re-key the whole list and close an open sky chart once a minute.
+  const step = STEP_SECONDS * 1000
+  const start = Math.floor((from.getTime() - LOOKBACK_MINUTES * 60_000) / step) * step
   const end = from.getTime() + days * 86_400_000
   const passes: Pass[] = []
   let previous = sampleAt(position, observer, new Date(start))

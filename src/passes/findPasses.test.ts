@@ -111,6 +111,17 @@ describe('findPasses', () => {
     }
   })
 
+  it('finds the same instants whatever millisecond it is asked at', () => {
+    // The list keys each pass on its rise instant, and recomputes every minute on a timer that
+    // drifts by milliseconds. With the sampling grid anchored on "now", a drift of 7 ms moved every
+    // rise by 7 ms, re-keyed the whole list, and closed the sky chart someone had open.
+    const a = findPasses(position, PARIS, FROM, 1)
+    const b = findPasses(position, PARIS, new Date(FROM.getTime() + 60_007), 1)
+    const rises = new Set(a.map((p) => p.rise.date.getTime()))
+    const shared = b.filter((p) => rises.has(p.rise.date.getTime()))
+    expect(shared.length).toBeGreaterThanOrEqual(b.length - 1)
+  })
+
   // Review focus 1
   it('keeps a pass already in progress', () => {
     const first = passes[3]
