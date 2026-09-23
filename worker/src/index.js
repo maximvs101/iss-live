@@ -16,6 +16,7 @@
  * This runs as its own Worker, deliberately apart from the Pages project. The site stays a static
  * artefact with no server behind it; this is a sibling in the same account.
  */
+import { STATUS_HEADERS, status } from './status.js'
 
 const BASE = 'https://push.lightstreamer.com/lightstreamer'
 const TLCP = 'LS_protocol=TLCP-2.5.0'
@@ -487,6 +488,10 @@ export default {
 
   async fetch(request, env) {
     const url = new URL(request.url)
+    // For the home page: is NASA broadcasting? See status.js.
+    if (url.pathname === '/status') {
+      return Response.json(await status(env), { headers: STATUS_HEADERS })
+    }
     if (url.pathname === '/report') {
       return Response.json(await report(env), {
         headers: { 'cache-control': 'public, max-age=60' },

@@ -40,3 +40,7 @@ CREATE TABLE IF NOT EXISTS carried (
   held TEXT NOT NULL,                 -- JSON {pui: value}
   at   TEXT NOT NULL
 );
+
+-- The last minute the station pushed anything, read by /status for the home page. Partial, so the
+-- read is one row however long the broadcast has been silent.
+CREATE INDEX IF NOT EXISTS liveness_live ON liveness(at) WHERE pushes > 0;
