@@ -10,8 +10,8 @@ export interface BroadcastStatus {
   lastLive: string | null
 }
 
-/** The collector's public address, set once the Worker with /status is deployed. Until then: no line. */
-export const STATUS_URL: string | null = null
+/** The collector's /status, deployed 23 September 2026. Set to null to take the line off the page. */
+export const STATUS_URL: string | null = 'https://iss-collector.mjoly-pm.workers.dev/status'
 
 export async function fetchStatus(
   url: string | null = STATUS_URL,

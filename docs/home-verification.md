@@ -70,11 +70,12 @@ failed first:
 - The next pass was computed once; a tab left open announced a past pass as the next one. It is
   recomputed as soon as the announced pass is over.
 
-## Still to do, and needing approval
+## Deployed
 
-- The D1 partial index, from `worker/`: `npx wrangler d1 execute iss-collector --remote --file
-  migrations/0002_liveness_live.sql`. **Never `schema.sql`** against the running database: it begins
-  by dropping the tables.
-- The Worker with `/status` (`npx wrangler deploy` from `worker/`), then `STATUS_URL` in
-  `src/home/status.ts` set to its address — until then the home page leaves the NASA line out.
-- Request indexing of `/` and `/console/` in Search Console after the deploy.
+On 23 September 2026: the partial index (`migrations/0002_liveness_live.sql`; `EXPLAIN QUERY PLAN`
+reads "SCAN liveness USING INDEX liveness_live", the table's 55,256 rows intact), the Worker with
+`/status` (`https://iss-collector.mjoly-pm.workers.dev/status`, answering
+`{"live":false,"lastLive":"2026-09-14T14:14:20.527Z",…}` with the site as its allowed origin and a
+minute's cache), then `STATUS_URL` and the site.
+
+Still to do: request indexing of `/`, `/console/` and `/telemetry/` in Search Console.
