@@ -66,12 +66,17 @@ code {
 
 /* --- Header and footer, shared by every page --- */
 
+/*
+ * The same bar as the console's (.app__navbar in src/App.css), to the pixel: 33 px, the brand at
+ * the same place. It was 57 px here and 33 there, and the brand moved 8 px sideways between the
+ * two — the console's is the slim one because every pixel of it comes out of the readings.
+ */
 .site {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 8px 22px;
-  padding: 14px 24px;
+  gap: 4px 18px;
+  padding: 3px 16px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-panel);
 }
@@ -79,6 +84,7 @@ code {
 .site__brand {
   font-size: 16px;
   font-weight: 600;
+  line-height: 24px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   text-decoration: none;
@@ -88,20 +94,24 @@ code {
 .site__nav {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 18px;
+  gap: 4px 16px;
   font-size: 12px;
 }
 
+/* 24 px tall: the WCAG target size. */
 .site__nav a {
+  display: inline-block;
+  min-height: 24px;
+  line-height: 24px;
   color: var(--text-dim);
   text-decoration: none;
-  padding: 4px 0;
 }
 
+/* The page itself, and the section a subsystem page belongs to (aria-current="true"). */
 .site__nav a:hover,
-.site__nav a[aria-current='page'] {
+.site__nav a[aria-current] {
   color: var(--text-strong);
-  box-shadow: inset 0 -2px 0 var(--text-dim);
+  box-shadow: inset 0 -1px 0 var(--text-dim);
 }
 
 .site__foot {
@@ -299,10 +309,6 @@ h2 {
 }
 
 @media (max-width: 600px) {
-  .site {
-    padding: 12px 16px;
-  }
-
   .page {
     width: min(100% - 32px, 76ch);
     padding-top: 24px;
