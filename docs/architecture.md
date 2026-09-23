@@ -1169,3 +1169,34 @@ The room is claimed before the first paint by a script in the page's head, which
 script never arrives, the head script gives the room back itself after eight seconds.
 
 Verified against Skyfield by `npm run verify:passes`; see `docs/passes-verification.md`.
+
+### The home page and the site's bar
+
+The console was the home page, and the pages that explain it were reached through a "Read about it"
+block at the foot of its side column, out of sight on an ordinary screen. `/` is now a home page
+of its own — a third Vite entry — and the console lives at `/console/`, its code unchanged.
+
+**One bar, one list.** `src/site/nav.ts` holds the five entries (Console, When to see it, The
+station, Systems, How it works). `scripts/lib/render-pages.mjs` imports it for every rendered page
+and the Vite plugin in `vite.config.ts` for the home and passes pages; the console draws the same
+list in React (`SiteNav`), on its own row above its header. Systems leads to `/telemetry/`, which
+lists the six subsystem pages the bar used to carry one by one.
+
+**Old links.** `/?part=cupola` — bookmarks, shares, search results from when the console was the
+home page — is sent to `/console/?part=cupola` by the first script in the home page's head, before
+anything is drawn: Cloudflare Pages cannot redirect on a query parameter.
+
+**The home page.** Its HTML carries the text and the final shape of its live part, so nothing moves
+when the script arrives. The world map is drawn once at build (`npm run build:home-map`, from the
+same Natural Earth outlines as the console map); the browser adds the track and the station from
+the orbital elements. The name of the place overflown loads after the first paint (the countries
+atlas and the marine areas); until then, and if it never comes, the position is given in
+coordinates. The next pass reads the city `/passes/` remembered. Whether NASA is broadcasting comes
+from the collector's `/status` — two one-row reads, the first through a partial index on the
+minutes the station spoke — and the line is simply absent if that address does not answer.
+
+**The console's side column.** Data freshness and Next orbit fold, closed by default with their
+essential figure in the summary line, and are remembered open or closed (`useFold`).
+
+Measured in `docs/home-verification.md`.
+
