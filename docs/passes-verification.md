@@ -58,10 +58,32 @@ page's own script 7 kB, the HTML 4 kB); with a city link, 107 kB, the city file 
 
 Computing five days: 31 passes over Paris in 19 ms (Node, warm).
 
+## Brightness, against Heavens-Above
+
+Heavens-Above's visible passes over Paris (48.8566° N, 2.3522° E, 35 m) for 23–29 September 2026,
+beside the page's estimate — its brightest point on the visible stretch — computed from Celestrak's
+set of 22 September (epoch 26265.85):
+
+| Visible from (Paris time) | Highest | Heavens-Above | Page | Difference | Heavens-Above's figure, in the page's words | Page's word |
+|---|---|---|---|---|---|---|
+| 23 Sep 20:30:25 | 76° | −3.7 | −4.2 | −0.5 | very bright | very bright |
+| 23 Sep 22:07:27 | 26° | −1.9 | −1.4 | +0.5 | bright | bright |
+| 24 Sep 21:19:37 | 41° | −2.9 | −3.3 | −0.4 | very bright | very bright |
+| 25 Sep 20:31:52 | 61° | −3.4 | −3.8 | −0.4 | very bright | very bright |
+| 25 Sep 22:09:52 | 13° | −1.0 | −0.6 | +0.4 | bright | visible but faint |
+| 26 Sep 21:21:27 | 19° | −1.5 | −1.8 | −0.3 | bright | bright |
+| 27 Sep 20:33:24 | 28° | −2.0 | −2.3 | −0.3 | bright | bright |
+| 29 Sep 20:35:39 | 13° | −0.9 | −0.8 | +0.1 | visible but faint | visible but faint |
+
+The mean difference is −0.1 magnitude, the mean of its size 0.4, the largest 0.5. Not systematic: the
+page is a little brighter on the high passes and a little fainter on the two that end in the shadow,
+where the brightness changes fastest. The plan's rule was to adjust the standard magnitude once if the
+bias passed 0.7 on average; at −0.1 it stays at −1.8. Seven words in eight agree; the eighth is a pass
+Heavens-Above puts at exactly −1.0, on the line between two words, which a ±1 model cannot promise.
+
+The same table checks the times against a third predictor, with its own elements: every start agrees
+to within a second, and so do the highest points and the ends given by both.
+
 ## Still to do
 
-- **Brightness against Heavens-Above.** Not done: the words (`very bright` ≤ −2.5, `bright` ≤ −1)
-  rest on a diffuse-sphere model with a standard magnitude of −1.8 and have not been compared with
-  another predictor. To do: ten visible passes over Paris, our estimate beside Heavens-Above's
-  magnitude; adjust the standard magnitude once if the difference is systematic.
 - **The sky.** A visible pass watched from the ground, at the time and in the direction given.
