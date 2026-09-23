@@ -54,8 +54,10 @@ export function PassList({ passes, place, now }: { passes: Pass[]; place: Place;
     <ol className="passes__list">
       {upcoming.map((pass) => {
         const id = pass.rise.date.toISOString()
-        const day = formatDay(pass.rise.date, tz, today)
         const v = pass.visible
+        // Dated by the part that can be seen: a pass rising at 23:59 and seen from 00:00 belongs to
+        // the next day, whose times it shows.
+        const day = formatDay(v ? v.start.date : pass.rise.date, tz, today)
         if (!v) {
           return (
             <li key={id} className="pass pass--off">
