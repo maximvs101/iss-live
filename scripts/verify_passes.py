@@ -1,9 +1,10 @@
 """Recompute every pass with Skyfield and compare with the page's finder.
 
 Criteria (from the spec): same passes; rise, culmination and set within 10 s; maximum elevation
-within 0.5 deg; same visible/invisible call. A call that differs on a pass sitting within 0.5 deg
-of a threshold is reported as marginal, not as a failure: two correct implementations can
-legitimately fall either side of a line they both straddle.
+within 0.5 deg; same visible/invisible call, where visible also means seen for at least a minute.
+A call that flips when the thresholds move by their tolerance (0.5 deg, 10 s) is reported as
+marginal, not as a failure: two correct implementations can legitimately fall either side of a
+line they both straddle.
 """
 import json
 import sys
@@ -15,6 +16,7 @@ TOL_S = 10
 TOL_DEG = 0.5
 MIN_EL = 10
 DARK_SUN = -6
+MIN_SECONDS = 60  # a pass seen for less is not called visible, as on the page
 
 data = json.load(open(sys.argv[1], encoding="utf-8"))
 load = Loader(".cache/skyfield")
@@ -53,14 +55,23 @@ def reference_passes(site):
         sat_alt = (sat - place).at(grid).altaz()[0].degrees
         sun_alt = observer.at(grid).observe(eph["sun"]).apparent().altaz()[0].degrees
         lit = sat.at(grid).is_sunlit(eph)
+        seconds_at = (grid - p["rise"]) * 86400
+
+        def seen_for(mask):
+            # First to last visible sample, as the page measures it; nothing visible is 0.
+            return float(seconds_at[mask][-1] - seconds_at[mask][0]) if mask.any() else 0.0
+
+        def called_visible(mask, minimum=MIN_SECONDS):
+            return mask.any() and seen_for(mask) >= minimum
+
         ok = (sat_alt >= MIN_EL) & (sun_alt <= DARK_SUN) & lit
-        p["visible"] = bool(ok.any())
-        # Marginal means the verdict itself flips when both thresholds move by the tolerance — not
+        p["visible"] = called_visible(ok)
+        # Marginal means the verdict itself flips when the thresholds move by the tolerance — not
         # that the track comes near 10 deg somewhere, which every pass above 10 deg does twice, and
         # which made every disagreement "marginal" in the first version: the check could not fail.
         loose = (sat_alt >= MIN_EL - TOL_DEG) & (sun_alt <= DARK_SUN + TOL_DEG) & lit
         strict = (sat_alt >= MIN_EL + TOL_DEG) & (sun_alt <= DARK_SUN - TOL_DEG) & lit
-        p["marginal"] = bool(loose.any()) != bool(strict.any())
+        p["marginal"] = called_visible(loose, MIN_SECONDS - TOL_S) != called_visible(strict, MIN_SECONDS + TOL_S)
     return passes
 
 

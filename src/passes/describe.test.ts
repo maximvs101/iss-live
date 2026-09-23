@@ -53,6 +53,7 @@ describe('summarise and reasonText', () => {
   it('gives the reason in words', () => {
     expect(reasonText({ ...pass, visible: null, reason: 'daylight' })).toBe('daylight')
     expect(reasonText({ ...pass, visible: null, reason: 'shadow' })).toBe('in the Earth’s shadow')
+    expect(reasonText({ ...pass, visible: null, reason: 'brief' })).toBe('seen for under a minute')
     expect(
       reasonText({ ...pass, visible: null, reason: 'low', culmination: at('2026-09-22T18:17:00Z', 330, 7.6) }),
     ).toBe('too low, 8°')

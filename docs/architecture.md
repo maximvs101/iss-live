@@ -1152,7 +1152,8 @@ The header and footer are the eight rendered pages' own, injected by a small Vit
 Everything is computed in the browser (`src/passes/`): `findPasses` samples every 30 s over five
 days and refines rises, sets and the visible stretch by bisection — 31 passes over Paris in 19 ms,
 so no worker. A pass is visible where the station is at least 10° up, the Sun at least 6° below the
-observer's horizon, and the station out of the Earth's shadow. A pass can be seen in two stretches
+observer's horizon, and the station out of the Earth's shadow — for at least a minute, or a
+glimpse of seconds at the shadow's edge sends someone outside for nothing. A pass can be seen in two stretches
 either side of the shadow's edge; the peak and the brightness come from the visible samples only.
 
 Cities come from GeoNames `cities15000` (CC BY 4.0), prepared once by `npm run build:cities` into

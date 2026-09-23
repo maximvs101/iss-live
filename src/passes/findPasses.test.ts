@@ -3,6 +3,7 @@ import { twoline2satrec } from 'satellite.js'
 import {
   DARK_SUN_DEGREES,
   MIN_ELEVATION_DEGREES,
+  MIN_VISIBLE_SECONDS,
   findPasses,
   positionFrom,
   sampleAt,
@@ -71,6 +72,17 @@ describe('findPasses', () => {
         for (const s of dark) expect(s.sunlit).toBe(false)
       }
     }
+  })
+
+  it('calls nothing visible that is seen for less than a minute', () => {
+    // Over Paris one evening the finder offered a pass visible for seconds, at 10° exactly and
+    // faint, before the shadow took it: true by the three conditions, and a walk outside for nothing.
+    expect(MIN_VISIBLE_SECONDS).toBe(60)
+    for (const p of passes.filter((x) => x.visible)) {
+      expect(p.visible!.end.date.getTime() - p.visible!.start.date.getTime()).toBeGreaterThanOrEqual(60_000)
+    }
+    const brief = findPasses(position, PARIS, FROM, 5).filter((p) => p.reason === 'brief')
+    for (const p of brief) expect(p.track.some((s) => s.visible)).toBe(true)
   })
 
   // Review focus 1

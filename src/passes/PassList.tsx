@@ -27,6 +27,7 @@ export function PassList({ passes, place, now }: { passes: Pass[]; place: Place;
       count('daylight') && `${count('daylight')} in daylight`,
       count('shadow') && `${count('shadow')} in the Earth’s shadow`,
       count('low') && `${count('low')} too low`,
+      count('brief') && `${count('brief')} seen for under a minute`,
     ].filter(Boolean)
     return (
       <p className="passes__summary">

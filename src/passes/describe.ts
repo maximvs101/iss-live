@@ -40,6 +40,8 @@ export function reasonText(pass: Pass): string {
       return 'daylight'
     case 'shadow':
       return `in ${SHADOW}`
+    case 'brief':
+      return 'seen for under a minute'
     case 'low':
       return `too low, ${Math.round(pass.culmination.elevation)}°`
     default:

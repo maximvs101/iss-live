@@ -94,7 +94,7 @@ Lever, culmination et coucher affinés par dichotomie à la seconde.
 - observateur dans la nuit — Soleil à ≤ −6° sous l'horizon du lieu ;
 - assez haut — hauteur ≥ 10°.
 
-Un passage est **visible** si une partie de sa trajectoire réunit les trois conditions. Les heures,
+Un passage est **visible** si une partie de sa trajectoire réunit les trois conditions **pendant au moins une minute** (décision de l'utilisateur, 23 septembre 2026 : un passage vu quelques secondes à 10° au bord de l'ombre fait sortir pour rien ; raison affichée `seen for under a minute`). Les heures,
 directions et la carte du ciel décrivent la **partie visible** ; un passage partiellement visible
 le dit (« becomes visible at 20:16 », « ends in shadow at 21:05 »). Un passage invisible porte sa
 raison dominante : `daylight`, `in shadow`, `too low`.

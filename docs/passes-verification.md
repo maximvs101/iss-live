@@ -13,11 +13,13 @@ Nothing is shared but the element set. The script fails on any of:
 - a pass one side finds and the other does not;
 - rise, culmination or set more than 10 s apart;
 - maximum elevation more than 0.5° apart;
-- a different visible / not-visible call, unless the call itself flips when both thresholds
-  (10° elevation, −6° Sun) move by 0.5° — reported as *marginal*.
+- a different visible / not-visible call — visible meaning high enough, lit, under a dark sky, and
+  for at least a minute — unless the call itself flips when the thresholds (10° elevation, −6° Sun,
+  60 s) move by their tolerance, 0.5° and 10 s — reported as *marginal*.
 
-Result on 22 September 2026, Celestrak's current set:
-`155 passes checked over 6 sites, 1 marginal, 0 failure(s)`.
+Result on 23 September 2026, Celestrak's current set:
+`157 passes checked over 6 sites, 0 marginal, 0 failure(s)`. With the minute rule removed from the
+Skyfield side only, 4 failures: the rule is checked, not assumed.
 
 It can fail. With the elevation threshold deliberately set to 15°:
 `155 passes checked over 6 sites, 2 marginal, 4 failure(s)`, exit 1. The first version of the

@@ -25,6 +25,12 @@ export const TRACK_STEP_SECONDS = 10
 export const DARK_SUN_DEGREES = -6
 export const MIN_ELEVATION_DEGREES = 10
 export const LOOKBACK_MINUTES = 15
+/*
+ * Shorter than this, a pass is not called visible. The three conditions alone offered, over Paris,
+ * a pass seen for seconds at exactly 10° and faint, before the shadow took it — true, and a walk
+ * outside for nothing. A minute is what it takes to find a moving point and know it is the station.
+ */
+export const MIN_VISIBLE_SECONDS = 60
 
 const AU_KM = 149_597_870.7
 const DEG = 180 / Math.PI
@@ -59,7 +65,7 @@ export interface VisiblePart {
   startsLate: boolean
   endsInShadow: boolean
 }
-export type Reason = 'daylight' | 'shadow' | 'low'
+export type Reason = 'daylight' | 'shadow' | 'low' | 'brief'
 export interface Pass {
   rise: SkyPoint
   culmination: SkyPoint
@@ -204,7 +210,9 @@ function buildPass(position: Position, observer: Observer, rise: Sample, set: Sa
     const peak = inside.reduce((a, b) => (b.elevation > a.elevation ? b : a))
     const before = first > 0 ? samples[first - 1] : null
     const after = last < samples.length - 1 ? samples[last + 1] : null
-    visible = {
+    if (end.date.getTime() - start.date.getTime() < MIN_VISIBLE_SECONDS * 1000) {
+      reason = 'brief'
+    } else visible = {
       start: { ...toPoint(start), visible: true },
       peak: toPoint(peak),
       end: { ...toPoint(end), visible: true },
