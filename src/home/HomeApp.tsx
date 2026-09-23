@@ -78,6 +78,9 @@ export function HomeApp({
     }
   }, [loadElements, loadPlaceNames, loadStatus, clock])
 
+  // Recomputed when the announced pass is over, not only when the elements arrive: a tab left open
+  // went on announcing, as the next one, a pass that had already happened.
+  const passOver = next?.kind === 'pass' && next.pass.visible!.end.date.getTime() < now
   useEffect(() => {
     if (!elements) return
     let live = true
@@ -87,7 +90,7 @@ export function HomeApp({
     return () => {
       live = false
     }
-  }, [elements, storage, fetcher, clock])
+  }, [elements, storage, fetcher, clock, passOver])
 
   /*
    * The same age rule as /passes/. The built-in elements date from late July: on a first visit with
