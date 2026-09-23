@@ -20,9 +20,17 @@ describe('status', () => {
     expect(await status(env, NOW)).toEqual({ live: false, lastLive: '2026-09-14T14:14:20Z', checkedAt: '2026-09-23T11:59:12Z' })
   })
 
+  it('does not know, rather than say NASA is silent, when the collector itself has stopped', async () => {
+    // The cron stopped on the 21st while NASA went on broadcasting: "silent since 21 Sept" on the
+    // home page would have been the collector's silence passed off as the station's.
+    const env = { DB: db({ live: { at: '2026-09-21T12:00:00Z' }, last: { at: '2026-09-21T12:00:00Z' } }) }
+    expect(await status(env, NOW)).toEqual({ live: null, lastLive: '2026-09-21T12:00:00Z', checkedAt: '2026-09-21T12:00:00Z' })
+  })
+
   it('says so when it never spoke', async () => {
-    const env = { DB: db({ live: null, last: null }) }
-    expect(await status(env, NOW)).toEqual({ live: false, lastLive: null, checkedAt: null })
+    const env = { DB: db({ live: null, last: { at: '2026-09-23T11:59:12Z' } }) }
+    expect(await status(env, NOW)).toEqual({ live: false, lastLive: null, checkedAt: '2026-09-23T11:59:12Z' })
+    expect(await status({ DB: db({ live: null, last: null }) }, NOW)).toEqual({ live: null, lastLive: null, checkedAt: null })
   })
 
   it('may be read by the site, and cached for a minute', () => {

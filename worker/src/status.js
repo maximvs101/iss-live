@@ -17,9 +17,14 @@ export async function status(env, now = Date.now()) {
   const live = await env.DB.prepare('SELECT at FROM liveness WHERE pushes > 0 ORDER BY at DESC LIMIT 1').first()
   const last = await env.DB.prepare('SELECT at FROM liveness ORDER BY at DESC LIMIT 1').first()
   const lastLive = live?.at ?? null
+  const checkedAt = last?.at ?? null
+  // Only the collector's own recent run can say anything. If it has stopped — or never ran — the
+  // broadcast's state is unknown, and `live: null` makes the home page leave the line out rather
+  // than pass the collector's silence off as NASA's.
+  const collecting = checkedAt !== null && now - Date.parse(checkedAt) <= LIVE_WITHIN_MS
   return {
-    live: lastLive !== null && now - Date.parse(lastLive) <= LIVE_WITHIN_MS,
+    live: collecting ? lastLive !== null && now - Date.parse(lastLive) <= LIVE_WITHIN_MS : null,
     lastLive,
-    checkedAt: last?.at ?? null,
+    checkedAt,
   }
 }
