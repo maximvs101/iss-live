@@ -6,7 +6,7 @@
  * answer is not in doubt.
  */
 import { beforeAll, describe, expect, it } from 'vitest'
-import { marineReady, overflightAt } from './overflight'
+import { marineReady, overflightAt, overflightLabel } from './overflight'
 
 // The sea outlines load as their own chunk so they stay out of the first paint. Every sea
 // assertion below would otherwise race that import and read "not known yet".
@@ -123,5 +123,13 @@ describe('robustness', () => {
     // in the middle of three countries and is a hole in all of them.
     const result = at(-1.2, 33.0)
     expect(result.name.length).toBeGreaterThan(0)
+  })
+})
+
+describe('overflightLabel', () => {
+  it('names a country bare, a sea with its article, and open water as such', () => {
+    expect(overflightLabel({ name: 'France', kind: 'country' })).toBe('France')
+    expect(overflightLabel({ name: 'South Atlantic Ocean', kind: 'marine' })).toBe('the South Atlantic Ocean')
+    expect(overflightLabel({ name: 'open water', kind: 'water' })).toBe('open water')
   })
 })

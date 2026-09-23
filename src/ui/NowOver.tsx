@@ -18,7 +18,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useOrbitStore } from '../orbit/useOrbit'
-import { marineReady, overflightAt } from '../orbit/overflight'
+import { marineReady, overflightAt, overflightLabel } from '../orbit/overflight'
 
 export function NowOver() {
   const state = useOrbitStore((store) => store.state)
@@ -54,13 +54,7 @@ export function NowOver() {
    *
    * "the" for water and not for land: "over the Black Sea", "over France".
    */
-  const label = !overflight
-    ? '—'
-    : overflight.kind === 'country'
-      ? overflight.name
-      : overflight.kind === 'water'
-        ? 'open water'
-        : `the ${overflight.name}`
+  const label = overflight ? overflightLabel(overflight) : '—'
 
   const source =
     overflight?.kind === 'water'

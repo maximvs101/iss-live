@@ -196,3 +196,13 @@ export function overflightAt(latitude: number, longitude: number): Overflight | 
   // answer for them was an ocean on the far side of the planet.
   return { name: 'open water', kind: 'water' }
 }
+
+/**
+ * The overflown place as a phrase that reads after "over": a country bare, a sea with its article,
+ * and a gap in the marine set as "open water". Shared by the console's strip and the home page.
+ */
+export function overflightLabel(overflight: Overflight): string {
+  if (overflight.kind === 'country') return overflight.name
+  if (overflight.kind === 'water') return 'open water'
+  return `the ${overflight.name}`
+}
