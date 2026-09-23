@@ -7,7 +7,8 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { groundTrack, propagateIss } from '../orbit/propagator.ts'
-import { loadOrbitalElements, type OrbitalElements } from '../orbit/tle.ts'
+import { elementsAgeHours, loadOrbitalElements, type OrbitalElements } from '../orbit/tle.ts'
+import { MAX_ELEMENTS_AGE_HOURS } from '../passes/findPasses.ts'
 import type { Fetcher } from '../passes/cities.ts'
 import { safeStorage } from '../passes/place.ts'
 import { HomeMap } from './HomeMap.tsx'
@@ -88,12 +89,22 @@ export function HomeApp({
     }
   }, [elements, storage, fetcher, clock])
 
-  const state = elements ? propagateIss(elements.satrec, new Date(now)) : null
+  /*
+   * The same age rule as /passes/. The built-in elements date from late July: on a first visit with
+   * Celestrak unreachable, two months on, the heading gave an exact-looking position that was wrong
+   * by thousands of kilometres. Past fourteen days the station is not placed at all; from three,
+   * the age is stated beside the position.
+   */
+  const ageHours = elements ? elementsAgeHours(elements, now) : null
+  const tooOld = ageHours !== null && ageHours > MAX_ELEMENTS_AGE_HOURS
+  const current = elements && !tooOld ? elements : null
+  const state = current ? propagateIss(current.satrec, new Date(now)) : null
   const minute = Math.floor(now / 60_000)
   const track = useMemo(
-    () => (elements ? groundTrack(elements.satrec, new Date(minute * 60_000), -45, 90, 60) : []),
-    [elements, minute],
+    () => (current ? groundTrack(current.satrec, new Date(minute * 60_000), -45, 90, 60) : []),
+    [current, minute],
   )
+  const days = ageHours === null ? 0 : Math.round(ageHours / 24)
   const place =
     state && names ? names(Math.round(state.latitude * 10) / 10, Math.round(state.longitude * 10) / 10) : null
   const line = state ? positionLine(state, place) : null
@@ -106,7 +117,11 @@ export function HomeApp({
   return (
     <>
       <p className="home__motion">
-        {state ? motionLine(state) : ' '}
+        {tooOld
+          ? `The orbital elements in hand are ${days} days old — too old to place the station.`
+          : state
+            ? motionLine(state) + (ageHours !== null && ageHours > 72 ? ` · orbital elements ${days} days old` : '')
+            : ' '}
         {broadcast && (
           <span className={broadcast.live ? 'home__nasa home__nasa--live' : 'home__nasa'}> · {statusLine(broadcast)}</span>
         )}

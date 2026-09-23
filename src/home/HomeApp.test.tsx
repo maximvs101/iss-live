@@ -74,6 +74,25 @@ describe('HomeApp', () => {
     expect(screen.queryByText(/NASA’s broadcast/)).toBeNull()
   })
 
+  it('states no position from elements too old to give one, and says why', async () => {
+    // The built-in set dates from late July: on a first visit with Celestrak unreachable, two months
+    // on, the heading read "Over 18.6° N, 118.8° E, 410 km up." — exact-looking and wrong.
+    const old = async (): Promise<OrbitalElements> => ({ ...elements, source: 'secours' })
+    const { container } = render(
+      <HomeApp loadElements={old} clock={() => Date.parse('2026-09-23T00:00:00Z')} storage={empty} loadPlaceNames={noNames} loadStatus={noStatus} />,
+    )
+    await screen.findByText(/orbital elements .* too old to place the station/i)
+    expect(document.getElementById('home-where')!.textContent).toBe('somewhere over the Earth, about 420 km up.')
+    expect(container.querySelector('.home-map__station')).toBeNull()
+  })
+
+  it('gives the age of elements a few days old', async () => {
+    render(
+      <HomeApp loadElements={loadElements} clock={() => Date.parse('2026-08-02T00:00:00Z')} storage={empty} loadPlaceNames={noNames} loadStatus={noStatus} />,
+    )
+    await screen.findByText(/orbital elements 5 days old/)
+  })
+
   it('offers /passes/ when no city is remembered', async () => {
     render(<HomeApp loadElements={loadElements} clock={clock} storage={empty} loadPlaceNames={noNames} loadStatus={noStatus} />)
     const link = await screen.findByRole('link', { name: 'When can you see it from your city?' })
