@@ -11,9 +11,17 @@
     <script>
       // Before the first paint: a place is on its way (a ?city= link, or one remembered), so the
       // list's room is held now rather than pushed in under the text later. PassesApp lets it go.
+      // If the page script never arrives — an old browser, a blocked file — the room is given back
+      // after a few seconds rather than left as a screen of blank above the text.
       try {
-        if (/[?&]city=/.test(location.search) || localStorage.getItem('iss-live.passes-place'))
+        if (/[?&]city=/.test(location.search) || localStorage.getItem('iss-live.passes-place')) {
           document.documentElement.classList.add('passes-expecting')
+          setTimeout(function () {
+            var app = document.getElementById('passes-app')
+            if (!app || !app.querySelector('.passes__place, .locate, .passes__notice'))
+              document.documentElement.classList.remove('passes-expecting')
+          }, 8000)
+        }
       } catch (e) {}
     </script>
     <title>When to see the ISS — visible passes over your city — ISS Live</title>

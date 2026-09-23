@@ -1165,6 +1165,7 @@ position; a browser position is rounded to 0.1° before anything uses it.
 
 The list arrives after the first paint, and pushed the text under it down by 0.449 of layout shift.
 The room is claimed before the first paint by a script in the page's head, which sets a class on
-`<html>` when a place is on its way, and `PassesApp` lets it go once the list is there.
+`<html>` when a place is on its way, and `PassesApp` lets it go once the list is there. If the page
+script never arrives, the head script gives the room back itself after eight seconds.
 
 Verified against Skyfield by `npm run verify:passes`; see `docs/passes-verification.md`.
