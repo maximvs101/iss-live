@@ -14,17 +14,28 @@ Nothing is shared but the element set. The script fails on any of:
 - rise, culmination or set more than 10 s apart;
 - maximum elevation more than 0.5° apart;
 - a different visible / not-visible call — visible meaning high enough, lit, under a dark sky, and
-  for at least a minute — unless the call itself flips when the thresholds (10° elevation, −6° Sun,
-  60 s) move by their tolerance, 0.5° and 10 s — reported as *marginal*.
+  for at least a minute on one unbroken stretch — unless the call itself flips when the thresholds
+  (10° elevation, −6° Sun, 60 s) move by their tolerance, 0.5° and 10 s, or two stretches are within
+  10 s of each other in length — reported as *marginal*;
+- the start or end of the visible stretch — the times the list and the calendar show — more than
+  10 s apart.
 
 Result on 23 September 2026, Celestrak's current set:
-`157 passes checked over 6 sites, 0 marginal, 0 failure(s)`. With the minute rule removed from the
-Skyfield side only, 4 failures: the rule is checked, not assumed.
+`158 passes checked over 6 sites, 0 marginal, 0 failure(s)`.
 
-It can fail. With the elevation threshold deliberately set to 15°:
-`155 passes checked over 6 sites, 2 marginal, 4 failure(s)`, exit 1. The first version of the
-verifier could not: it called a pass marginal whenever its track came within 0.5° of 10°, which
-every pass above 10° does twice, so every disagreement was excused.
+Each comparison has been shown to fail when it should:
+
+| Sabotage | Result |
+|---|---|
+| elevation threshold set to 15° on the page's side | 4 failures |
+| the one-minute rule removed on Skyfield's side | 4 failures |
+| the visible end shifted by 20 s | 17 failures |
+
+The first version of the verifier could not fail at all: it called a pass marginal whenever its
+track came within 0.5° of 10°, which every pass above 10° does twice, so every disagreement was
+excused. The second measured the minute from the first visible instant to the last, as the page
+then did, so two glimpses of seconds either side of the shadow passed on both sides at once — the
+final review found it.
 
 Needs `python -m pip install skyfield`; DE421 (17 MB) is fetched into `.cache/skyfield/` on the
 first run.
