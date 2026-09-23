@@ -10,6 +10,7 @@ import { useOrbitStore } from '../../orbit/useOrbit'
 import { propagateIss } from '../../orbit/propagator'
 import { LineChart, type Band, type Point } from './LineChart'
 import { useElementWidth } from '../useElementWidth'
+import { useFold } from '../useFold'
 
 /** Window covered: one full orbit, a little over 92 minutes. */
 const HORIZON_MINUTES = 95
@@ -66,6 +67,7 @@ function computeProfile(satrec: Parameters<typeof propagateIss>[0], from: Date):
 export function OrbitProfile() {
   const elements = useOrbitStore((store) => store.elements)
   const [profile, setProfile] = useState<Profile | null>(null)
+  const fold = useFold('next-orbit')
 
   /*
    * Drawn at the number of units it occupies, the way `TelemetryChart` already is.
@@ -108,8 +110,15 @@ export function OrbitProfile() {
    * desktop.
    */
   return (
-    <section className="panel">
-      <h2 className="panel__title">Next orbit</h2>
+    <details className="panel panel--folding" open={fold.open} onToggle={fold.onToggle}>
+      {/* Folded by default like the freshness panel: the summary line carries what the two
+          charts show at a glance, and the column gives the map and the inspector the room. */}
+      <summary className="panel__toggle">
+        <h2 className="panel__title">Next orbit</h2>
+        <span className="panel__designation">
+          {profile ? `${profile.eclipseMinutes.toFixed(0)} min in Earth’s shadow` : 'computing…'}
+        </span>
+      </summary>
 
       {profile ? (
         <p className="panel__summary">
@@ -153,6 +162,6 @@ export function OrbitProfile() {
         Profile computed by SGP4 propagation. The orbit is near-circular: the altitude variation
         seen here comes from the shape of the Earth, which is flattened at the poles.
       </p>
-    </section>
+    </details>
   )
 }

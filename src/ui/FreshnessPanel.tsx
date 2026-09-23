@@ -13,6 +13,7 @@ import { useEffect, useState } from 'react'
 import { SUBSYSTEMS, getChannel } from '../telemetry/subsystems'
 import { useTelemetryStore } from '../telemetry/store'
 import { formatAge } from '../telemetry/health'
+import { useFold } from './useFold'
 import {
   FRESHNESS_LABELS,
   FRESHNESS_ORDER,
@@ -34,6 +35,7 @@ const REFRESH_MS = 5_000
 
 export function FreshnessPanel() {
   const samples = useTelemetryStore((store) => store.samples)
+  const fold = useFold('freshness')
   const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
@@ -52,7 +54,7 @@ export function FreshnessPanel() {
   const counts = tally(all)
 
   return (
-    <details className="panel panel--folding">
+    <details className="panel panel--folding" open={fold.open} onToggle={fold.onToggle}>
       <summary className="panel__toggle">
         {/* Short, because the summary beside it is the part worth reading and a longer title
             squeezed it to "15 s…" — measured in the built page, not guessed at. */}
