@@ -137,18 +137,38 @@ try {
   }
 
   const manifest = JSON.parse(await readFile(resolve(dist, '.vite/manifest.json'), 'utf8'))
-  const reached = new Set()
-  const walk = (key) => {
-    if (reached.has(key) || !manifest[key]) return
-    reached.add(key)
-    for (const next of [...(manifest[key].imports ?? []), ...(manifest[key].dynamicImports ?? [])]) walk(next)
+  // Which chunks an entry reaches: statically (in the first load) or at all (with dynamic imports).
+  const reach = (entry, withDynamic) => {
+    const seen = new Set()
+    const walk = (key) => {
+      if (seen.has(key) || !manifest[key]) return
+      seen.add(key)
+      for (const next of [...(manifest[key].imports ?? []), ...(withDynamic ? (manifest[key].dynamicImports ?? []) : [])]) {
+        walk(next)
+      }
+    }
+    walk(entry)
+    return [...seen]
   }
-  walk('passes/index.html')
-  const heavy = [...reached].filter((key) =>
-    /three|lightstreamer|world-atlas|topojson|marine|StationView|draco/i.test(`${key} ${manifest[key].file}`),
-  )
+  const named = (keys, pattern) => keys.filter((key) => pattern.test(`${key} ${manifest[key].file}`))
+  // By chunk name as vite.config's codeSplitting groups them — "atlas", not "world-atlas": the group
+  // chunk is named after the group, and the first version of this pattern looked for the package
+  // name and let the atlas through unseen.
+  const HEAVY = /three|lightstreamer|atlas|topojson|marine|StationView|draco/i
+
+  const passesReach = reach('passes/index.html', true)
+  const heavy = named(passesReach, HEAVY)
   if (heavy.length) throw new Error(`/passes/ pulls in ${heavy.join(', ')}`)
-  console.log(`${'/passes/'.padEnd(36)} ${(passesHtml.length / 1024).toFixed(1).padStart(6)} kB  ${reached.size} chunks, none heavy`)
+  console.log(`${'/passes/'.padEnd(36)} ${(passesHtml.length / 1024).toFixed(1).padStart(6)} kB  ${passesReach.length} chunks, none heavy`)
+
+  // The home page's first load carries no atlas, three or Lightstreamer; its one dynamic import is
+  // the place names (countries and marine areas), after the first paint — and never three or
+  // Lightstreamer, at any depth.
+  const homeStatic = named(reach('index.html', false), HEAVY)
+  if (homeStatic.length) throw new Error(`/ loads ${homeStatic.join(', ')} up front`)
+  const homeAny = named(reach('index.html', true), /three|lightstreamer|StationView|draco/i)
+  if (homeAny.length) throw new Error(`/ can reach ${homeAny.join(', ')}`)
+  console.log(`${'/'.padEnd(36)} ${(homeHtml.length / 1024).toFixed(1).padStart(6)} kB  ${reach('index.html', false).length} chunks up front, none heavy`)
   // The manifest is a build artefact, not something to serve.
   await rm(resolve(dist, '.vite'), { recursive: true, force: true })
 

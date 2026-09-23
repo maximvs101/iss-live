@@ -1,2 +1,13 @@
-// The home page's script. The application is mounted here in a later step; until then the page is its HTML.
-export {}
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import { HomeApp } from './HomeApp.tsx'
+import './home.css'
+
+const root = document.getElementById('home-app')
+if (root) {
+  createRoot(root).render(
+    <StrictMode>
+      <HomeApp />
+    </StrictMode>,
+  )
+}

@@ -1,0 +1,102 @@
+/* The home page, on top of /pages.css and its tokens. */
+.home__heading {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.home__title {
+  font-size: 13px;
+  font-weight: normal;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+/* Two lines reserved, so the position replacing its fallback moves nothing below it. */
+.home__where {
+  font-size: clamp(22px, 5vw, 34px);
+  line-height: 1.2;
+  color: var(--text-strong);
+  min-height: 2.4em;
+}
+
+/* The line above the map and the next-pass line keep their height from the first paint. */
+.home__motion,
+.home__next {
+  min-height: 1.6em;
+  margin: 8px 0;
+  color: var(--text-dim);
+}
+
+.home__nasa {
+  color: #ffb03a;
+}
+
+.home__nasa--live {
+  color: var(--live);
+}
+
+.home-map {
+  position: relative;
+  aspect-ratio: 2 / 1;
+  border: 1px solid var(--border);
+  margin: 8px 0 12px;
+}
+
+.home-map__world,
+.home-map__overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.home-map__past {
+  fill: none;
+  stroke: var(--idle);
+  stroke-width: 0.8;
+}
+
+.home-map__ahead {
+  fill: none;
+  stroke: var(--live);
+  stroke-width: 1.1;
+}
+
+.home-map__station {
+  fill: var(--live);
+  stroke: var(--bg);
+  stroke-width: 1.2;
+}
+
+.doors {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  margin: 24px 0;
+}
+
+.door {
+  display: block;
+  padding: 12px 14px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-panel);
+  text-decoration: none;
+}
+
+.door:hover,
+.door:focus-visible {
+  border-color: var(--text-dim);
+}
+
+.door__name {
+  display: block;
+  color: var(--text-strong);
+}
+
+.door__hint {
+  display: block;
+  color: var(--text-dim);
+  font-size: 0.85em;
+}
