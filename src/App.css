@@ -172,10 +172,13 @@
   font-size: 12px;
 }
 
+/* 24 px tall at least: the WCAG target size, which the links missed at 22 px (Lighthouse). */
 .app__nav-links a {
+  display: inline-block;
+  min-height: 24px;
+  line-height: 24px;
   color: var(--text-dim);
   text-decoration: none;
-  padding: 4px 0;
 }
 
 .app__nav-links a:hover,

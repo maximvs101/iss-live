@@ -60,7 +60,14 @@
         <span class="home__where" id="home-where">somewhere over the Earth, about 420 km up.</span>
       </h1>
 
+      <!--
+        The live part's final shape, written here so the text below it does not move when the
+        script replaces it in place: Lighthouse measured 0.204 of layout shift with this empty.
+      -->
       <div id="home-app" class="home__app">
+        <p class="home__motion">&nbsp;</p>
+        <div class="home-map"><img class="home-map__world" src="/home-map.svg" alt="" width="720" height="360" /></div>
+        <p class="home__next"><a href="/passes/">When can you see it from your city?</a></p>
         <noscript>
           <p class="note">
             The station’s position is computed in your browser and needs JavaScript. Everything else here reads
