@@ -18,6 +18,8 @@
  * a test can hand these fixtures.
  */
 
+import { NAV, navState } from '../../src/site/nav.ts'
+
 export const SITE = 'https://iss-live.pages.dev'
 
 /** Subsystem id → the path it is published under. Words a reader would type, not the acronyms. */
@@ -28,6 +30,16 @@ export const SUBSYSTEM_SLUGS = {
   gnc: 'attitude-and-orbit',
   comms: 'communications',
   cdh: 'command-and-data',
+}
+
+/** Subsystem id → the name its pager link shows. The subsystem pages' own titles, shortened as the bar had them. */
+const SUBSYSTEM_NAMES = {
+  eps: 'Power',
+  eclss: 'Life support',
+  tcs: 'Thermal',
+  gnc: 'Attitude & orbit',
+  comms: 'Communications',
+  cdh: 'Command & data',
 }
 
 /** The order the station page lists categories in: the parts a visitor knows first. */
@@ -61,24 +73,16 @@ export function clampDescription(text, max = 155) {
 
 // --- The frame every page shares ------------------------------------------------------------
 
-const NAV = [
-  { href: '/station/', label: 'The station' },
-  { href: '/passes/', label: 'Passes' },
-  { href: '/telemetry/power/', label: 'Power' },
-  { href: '/telemetry/life-support/', label: 'Life support' },
-  { href: '/telemetry/thermal/', label: 'Thermal' },
-  { href: '/telemetry/attitude-and-orbit/', label: 'Attitude & orbit' },
-  { href: '/telemetry/communications/', label: 'Communications' },
-  { href: '/telemetry/command-and-data/', label: 'Command & data' },
-  { href: '/about/', label: 'How it works' },
-]
 
 /** The header every page wears, the passes page included — one list of pages, not two. */
 export function siteHeader(path) {
   return `<header class="site">
       <a class="site__brand" href="/">ISS Live</a>
-      <nav class="site__nav" aria-label="Pages">
-        ${NAV.map((item) => `<a href="${item.href}"${item.href === path ? ' aria-current="page"' : ''}>${e(item.label)}</a>`).join('\n        ')}
+      <nav class="site__nav" aria-label="Site">
+        ${NAV.map((item) => {
+          const state = navState(path, item.href)
+          return `<a href="${item.href}"${state ? ` aria-current="${state}"` : ''}>${e(item.label)}</a>`
+        }).join('\n        ')}
       </nav>
     </header>`
 }
@@ -86,7 +90,7 @@ export function siteHeader(path) {
 export function siteFooter() {
   return `<footer class="site__foot">
       <p>
-        Every reading on <a href="/">the live page</a> is measured on board and broadcast publicly
+        Every reading on <a href="/console/">the live page</a> is measured on board and broadcast publicly
         by NASA, or computed here from Celestrak's orbital elements. Nothing is invented; when a
         value is old, its age is stated. <a href="/about/">How it works</a> ·
         <a href="https://github.com/maximvs101/iss-live" rel="noopener">Source code</a>
@@ -258,7 +262,7 @@ ${bare.map((c) => `          <li id="${e(c.pui)}">${e(c.label)} <span class="cha
 ${parts
   .map(
     (p) => `          <li>
-            <a class="parts__name" href="/?part=${e(p.id)}">${e(p.name)}</a>${p.designation ? ` <span class="parts__designation">${e(p.designation)}</span>` : ''}
+            <a class="parts__name" href="/console/?part=${e(p.id)}">${e(p.name)}</a>${p.designation ? ` <span class="parts__designation">${e(p.designation)}</span>` : ''}
             <p>${e(p.summary)}</p>
           </li>`,
   )
@@ -275,7 +279,7 @@ ${parts
         <p class="eyebrow">Telemetry · ${e(subsystem.label)}</p>
         <h1>${e(subsystem.label)}</h1>
         <p class="lead">${e(subsystem.tagline)}</p>
-        <p class="note">${channels.length} of the station's public readings belong here — NASA's catalogue files them under ${e(disciplines.join(', '))}. They are live on <a href="/">the console</a>${
+        <p class="note">${channels.length} of the station's public readings belong here — NASA's catalogue files them under ${e(disciplines.join(', '))}. They are live on <a href="/console/">the console</a>${
           explained === channels.length
             ? ', and each one is explained below.'
             : `; ${explained} of them carry an explanation below, and the rest are listed so you know what the station reports.`
@@ -283,8 +287,8 @@ ${parts
 ${sections}
 ${where}
         <nav class="pager" aria-label="Other subsystems">
-          ${previous ? `<a rel="prev" href="/telemetry/${SUBSYSTEM_SLUGS[previous]}/">← ${e(NAV.find((n) => n.href.includes(SUBSYSTEM_SLUGS[previous])).label)}</a>` : '<span></span>'}
-          ${next ? `<a rel="next" href="/telemetry/${SUBSYSTEM_SLUGS[next]}/">${e(NAV.find((n) => n.href.includes(SUBSYSTEM_SLUGS[next])).label)} →</a>` : '<span></span>'}
+          ${previous ? `<a rel="prev" href="/telemetry/${SUBSYSTEM_SLUGS[previous]}/">← ${e(SUBSYSTEM_NAMES[previous])}</a>` : '<span></span>'}
+          ${next ? `<a rel="next" href="/telemetry/${SUBSYSTEM_SLUGS[next]}/">${e(SUBSYSTEM_NAMES[next])} →</a>` : '<span></span>'}
         </nav>
       </article>`
 
@@ -344,7 +348,7 @@ ${g.parts
   .map((p) => {
     const systems = reportsIn(p.id)
     return `          <li id="${e(p.id)}">
-            <a class="parts__name" href="/?part=${e(p.id)}">${e(p.name)}</a>${p.designation ? ` <span class="parts__designation">${e(p.designation)}</span>` : ''}
+            <a class="parts__name" href="/console/?part=${e(p.id)}">${e(p.name)}</a>${p.designation ? ` <span class="parts__designation">${e(p.designation)}</span>` : ''}
             <p>${e(p.summary)}</p>${
               systems.length
                 ? `
@@ -368,6 +372,48 @@ ${g.parts
       headline: 'The International Space Station, module by module',
       description: clampDescription(
         `${parts.length} parts of the International Space Station, named and described: modules, truss segments, solar wings, radiators and joints, each linked into a live 3D twin.`,
+      ),
+      body,
+      builtAt,
+      jsonLd: { about: { '@type': 'Thing', name: 'International Space Station' } },
+    }),
+  }
+}
+
+// --- The six subsystems, on one page ---------------------------------------------------------
+
+/**
+ * Where "Systems" in the bar leads: the six subsystem pages, each with its one-line tagline.
+ *
+ * It replaced six entries in the navigation, so it has to do what they did — get a reader to a
+ * subsystem in one click — and it is one more page a search engine can read about the station.
+ */
+export function renderSystems({ subsystems, builtAt }) {
+  const path = '/telemetry/'
+  const total = subsystems.reduce((n, s) => n + s.channelCount, 0)
+  const body = `      <article>
+        <p class="eyebrow">Systems</p>
+        <h1>How the station works, system by system</h1>
+        <p class="lead">Six systems keep the International Space Station powered, breathable, cool, pointed and in touch. Each page below explains every reading the station publishes for it — ${total} in all — and each reading is live on <a href="/console/">the console</a>.</p>
+        <ul class="parts">
+${subsystems
+  .map(
+    (s) => `          <li>
+            <span class="parts__name"><a href="/telemetry/${SUBSYSTEM_SLUGS[s.id]}/">${e(s.label)}</a></span> <span class="parts__designation">${s.channelCount} readings</span>
+            <p>${e(s.tagline)}</p>
+          </li>`,
+  )
+  .join('\n')}
+        </ul>
+      </article>`
+  return {
+    path,
+    html: layout({
+      path,
+      title: 'How the station works, system by system',
+      headline: 'How the station works, system by system',
+      description: clampDescription(
+        'Power, life support, thermal control, attitude, communications and the onboard computers of the International Space Station — every public reading explained.',
       ),
       body,
       builtAt,

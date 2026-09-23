@@ -16,6 +16,7 @@ import {
   renderSitemap,
   renderStation,
   renderSubsystem,
+  renderSystems,
   siteFooter,
   siteHeader,
 } from './render-pages.mjs'
@@ -102,12 +103,12 @@ describe('a subsystem page', () => {
   })
 
   it('links the parts it mentions into the twin', () => {
-    expect(page.html).toContain('href="/?part=sarj-port"')
+    expect(page.html).toContain('href="/console/?part=sarj-port"')
     expect(page.html).toContain('Turns &quot;the port wings&quot;.')
   })
 
   it('marks its own entry in the nav and offers the next subsystem', () => {
-    expect(page.html).toContain('href="/telemetry/power/" aria-current="page"')
+    expect(page.html).toContain('<a href="/telemetry/" aria-current="true">Systems</a>')
     expect(page.html).toContain('rel="next" href="/telemetry/life-support/"')
     expect(page.html).not.toContain('rel="prev"')
   })
@@ -193,8 +194,9 @@ describe('the sitemap', () => {
 
 describe('the shared chrome', () => {
   it('lists the passes page in every header and marks it on its own page', () => {
-    expect(siteHeader('/about/')).toContain('<a href="/passes/">Passes</a>')
-    expect(siteHeader('/passes/')).toContain('<a href="/passes/" aria-current="page">Passes</a>')
+    expect(siteHeader('/about/')).toContain('<a href="/passes/">When to see it</a>')
+    expect(siteHeader('/passes/')).toContain('<a href="/passes/" aria-current="page">When to see it</a>')
+    expect(siteHeader('/about/')).toContain('<a class="site__brand" href="/">ISS Live</a>')
     expect(siteFooter()).toContain('href="/about/"')
   })
 })
@@ -205,5 +207,45 @@ describe('the about page', () => {
     expect(page.html).toContain('Six sources')
     expect(page.html).toContain('GeoNames')
     expect(page.html).toContain('CC BY 4.0')
+  })
+})
+
+describe('the console links', () => {
+  it('sends parts and "the console" to /console/, never to the home page', () => {
+    const station = renderStation({
+      parts: [parts['sarj-port']],
+      categoryLabels: { power: 'Power' },
+      reportsIn: () => [],
+    })
+    expect(station.html).toContain('href="/console/?part=sarj-port"')
+    expect(station.html).not.toContain('href="/?part=')
+    const power = renderSubsystem({ subsystem, order, unitOf: () => null, symbolOf: () => undefined, partOf: (id) => parts[id] })
+    expect(power.html).toContain('href="/console/?part=sarj-port"')
+    expect(power.html).toContain('<a href="/console/">the console</a>')
+    expect(power.html).toContain('<a href="/console/">the live page</a>')
+  })
+
+  it('names the neighbouring subsystems in the pager without the old navigation list', () => {
+    const power = renderSubsystem({ subsystem, order, unitOf: () => null, symbolOf: () => undefined, partOf: (id) => parts[id] })
+    expect(power.html).toContain('rel="next" href="/telemetry/life-support/">Life support →</a>')
+  })
+})
+
+describe('the systems page', () => {
+  const page = renderSystems({
+    subsystems: [
+      { id: 'eps', label: 'Power', tagline: 'Eight wings & two joints.', channelCount: 30 },
+      { id: 'tcs', label: 'Thermal', tagline: 'Two ammonia loops.', channelCount: 16 },
+    ],
+  })
+
+  it('lives at /telemetry/ and lists every subsystem with its tagline', () => {
+    expect(page.path).toBe('/telemetry/')
+    expect(page.html).toContain('rel="canonical" href="https://iss-live.pages.dev/telemetry/"')
+    expect(page.html).toContain('<a href="/telemetry/power/">Power</a>')
+    expect(page.html).toContain('Eight wings &amp; two joints.')
+    expect(page.html).toContain('<a href="/telemetry/thermal/">Thermal</a>')
+    expect(page.html.match(/<h1[\s>]/g)).toHaveLength(1)
+    expect(page.html).toContain('<a href="/telemetry/" aria-current="page">Systems</a>')
   })
 })

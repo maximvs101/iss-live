@@ -28,6 +28,7 @@ import {
   renderSitemap,
   renderStation,
   renderSubsystem,
+  renderSystems,
 } from './lib/render-pages.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -95,6 +96,15 @@ try {
     ...SUBSYSTEMS.map((subsystem) =>
       renderSubsystem({ subsystem, order, unitOf, symbolOf: getSymbol, partOf, partOrder: PART_IDS, builtAt }),
     ),
+    renderSystems({
+      subsystems: SUBSYSTEMS.map((s) => ({
+        id: s.id,
+        label: s.label,
+        tagline: s.tagline,
+        channelCount: s.sections.flatMap((x) => x.channels.filter((c) => !c.hidden)).length,
+      })),
+      builtAt,
+    }),
     renderAbout({ references, channelCount, partCount: parts.length, photographedCount, builtAt }),
   ]
 
