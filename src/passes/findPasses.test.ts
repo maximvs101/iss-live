@@ -85,6 +85,32 @@ describe('findPasses', () => {
     for (const p of brief) expect(p.track.some((s) => s.visible)).toBe(true)
   })
 
+  it('counts the minute on one unbroken stretch, and describes that stretch only', () => {
+    // At beta 69° the shadow lasts minutes, and a pass can be seen, lost, and seen again. Measured
+    // from the first glimpse to the last, two ten-second glimpses 4.5 minutes apart passed the
+    // one-minute rule (40° N, 20° W, 02:29 UTC), and the sentence sent people to look through the gap.
+    const glimpses = findPasses(position, { latitude: 40, longitude: -20 }, FROM, 1).find(
+      (p) => Math.abs(p.rise.date.getTime() - Date.parse('2026-07-28T02:29:00Z')) < 5 * 60_000,
+    )!
+    expect(glimpses.visible).toBeNull()
+    expect(glimpses.reason).toBe('brief')
+
+    for (let latitude = -50; latitude <= 60; latitude += 10) {
+      for (let longitude = -180; longitude < 180; longitude += 30) {
+        for (const p of findPasses(position, { latitude, longitude }, FROM, 2)) {
+          if (!p.visible) continue
+          const from = p.visible.start.date.getTime()
+          const to = p.visible.end.date.getTime()
+          expect(to - from).toBeGreaterThanOrEqual(MIN_VISIBLE_SECONDS * 1000)
+          for (const s of p.track) {
+            const t = s.date.getTime()
+            if (t > from + 500 && t < to - 500) expect(s.visible, `${latitude},${longitude} ${s.date.toISOString()}`).toBe(true)
+          }
+        }
+      }
+    }
+  })
+
   // Review focus 1
   it('keeps a pass already in progress', () => {
     const first = passes[3]

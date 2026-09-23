@@ -55,6 +55,9 @@ const out = {
         set: p.set.date.toISOString(),
         maxElevation: p.culmination.elevation,
         visible: p.visible !== null,
+        // The times a visitor actually reads, and the calendar gets.
+        visibleStart: p.visible?.start.date.toISOString() ?? null,
+        visibleEnd: p.visible?.end.date.toISOString() ?? null,
         reason: p.reason,
       })),
   })),

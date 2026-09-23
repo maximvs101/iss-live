@@ -193,22 +193,30 @@ function buildPass(position: Position, observer: Observer, rise: Sample, set: Sa
     else if (high.every((s) => s.sunElevation > DARK_SUN_DEGREES)) reason = 'daylight'
     else reason = 'shadow'
   } else {
-    let last = first
-    for (let i = first; i < samples.length; i++) if (isVisible(samples[i])) last = i
-    const start =
-      first > 0 ? refine(position, observer, samples[first - 1], samples[first], isVisible) : samples[first]
-    const end =
-      last < samples.length - 1
-        ? refine(position, observer, samples[last], samples[last + 1], (s) => !isVisible(s))
-        : samples[last]
-    // Only the visible samples between the two ends: a pass can graze the shadow's edge and be
-    // seen in two stretches, and the dark gap between them has neither the peak nor the brightness.
-    const inside = samples.slice(first, last + 1).filter(isVisible)
+    /*
+     * One unbroken stretch, the longest. At high beta the shadow lasts minutes and a pass can be
+     * seen, lost and seen again; measured from the first glimpse to the last, two ten-second
+     * glimpses 4.5 minutes apart passed the one-minute rule and the sentence sent people to look
+     * through the gap. The minute is counted on one stretch, and only that stretch is described.
+     */
+    let best: { first: number; last: number; start: Sample; end: Sample } | null = null
+    for (let i = first; i < samples.length; i++) {
+      if (!isVisible(samples[i]) || (i > 0 && isVisible(samples[i - 1]))) continue
+      let j = i
+      while (j + 1 < samples.length && isVisible(samples[j + 1])) j++
+      const start = i > 0 ? refine(position, observer, samples[i - 1], samples[i], isVisible) : samples[i]
+      const end =
+        j < samples.length - 1 ? refine(position, observer, samples[j], samples[j + 1], (s) => !isVisible(s)) : samples[j]
+      const length = end.date.getTime() - start.date.getTime()
+      if (!best || length > best.end.date.getTime() - best.start.date.getTime()) best = { first: i, last: j, start, end }
+    }
+    const { first: from, last, start, end } = best!
+    const inside = samples.slice(from, last + 1)
     if (isVisible(culmination) && culmination.date >= start.date && culmination.date <= end.date) {
       inside.push(culmination)
     }
     const peak = inside.reduce((a, b) => (b.elevation > a.elevation ? b : a))
-    const before = first > 0 ? samples[first - 1] : null
+    const before = from > 0 ? samples[from - 1] : null
     const after = last < samples.length - 1 ? samples[last + 1] : null
     if (end.date.getTime() - start.date.getTime() < MIN_VISIBLE_SECONDS * 1000) {
       reason = 'brief'

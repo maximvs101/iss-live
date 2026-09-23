@@ -1,7 +1,8 @@
 """Recompute every pass with Skyfield and compare with the page's finder.
 
 Criteria (from the spec): same passes; rise, culmination and set within 10 s; maximum elevation
-within 0.5 deg; same visible/invisible call, where visible also means seen for at least a minute.
+within 0.5 deg; same visible/invisible call, where visible also means seen for at least a minute on
+one unbroken stretch; and that stretch's start and end — the times the page shows — within 10 s.
 A call that flips when the thresholds move by their tolerance (0.5 deg, 10 s) is reported as
 marginal, not as a failure: two correct implementations can legitimately fall either side of a
 line they both straddle.
@@ -57,21 +58,39 @@ def reference_passes(site):
         lit = sat.at(grid).is_sunlit(eph)
         seconds_at = (grid - p["rise"]) * 86400
 
-        def seen_for(mask):
-            # First to last visible sample, as the page measures it; nothing visible is 0.
-            return float(seconds_at[mask][-1] - seconds_at[mask][0]) if mask.any() else 0.0
+        def stretches(mask):
+            # Unbroken runs of visible samples, as (first, last) seconds after the rise.
+            runs, begin = [], None
+            for k, on in enumerate(mask):
+                if on and begin is None:
+                    begin = k
+                if not on and begin is not None:
+                    runs.append((float(seconds_at[begin]), float(seconds_at[k - 1])))
+                    begin = None
+            if begin is not None:
+                runs.append((float(seconds_at[begin]), float(seconds_at[len(mask) - 1])))
+            return sorted(runs, key=lambda r: r[1] - r[0], reverse=True)
 
         def called_visible(mask, minimum=MIN_SECONDS):
-            return mask.any() and seen_for(mask) >= minimum
+            # Seen for a minute on ONE unbroken stretch, as the page counts it: two glimpses either
+            # side of the shadow do not add up.
+            runs = stretches(mask)
+            return bool(runs) and runs[0][1] - runs[0][0] >= minimum
 
         ok = (sat_alt >= MIN_EL) & (sun_alt <= DARK_SUN) & lit
         p["visible"] = called_visible(ok)
+        runs = stretches(ok)
+        if p["visible"]:
+            p["visible_start"] = p["rise"].utc_datetime().timestamp() + runs[0][0]
+            p["visible_end"] = p["rise"].utc_datetime().timestamp() + runs[0][1]
         # Marginal means the verdict itself flips when the thresholds move by the tolerance — not
         # that the track comes near 10 deg somewhere, which every pass above 10 deg does twice, and
         # which made every disagreement "marginal" in the first version: the check could not fail.
+        # Two stretches of nearly the same length are marginal too: either could be the one described.
         loose = (sat_alt >= MIN_EL - TOL_DEG) & (sun_alt <= DARK_SUN + TOL_DEG) & lit
         strict = (sat_alt >= MIN_EL + TOL_DEG) & (sun_alt <= DARK_SUN - TOL_DEG) & lit
-        p["marginal"] = called_visible(loose, MIN_SECONDS - TOL_S) != called_visible(strict, MIN_SECONDS + TOL_S)
+        close_pair = len(runs) > 1 and (runs[0][1] - runs[0][0]) - (runs[1][1] - runs[1][0]) < TOL_S
+        p["marginal"] = close_pair or called_visible(loose, MIN_SECONDS - TOL_S) != called_visible(strict, MIN_SECONDS + TOL_S)
     return passes
 
 
@@ -98,6 +117,12 @@ for site in data["sites"]:
         if abs(match["max"] - p["maxElevation"]) > TOL_DEG:
             print(f"FAIL {site['name']} {p['rise']}: max elevation {p['maxElevation']:.2f} vs {match['max']:.2f}")
             failures += 1
+        if match["visible"] and p["visible"] and not match["marginal"]:
+            for ours_key, ref_key in (("visibleStart", "visible_start"), ("visibleEnd", "visible_end")):
+                delta = abs(when(p[ours_key]).timestamp() - match[ref_key])
+                if delta > TOL_S:
+                    print(f"FAIL {site['name']} {p['rise']}: {ours_key} off by {delta:.1f} s")
+                    failures += 1
         if match["visible"] != p["visible"]:
             if match["marginal"]:
                 print(f"marginal {site['name']} {p['rise']}: visible {p['visible']} vs {match['visible']}")
