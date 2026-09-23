@@ -57,6 +57,9 @@ The map keeps every pixel; the readings pay for the bar with one to three rows o
 
 ## Still to do, and needing approval
 
-- The D1 partial index and the Worker with `/status`, then `STATUS_URL` set to its address — until
-  then the home page leaves the NASA line out.
+- The D1 partial index, from `worker/`: `npx wrangler d1 execute iss-collector --remote --file
+  migrations/0002_liveness_live.sql`. **Never `schema.sql`** against the running database: it begins
+  by dropping the tables.
+- The Worker with `/status` (`npx wrangler deploy` from `worker/`), then `STATUS_URL` in
+  `src/home/status.ts` set to its address — until then the home page leaves the NASA line out.
 - Request indexing of `/` and `/console/` in Search Console after the deploy.

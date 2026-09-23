@@ -42,5 +42,6 @@ CREATE TABLE IF NOT EXISTS carried (
 );
 
 -- The last minute the station pushed anything, read by /status for the home page. Partial, so the
--- read is one row however long the broadcast has been silent.
+-- read is one row however long the broadcast has been silent. On the running database it is added by
+-- migrations/0002_liveness_live.sql — this file drops the tables first and is for a fresh one only.
 CREATE INDEX IF NOT EXISTS liveness_live ON liveness(at) WHERE pushes > 0;
