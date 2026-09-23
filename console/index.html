@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <!-- The header's ground, --bg-panel. It was left on the palette before the console. -->
+    <meta name="theme-color" content="#090e15" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="An educational digital twin of the International Space Station: NASA public telemetry, real-time orbital position and 3D exploration of the modules."
+    />
+    <title>ISS Live — the live console: telemetry, orbit and the station in 3D</title>
+
+    <!--
+      One address for the console, whatever address it was opened at.
+
+      Every deployment gets its own host — 03d103e6.iss-live.pages.dev and the like — and each one
+      serves the whole site, indexable, so without this a crawler finds a fresh copy per deploy.
+      The deep link `?part=cupola` is the same document with a selection made, so it resolves to
+      /console/ too. It lived at the root until the home page took it; old links are sent here by
+      a script in the home page's head.
+    -->
+    <link rel="canonical" href="https://iss-live.pages.dev/console/" />
+
+    <!--
+      What a link to the site unfurls into when it is shared.
+
+      The image is drawn by scripts/build-social-card.mjs from the same coastlines the map uses, and
+      claims no position, time or reading: a card is not telemetry. 1200 x 630 is the one size
+      every renderer agrees on.
+    -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="ISS Live" />
+    <meta property="og:url" content="https://iss-live.pages.dev/console/" />
+    <meta property="og:title" content="ISS Live — the live console" />
+    <meta
+      property="og:description"
+      content="Live telemetry, orbital position and a 3D twin of the station, from NASA's public broadcast. Nothing invented, ages stated."
+    />
+    <meta property="og:image" content="https://iss-live.pages.dev/social-card.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="A dark world map with the station's ground track drawn as a green sine curve, titled ISS Live."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="ISS Live — the live console" />
+    <meta
+      name="twitter:description"
+      content="Live telemetry, orbital position and a 3D twin of the station, from NASA's public broadcast."
+    />
+    <meta name="twitter:image" content="https://iss-live.pages.dev/social-card.png" />
+
+    <!-- What this page is, in the vocabulary search engines read. No claim here that the
+         application itself does not make: free, educational, built on NASA's public data. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "ISS Live",
+        "url": "https://iss-live.pages.dev/console/",
+        "description": "An educational digital twin of the International Space Station: NASA public telemetry, real-time orbital position and 3D exploration of the modules.",
+        "applicationCategory": "EducationalApplication",
+        "operatingSystem": "Any",
+        "browserRequirements": "Requires JavaScript and WebGL",
+        "isAccessibleForFree": true,
+        "inLanguage": "en",
+        "image": "https://iss-live.pages.dev/social-card.png",
+        "isBasedOn": [
+          { "@type": "Dataset", "name": "ISS Live public telemetry", "url": "https://demos.lightstreamer.com/ISSLive/" },
+          { "@type": "Dataset", "name": "Celestrak orbital elements, NORAD 25544", "url": "https://celestrak.org/" },
+          { "@type": "CreativeWork", "name": "NASA 3D Resources", "url": "https://github.com/nasa/NASA-3D-Resources" }
+        ],
+        "sameAs": ["https://github.com/maximvs101/iss-live"]
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!--
+      The same eight links the application renders at the foot of its side column, for whoever
+      does not run JavaScript: a crawler that reads the HTML as sent, a text browser, a reader
+      with scripts off. The application replaces nothing here — this sits outside #root — and a
+      browser that runs it never shows this block.
+    -->
+    <noscript>
+      <nav aria-label="Guide" style="padding: 16px; font-family: ui-monospace, Consolas, monospace; font-size: 13px">
+        <p>ISS Live needs JavaScript for the live console. The pages beside it do not:</p>
+        <ul>
+          <li><a href="/">Home</a></li>
+          <li><a href="/passes/">When to see the ISS</a></li>
+          <li><a href="/station/">The station, module by module</a></li>
+          <li><a href="/telemetry/">Systems</a></li>
+          <li><a href="/about/">How it works</a></li>
+        </ul>
+      </nav>
+    </noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -38,10 +38,10 @@ const dist = resolve(root, 'dist')
  * The three things a crawler needs and a template can lose silently: a title, one h1, and a
  * canonical that names its own path — and enough text to be worth indexing.
  */
-function checkPage(page) {
+function checkPage(page, { heading = true } = {}) {
   const problems = []
   if (!/<title>[^<]{10,}<\/title>/.test(page.html)) problems.push('no title')
-  if ((page.html.match(/<h1[\s>]/g) ?? []).length !== 1) problems.push('not exactly one h1')
+  if (heading && (page.html.match(/<h1[\s>]/g) ?? []).length !== 1) problems.push('not exactly one h1')
   if (!page.html.includes(`rel="canonical" href="${SITE}${page.path}"`)) problems.push('canonical does not match path')
   if (page.html.length < 4_000) problems.push(`only ${page.html.length} bytes`)
   if (problems.length) throw new Error(`${page.path}: ${problems.join(', ')}`)
@@ -123,6 +123,19 @@ try {
   checkPage({ path: '/passes/', html: passesHtml })
   if (passesHtml.includes('<!--site-')) throw new Error('/passes/: the site header or footer was not injected')
 
+  // The console and the home page are built by Vite too, and get the same checks.
+  // The console's h1 is rendered by the application (visually hidden, the bar carries the name), not
+  // written in its HTML: its page is checked for everything else.
+  checkPage({ path: '/console/', html: await readFile(resolve(dist, 'console/index.html'), 'utf8') }, { heading: false })
+  const homeHtml = await readFile(resolve(dist, 'index.html'), 'utf8')
+  checkPage({ path: '/', html: homeHtml })
+  if (homeHtml.includes('<!--site-')) throw new Error('/: the site header or footer was not injected')
+
+  // No page may still send a part to the home page: /?part= is only there for old links.
+  for (const page of [...pages, { path: '/', html: homeHtml }, { path: '/passes/', html: passesHtml }]) {
+    if (page.html.includes('href="/?part=')) throw new Error(`${page.path}: links a part to /?part= instead of /console/?part=`)
+  }
+
   const manifest = JSON.parse(await readFile(resolve(dist, '.vite/manifest.json'), 'utf8'))
   const reached = new Set()
   const walk = (key) => {
@@ -139,7 +152,7 @@ try {
   // The manifest is a build artefact, not something to serve.
   await rm(resolve(dist, '.vite'), { recursive: true, force: true })
 
-  const paths = ['/', '/passes/', ...pages.map((p) => p.path)]
+  const paths = ['/', '/console/', '/passes/', ...pages.map((p) => p.path)]
   await writeFile(resolve(dist, 'sitemap.xml'), renderSitemap(paths))
   console.log(`sitemap.xml                          ${paths.length} URLs`)
 

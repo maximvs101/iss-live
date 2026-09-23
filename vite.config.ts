@@ -11,8 +11,10 @@ function siteChrome(): Plugin {
   return {
     name: 'site-chrome',
     transformIndexHtml(html, ctx) {
-      if (!ctx.path.startsWith('/passes/')) return html
-      return html.replace('<!--site-header-->', siteHeader('/passes/')).replace('<!--site-footer-->', siteFooter())
+      // The console is an application with its own bar (SiteNav); the two documents here are pages.
+      const path = ctx.path === '/index.html' ? '/' : ctx.path.startsWith('/passes/') ? '/passes/' : null
+      if (!path) return html
+      return html.replace('<!--site-header-->', siteHeader(path)).replace('<!--site-footer-->', siteFooter())
     },
   }
 }
@@ -40,6 +42,7 @@ export default defineConfig({
       // Two documents: the console, and the passes page with its own small script.
       input: {
         main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        console: fileURLToPath(new URL('./console/index.html', import.meta.url)),
         passes: fileURLToPath(new URL('./passes/index.html', import.meta.url)),
       },
       output: {

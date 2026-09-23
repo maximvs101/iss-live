@@ -26,7 +26,7 @@ import { ErrorBoundary } from './ui/ErrorBoundary'
 import { SourcesDialog } from './ui/SourcesDialog'
 import { ConsoleStrip } from './ui/ConsoleStrip'
 import { RepositoryLink } from './ui/RepositoryLink'
-import { SiteFooter } from './ui/SiteFooter'
+import { SiteNav } from './ui/SiteNav'
 import { useSelectionStore } from './ui/selection'
 import { partFromSearch, searchForPart } from './ui/deepLink'
 import './App.css'
@@ -163,10 +163,18 @@ export default function App() {
 
   return (
     <div className="app">
+      {/*
+        The site's bar on its own row, above the console's header rather than inside it. Inside, it
+        took the room the stream status and the view buttons need: at 1366 wide the buttons went to
+        two rows and the header from 64 px to 99, and letting the status shrink instead sent its
+        message to five lines. A row of its own costs its height once, and nothing else moves.
+      */}
+      <div className="app__navbar">
+        <SiteNav path="/console/" />
+      </div>
       <header className="app__header">
-        <div className="app__brand">
-          <h1>ISS Live</h1>
-        </div>
+        {/* The page's title for a screen reader; the bar carries the name on screen. */}
+        <h1 className="visually-hidden">ISS Live — the live console</h1>
 
         {/* Stream health sits in the header rather than at the top of the side panel: it applies
             to everything on screen, and it is the first thing worth knowing. */}
@@ -244,7 +252,6 @@ export default function App() {
           {view === 'station' ? <InspectorPanel /> : <OrbitPanel />}
           <FreshnessPanel />
           <OrbitProfile />
-          <SiteFooter />
         </aside>
       </main>
     </div>

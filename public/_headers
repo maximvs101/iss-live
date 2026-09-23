@@ -40,6 +40,13 @@
 /index.html
   Cache-Control: public, max-age=0, must-revalidate
 
+/console/
+  Cache-Control: public, max-age=0, must-revalidate
+
+# Drawn once at build from Natural Earth; changes only when the script is rerun.
+/home-map.svg
+  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
+
 # The readable pages are HTML too, and they change at every build like the entry point does:
 # not fingerprinted, so not cacheable for long. Their one stylesheet is not fingerprinted either
 # — a day is the compromise between re-fetching eight kilobytes and a restyle that takes a day
