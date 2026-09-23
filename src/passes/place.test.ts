@@ -52,6 +52,21 @@ describe('where the page starts from', () => {
     expect(readStored(memoryStorage({ [STORAGE_KEY]: JSON.stringify(['paris']) }))).toBeNull()
   })
 
+  it('ignores a remembered place whose zone or coordinates cannot be real', () => {
+    // A zone Intl does not know made every date format throw during render: the tool drew nothing,
+    // not even the search box that would have let the visitor out, on every visit.
+    const stored = (value: object) => readStored(memoryStorage({ [STORAGE_KEY]: JSON.stringify({ kind: 'here', ...value }) }))
+    expect(stored({ latitude: 48.8, longitude: 2.3, timeZone: 'Not/AZone' })).toBeNull()
+    expect(stored({ latitude: 123, longitude: 2.3, timeZone: 'Europe/Paris' })).toBeNull()
+    expect(stored({ latitude: 48.8, longitude: 200, timeZone: 'Europe/Paris' })).toBeNull()
+    expect(stored({ latitude: 48.8, longitude: 2.3, timeZone: 'Europe/Paris' })).toEqual({
+      kind: 'here',
+      latitude: 48.8,
+      longitude: 2.3,
+      timeZone: 'Europe/Paris',
+    })
+  })
+
   it('works with storage blocked', () => {
     expect(readStored(blocked)).toBeNull()
     expect(() => writeStored({ kind: 'city', slug: 'paris-fr' }, blocked)).not.toThrow()

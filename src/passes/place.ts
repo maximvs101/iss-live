@@ -34,13 +34,27 @@ function isStored(value: unknown): value is Stored {
   if (v.kind === 'here') {
     return (
       typeof v.latitude === 'number' &&
-      Number.isFinite(v.latitude) &&
+      Math.abs(v.latitude) <= 90 &&
       typeof v.longitude === 'number' &&
-      Number.isFinite(v.longitude) &&
-      typeof v.timeZone === 'string'
+      Math.abs(v.longitude) <= 180 &&
+      typeof v.timeZone === 'string' &&
+      isZone(v.timeZone)
     )
   }
   return false
+}
+
+/*
+ * A zone `Intl` knows. Anything else throws from every date format the list draws, so a bad one
+ * remembered would leave the tool blank on every visit — with no search box to get out through.
+ */
+function isZone(timeZone: string): boolean {
+  try {
+    new Intl.DateTimeFormat('en', { timeZone })
+    return true
+  } catch {
+    return false
+  }
 }
 
 export function readStored(storage: Storage | null): Stored | null {
