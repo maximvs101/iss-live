@@ -50,4 +50,11 @@ describe('PassList', () => {
     render(<PassList passes={[pass]} place={paris} now={Date.parse('2026-09-22T18:00:00Z')} />)
     expect(screen.getByText('Tomorrow · 00:00 → 00:05')).toBeTruthy()
   })
+
+  it('says plainly when nothing comes over at all', () => {
+    // With no pass in the window the summary read "None of the next 0 passes can be seen from
+    // Paris, France: ." — a count of nothing and a colon before an empty list.
+    render(<PassList passes={[]} place={paris} now={Date.parse('2026-09-22T18:00:00Z')} />)
+    expect(screen.getByText('The station does not come over Paris, France in the next five days.')).toBeTruthy()
+  })
 })

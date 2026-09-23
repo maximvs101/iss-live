@@ -10,6 +10,9 @@ import type { OrbitalElements } from '../orbit/tle.ts'
 afterEach(() => {
   cleanup()
   clearCityCache()
+  // Shared by every test through the document: one that leaves it set must not decide the next.
+  document.documentElement.classList.remove('passes-expecting')
+  window.history.replaceState(null, '', '/')
 })
 
 const satrec = twoline2satrec(
@@ -97,6 +100,46 @@ describe('PassesApp', () => {
     expect(screen.queryAllByRole('button', { name: /Add the .* pass to your calendar/ })).toHaveLength(0)
   })
 
+  it('keeps the city the visitor picks while a linked city is still loading', async () => {
+    // The search box is there while the link's city loads; a city picked in the meantime was
+    // overwritten when the link's arrived — Paris on screen, Lyon remembered.
+    let deliver: () => void = () => {}
+    const slowP: Fetcher = (url) =>
+      url === '/cities/p.json'
+        ? new Promise((resolve) => (deliver = () => resolve({ ok: true, json: async () => ({ tz: ['Europe/Paris'], rows: [['paris-fr', 'Paris', 'paris', 'FR', 48.85, 2.35, 0, 2138551]] }) })))
+        : Promise.resolve({ ok: true, json: async () => ({ tz: ['Europe/Paris'], rows: [['lyon-fr', 'Lyon', 'lyon', 'FR', 45.75, 4.85, 0, 520774]] }) })
+    render(<PassesApp loadElements={loadElements} clock={clock} storage={memoryStorage()} search="?city=paris-fr" geolocation={null} fetcher={slowP} />)
+    const box = screen.getByRole('combobox')
+    fireEvent.change(box, { target: { value: 'lyon' } })
+    await screen.findByRole('option', { name: 'Lyon, France' })
+    fireEvent.keyDown(box, { key: 'Enter' })
+    await screen.findByText('Lyon, France')
+    deliver()
+    await new Promise((r) => setTimeout(r, 20))
+    expect(screen.getByText('Lyon, France')).toBeTruthy()
+    expect(screen.queryByText('Paris, France')).toBeNull()
+  })
+
+  it('drops the city from the address when the visitor chooses another, so a reload keeps it', async () => {
+    // Opened from ?city=paris-fr, changed to Lyon: the address still said Paris, and a link beats
+    // memory, so reloading went back to Paris.
+    window.history.replaceState(null, '', '/passes/?city=paris-fr')
+    const both: Fetcher = async (url) =>
+      url === '/cities/l.json'
+        ? { ok: true, json: async () => ({ tz: ['Europe/Paris'], rows: [['lyon-fr', 'Lyon', 'lyon', 'FR', 45.75, 4.85, 0, 520774]] }) }
+        : fetcher(url)
+    render(<PassesApp loadElements={loadElements} clock={clock} storage={memoryStorage()} search={window.location.search} geolocation={null} fetcher={both} />)
+    await screen.findByText('Paris, France')
+    fireEvent.click(screen.getByRole('button', { name: 'change' }))
+    expect(window.location.search).toBe('')
+    const box = screen.getByRole('combobox')
+    fireEvent.change(box, { target: { value: 'lyon' } })
+    await screen.findByRole('option', { name: 'Lyon, France' })
+    fireEvent.keyDown(box, { key: 'Enter' })
+    await screen.findByText('Lyon, France')
+    expect(window.location.pathname + window.location.search).toBe('/passes/')
+  })
+
   // Review focus 2, at the page
   it('explains a week with nothing to see', async () => {
     const tromso: Fetcher = async () => ({
@@ -121,7 +164,8 @@ describe('PassesApp', () => {
     expect(document.documentElement.classList.contains('passes-expecting')).toBe(true)
     release(elements)
     await screen.findAllByRole('button', { name: /Add the .* pass to your calendar/ })
-    expect(document.documentElement.classList.contains('passes-expecting')).toBe(false)
+    // Let go in an effect after the list's render: waited for, not read in the same tick.
+    await waitFor(() => expect(document.documentElement.classList.contains('passes-expecting')).toBe(false))
   })
 
   it('lets the room go when a link names no known city', async () => {

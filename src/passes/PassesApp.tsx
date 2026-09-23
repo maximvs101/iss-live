@@ -5,7 +5,7 @@
  * needs a clock and the orbital elements. It recomputes once a minute so that a page left open
  * drops the passes that have gone by.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { elementsAgeHours, loadOrbitalElements, type OrbitalElements } from '../orbit/tle.ts'
 import type { Fetcher } from './cities.ts'
 import { findPasses, positionFrom } from './findPasses.ts'
@@ -41,6 +41,15 @@ export interface PassesAppProps {
   fetcher?: Fetcher
 }
 
+/*
+ * Once the visitor has chosen, the address stops naming the linked city: a link beats memory, so
+ * with ?city=paris-fr left in place, a reload after choosing Lyon went straight back to Paris.
+ */
+function dropCityFromAddress(): void {
+  if (typeof window === 'undefined' || !new URLSearchParams(window.location.search).has('city')) return
+  window.history.replaceState(window.history.state, '', window.location.pathname + window.location.hash)
+}
+
 function browserGeolocation(): Geolocation | null {
   return typeof navigator !== 'undefined' && 'geolocation' in navigator ? navigator.geolocation : null
 }
@@ -60,6 +69,9 @@ export function PassesApp({
   const [now, setNow] = useState(clock)
   // A place is on its way — from the link or from memory — and the page should not know it yet.
   const [awaiting, setAwaiting] = useState(() => initialChoice(search, storage) !== null)
+  // Set when the visitor picks or clears a place: a linked or remembered one still loading must not
+  // land on top of that choice afterwards.
+  const decided = useRef(false)
 
   useEffect(() => {
     let live = true
@@ -82,13 +94,13 @@ export function PassesApp({
     if (!choice) return
     resolveChoice(choice, fetcher).then(
       (resolved) => {
-        if (!live) return
+        if (!live || decided.current) return
         setAwaiting(false)
         if (resolved) setPlace(resolved)
         else if (choice.source === 'url') setNotice('That city link is not one we know. Search for the city instead.')
       },
       () => {
-        if (!live) return
+        if (!live || decided.current) return
         setAwaiting(false)
         setNotice('The city list could not be loaded. Try again in a moment, or use your location.')
       },
@@ -109,6 +121,9 @@ export function PassesApp({
   )
 
   const choose = (next: Place) => {
+    decided.current = true
+    setAwaiting(false)
+    dropCityFromAddress()
     setPlace(next)
     setNotice(null)
     setShared(false)
@@ -116,6 +131,9 @@ export function PassesApp({
   }
 
   const forget = () => {
+    decided.current = true
+    setAwaiting(false)
+    dropCityFromAddress()
     setPlace(null)
     writeStored(null, storage)
   }

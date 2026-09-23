@@ -21,6 +21,12 @@ export function PassList({ passes, place, now }: { passes: Pass[]; place: Place;
   const today = new Date(now)
   const upcoming = passes.filter((p) => p.set.date.getTime() >= now)
 
+  if (upcoming.length === 0) {
+    return (
+      <p className="passes__summary">The station does not come over {placeLabel(place)} in the next five days.</p>
+    )
+  }
+
   if (!upcoming.some((p) => p.visible)) {
     const count = (reason: Pass['reason']) => upcoming.filter((p) => p.reason === reason).length
     const parts = [
