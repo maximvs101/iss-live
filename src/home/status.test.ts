@@ -25,9 +25,15 @@ describe('fetchStatus', () => {
 })
 
 describe('statusLine', () => {
+  it('names the month the same way whatever the runtime', () => {
+    // en-GB gave "Sept" on one ICU and "Sep" on another; the line and its test depended on which.
+    expect(statusLine({ live: false, lastLive: '2026-06-03T00:00:00Z' })).toBe('NASA’s broadcast silent since 3 Jun')
+    expect(statusLine({ live: false, lastLive: '2026-09-30T23:59:59Z' })).toBe('NASA’s broadcast silent since 30 Sep')
+  })
+
   it('says live, or since when it has been silent', () => {
     expect(statusLine({ live: true, lastLive: '2026-09-23T11:55:12Z' })).toBe('live telemetry from the station')
-    expect(statusLine({ live: false, lastLive: '2026-09-14T14:14:20Z' })).toBe('NASA’s broadcast silent since 14 Sept')
+    expect(statusLine({ live: false, lastLive: '2026-09-14T14:14:20Z' })).toBe('NASA’s broadcast silent since 14 Sep')
     expect(statusLine({ live: false, lastLive: null })).toBe('NASA’s broadcast is silent')
   })
 })

@@ -130,7 +130,11 @@ export function HomeApp({
         )}
       </p>
       <HomeMap track={track} position={state} label={line ?? 'The station’s position is being computed.'} now={now} />
-      <p className="home__next">{next && <a href="/passes/">{nextPassLine(next, now)}</a>}</p>
+      {/* Until the next pass is known, the same invitation the page's HTML carries: emptied on the
+          first render, it came back only once the orbit had loaded. */}
+      <p className="home__next">
+        <a href="/passes/">{nextPassLine(next ?? { kind: 'ask' }, now)}</a>
+      </p>
     </>
   )
 }

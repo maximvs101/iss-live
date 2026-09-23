@@ -29,8 +29,11 @@ export function HomeMap({
   label: string
   now: number
 }) {
-  const past = splitAtAntimeridian(track.filter((p) => p.date.getTime() <= now))
-  const ahead = splitAtAntimeridian(track.filter((p) => p.date.getTime() >= now))
+  // The track is sampled on whole minutes; the station is where it is now. Without it as the end of
+  // one run and the start of the other, up to four degrees either side of the dot went undrawn.
+  const here = position ? [{ ...position, date: new Date(now) }] : []
+  const past = splitAtAntimeridian([...track.filter((p) => p.date.getTime() < now), ...here])
+  const ahead = splitAtAntimeridian([...here, ...track.filter((p) => p.date.getTime() > now)])
   return (
     <div className="home-map">
       <img className="home-map__world" src="/home-map.svg" alt="" width={720} height={360} />

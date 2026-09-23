@@ -262,7 +262,8 @@
  * than the map: it is a three-dimensional object seen at an angle.
  *
  * The 356 px is the same reading floor the map buys with `--map-reserve`, written here in the only
- * terms this row understands. Without it the two views disagreed on short screens — 58% of a 694 px
+ * terms this row understands. Like the reserve, it leaves the site's 33 px bar out: the bar is paid
+ * for by the readings in both views, and the two views still agree. Without it the two views disagreed on short screens — 58% of a 694 px
  * column is 402, which left the readings 291 px under the model where the map left them 335 — and
  * the strip changing height when you switch views is the kind of thing that reads as a glitch. On
  * anything 1000 px tall or more the share still wins and nothing moves.
@@ -454,7 +455,12 @@
        strip before any of this, so the floor is set exactly where it already stood rather than
        anywhere more comfortable. The band is the whole of the change from 501: it is a row the
        header did not have, and the map pays for it rather than the readings. The header itself
-       came back down by 11 px when the tagline left it, and the map takes that back. */
+       came back down by 11 px when the tagline left it, and the map takes that back.
+
+       The site's bar (33 px, its own row above the header since 23 September 2026) is NOT counted
+       here, on purpose: the map keeps every pixel and the strip pays instead — 324 px at 1366×768
+       rather than 357, three reading rows fewer (24 → 21), none at 1920×1080. Counting it would
+       have given the rows back by shrinking the map, the opposite of what the bar was traded for. */
     --map-reserve: 523px;
     --map-width: min(100%, (100dvh - var(--map-reserve)) * 2, 92dvh);
   }

@@ -31,10 +31,12 @@ export async function fetchStatus(
   }
 }
 
-const day = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' })
+// A table rather than Intl: en-GB's short month is "Sept" under one ICU and "Sep" under another.
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const day = (date: Date) => `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]}`
 
 export function statusLine(status: BroadcastStatus): string {
   if (status.live) return 'live telemetry from the station'
   if (!status.lastLive) return 'NASA’s broadcast is silent'
-  return `NASA’s broadcast silent since ${day.format(new Date(status.lastLive))}`
+  return `NASA’s broadcast silent since ${day(new Date(status.lastLive))}`
 }

@@ -77,7 +77,7 @@ export function clampDescription(text, max = 155) {
 /** The header every page wears, the passes page included — one list of pages, not two. */
 export function siteHeader(path) {
   return `<header class="site">
-      <a class="site__brand" href="/">ISS Live</a>
+      <a class="site__brand" href="/"${path === '/' ? ' aria-current="page"' : ''}>ISS Live</a>
       <nav class="site__nav" aria-label="Site">
         ${NAV.map((item) => {
           const state = navState(path, item.href)

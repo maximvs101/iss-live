@@ -197,6 +197,8 @@ describe('the shared chrome', () => {
     expect(siteHeader('/about/')).toContain('<a href="/passes/">When to see it</a>')
     expect(siteHeader('/passes/')).toContain('<a href="/passes/" aria-current="page">When to see it</a>')
     expect(siteHeader('/about/')).toContain('<a class="site__brand" href="/">ISS Live</a>')
+    // On the home page the bar marked nothing: the brand is its entry.
+    expect(siteHeader('/')).toContain('<a class="site__brand" href="/" aria-current="page">ISS Live</a>')
     expect(siteFooter()).toContain('href="/about/"')
   })
 })

@@ -121,6 +121,13 @@ describe('HomeApp', () => {
     }
   })
 
+  it('keeps the way to /passes/ on screen while the orbit is still loading', () => {
+    // React's first render emptied the skeleton's link, and it came back only once the elements
+    // had arrived — which, with Celestrak slow, could be a long while.
+    render(<HomeApp loadElements={() => new Promise(() => {})} clock={clock} storage={empty} loadPlaceNames={noNames} loadStatus={noStatus} />)
+    expect(screen.getByRole('link', { name: 'When can you see it from your city?' }).getAttribute('href')).toBe('/passes/')
+  })
+
   it('offers /passes/ when no city is remembered', async () => {
     render(<HomeApp loadElements={loadElements} clock={clock} storage={empty} loadPlaceNames={noNames} loadStatus={noStatus} />)
     const link = await screen.findByRole('link', { name: 'When can you see it from your city?' })
