@@ -32,6 +32,9 @@ export const LOOKBACK_MINUTES = 15
  */
 export const MIN_VISIBLE_SECONDS = 60
 
+/** Past this age, orbital elements give no pass times at all: see PassesApp and the home page. */
+export const MAX_ELEMENTS_AGE_HOURS = 14 * 24
+
 const AU_KM = 149_597_870.7
 const DEG = 180 / Math.PI
 

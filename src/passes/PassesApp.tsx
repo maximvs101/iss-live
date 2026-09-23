@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { elementsAgeHours, loadOrbitalElements, type OrbitalElements } from '../orbit/tle.ts'
 import type { Fetcher } from './cities.ts'
-import { findPasses, positionFrom } from './findPasses.ts'
+import { MAX_ELEMENTS_AGE_HOURS, findPasses, positionFrom } from './findPasses.ts'
 import { LocationBar } from './LocationBar.tsx'
 import { PassList } from './PassList.tsx'
 import {
@@ -25,12 +25,12 @@ import {
 } from './place.ts'
 
 /*
- * Past this, no times are shown at all. The drift of a set of elements grows with its age, and the
+ * MAX_ELEMENTS_AGE_HOURS, from findPasses.ts, shared with the home page: past it, no times are
+ * shown at all. The drift of a set of elements grows with its age, and the
  * built-in set dates from late July: on a first visit with Celestrak unreachable, two months on,
  * it gave minute-precise times under a note that they "can move by minutes". Up to three days the
  * age is shown plainly, from three it is shown in amber, and from fourteen the list gives way.
  */
-const MAX_ELEMENTS_AGE_HOURS = 14 * 24
 
 export interface PassesAppProps {
   loadElements?: () => Promise<OrbitalElements>
