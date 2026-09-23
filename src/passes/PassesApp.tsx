@@ -72,12 +72,19 @@ export function PassesApp({
     let live = true
     const choice = initialChoice(search, storage)
     if (!choice) return
-    resolveChoice(choice, fetcher).then((resolved) => {
-      if (!live) return
-      setAwaiting(false)
-      if (resolved) setPlace(resolved)
-      else if (choice.source === 'url') setNotice('That city link is not one we know. Search for the city instead.')
-    })
+    resolveChoice(choice, fetcher).then(
+      (resolved) => {
+        if (!live) return
+        setAwaiting(false)
+        if (resolved) setPlace(resolved)
+        else if (choice.source === 'url') setNotice('That city link is not one we know. Search for the city instead.')
+      },
+      () => {
+        if (!live) return
+        setAwaiting(false)
+        setNotice('The city list could not be loaded. Try again in a moment, or use your location.')
+      },
+    )
     return () => {
       live = false
     }

@@ -70,6 +70,17 @@ describe('findCity', () => {
   })
 })
 
+describe('findCity when the list cannot be reached', () => {
+  it('fails rather than calling the city unknown', async () => {
+    // A shared link opened on a bad connection said "That city link is not one we know": the link
+    // was fine, the network was not. An answer from the server settles it; no answer does not.
+    const offline: Fetcher = async () => {
+      throw new TypeError('Failed to fetch')
+    }
+    await expect(findCity('paris-fr', offline)).rejects.toThrow()
+  })
+})
+
 describe('countryName', () => {
   it('names the country in English', () => {
     expect(countryName('FR')).toBe('France')

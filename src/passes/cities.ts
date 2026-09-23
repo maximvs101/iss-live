@@ -68,9 +68,21 @@ export async function searchCities(query: string, limit = 8, fetcher?: Fetcher):
   return found
 }
 
-/** A slug whose letter has no file is a city we do not know, not an error to show. */
-export async function findCity(slug: string, fetcher?: Fetcher): Promise<City | null> {
-  const cities = await loadPacket(packetKey(slug), fetcher).catch(() => [])
+/**
+ * The city a slug names, `null` if there is none — and a rejection if nobody could be asked.
+ *
+ * The server answering "no such file" settles it: the city is unknown. No answer at all settles
+ * nothing, and used to read the same — a shared link opened on a bad connection said "not one we
+ * know" about a city that was fine. That case rejects, and the page says the list could not load.
+ */
+export async function findCity(slug: string, fetcher: Fetcher = defaultFetcher): Promise<City | null> {
+  const key = packetKey(slug)
+  let response: Awaited<ReturnType<Fetcher>> | null = null
+  const probe: Fetcher = async (url) => (response = await fetcher(url))
+  const cities = await loadPacket(key, probe).catch((error) => {
+    if (response && !response.ok) return [] as City[]
+    throw error
+  })
   return cities.find((city) => city.slug === slug) ?? null
 }
 

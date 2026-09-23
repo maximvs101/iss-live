@@ -75,6 +75,17 @@ describe('PassesApp', () => {
     expect(screen.getByRole('combobox')).toBeTruthy()
   })
 
+  it('tells a network failure from an unknown city', async () => {
+    const offline: Fetcher = async () => {
+      throw new TypeError('Failed to fetch')
+    }
+    document.documentElement.classList.add('passes-expecting')
+    render(<PassesApp loadElements={loadElements} clock={clock} storage={memoryStorage()} search="?city=paris-fr" geolocation={null} fetcher={offline} />)
+    await screen.findByText(/city list could not be loaded/)
+    expect(screen.queryByText(/not one we know/)).toBeNull()
+    expect(document.documentElement.classList.contains('passes-expecting')).toBe(false)
+  })
+
   // Review focus 2, at the page
   it('explains a week with nothing to see', async () => {
     const tromso: Fetcher = async () => ({
