@@ -4,6 +4,7 @@ import {
   cityFromSearch,
   initialChoice,
   locate,
+  placeId,
   readStored,
   roundHere,
   shareUrl,
@@ -96,6 +97,13 @@ describe('location', () => {
     const place = await locate(geolocation)
     expect(place).toMatchObject({ kind: 'here', latitude: 48.9, longitude: 2.4 })
     expect(shareUrl('paris-fr', 'https://iss-live.pages.dev')).toBe('https://iss-live.pages.dev/passes/?city=paris-fr')
+  })
+
+  it('keeps a geolocated position out of anything that can leave the page, the calendar file included', () => {
+    // The calendar event's uid was "here-48.9-2.3-…": rounded coordinates in a file people forward
+    // as an invitation. Hashed, a 0.1° grid is small enough to recover by brute force; the uid only
+    // has to stop the same pass being added twice, and "here" does that.
+    expect(placeId({ kind: 'here', latitude: 48.9, longitude: 2.4, timeZone: 'Europe/Paris' })).toBe('here')
   })
 
   it('rejects when the visitor says no', async () => {

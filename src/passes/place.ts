@@ -126,8 +126,13 @@ export function placeTimeZone(place: Place): string {
   return place.kind === 'city' ? place.city.timeZone : place.timeZone
 }
 
+/**
+ * What names the place in a calendar event's uid. Not the coordinates, even rounded: an event is a
+ * file people forward as an invitation, and a hash of a 0.1° grid is recoverable by brute force.
+ * The uid only has to stop the same pass being added twice, which "here" and the minute do.
+ */
 export function placeId(place: Place): string {
-  return place.kind === 'city' ? place.city.slug : `here-${place.latitude}-${place.longitude}`
+  return place.kind === 'city' ? place.city.slug : 'here'
 }
 
 export function shareUrl(slug: string, origin: string): string {
