@@ -55,6 +55,21 @@ instead sent its message to five lines (header 191 px). Against the production c
 
 The map keeps every pixel; the readings pay for the bar with one to three rows on short screens.
 
+## After the final review
+
+A fresh reviewer read the whole branch. Four of its findings were fixed, each with a test that
+failed first:
+
+- The index `/status` needs was added only to `worker/schema.sql`, which begins by dropping the
+  tables; applying it the obvious way would have erased the collector's record. It now has its own
+  migration, `worker/migrations/0002_liveness_live.sql`, tested to contain nothing but the index.
+- The home page placed the station from orbital elements of any age. Past 14 days it now places
+  nothing and says why; from 3 days it states the age — the rule `/passes/` already had.
+- `/status` would have called a stopped collector a silent NASA. Without a recent run of its own it
+  now answers `live: null`, and the home page leaves the line out.
+- The next pass was computed once; a tab left open announced a past pass as the next one. It is
+  recomputed as soon as the announced pass is over.
+
 ## Still to do, and needing approval
 
 - The D1 partial index, from `worker/`: `npx wrangler d1 execute iss-collector --remote --file
