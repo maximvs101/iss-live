@@ -39,6 +39,16 @@ export function dropDistricts(cities) {
   })
 }
 
+/**
+ * The spelling a search is matched against, and the slug is made from: the city's own name with its
+ * accents folded — exactly what the search box does to what is typed. Not GeoNames' ASCII column,
+ * which transliterates ("Zuerich", "Koeln", "Gjong Hoi"): keyed on it, 105 cities could not be found
+ * by their own name. A name with no Latin letters at all falls back to the ASCII spelling.
+ */
+function searchKey(city) {
+  return normalise(city.name) || normalise(city.ascii ?? '')
+}
+
 const byPopulation = (a, b) => b.population - a.population || a.id - b.id
 
 /** id → slug. The most populous namesake in a country keeps the plain slug. */
@@ -46,7 +56,7 @@ export function assignSlugs(cities) {
   const seen = new Map()
   const slugs = new Map()
   for (const city of [...cities].sort(byPopulation)) {
-    const base = `${normalise(city.ascii || city.name).replace(/ /g, '-')}-${city.country.toLowerCase()}`
+    const base = `${searchKey(city).replace(/ /g, '-')}-${city.country.toLowerCase()}`
     const n = (seen.get(base) ?? 0) + 1
     seen.set(base, n)
     slugs.set(city.id, n === 1 ? base : `${base}-${n}`)
@@ -60,7 +70,7 @@ export function buildPackets(cities) {
   const slugs = assignSlugs(cities)
   const packets = new Map()
   for (const city of [...cities].sort(byPopulation)) {
-    const key = normalise(city.ascii || city.name)
+    const key = searchKey(city)
     const letter = packetKey(key)
     if (!packets.has(letter)) packets.set(letter, { tz: [], rows: [] })
     const packet = packets.get(letter)

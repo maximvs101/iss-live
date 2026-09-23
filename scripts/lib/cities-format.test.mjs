@@ -56,6 +56,21 @@ describe('cities format', () => {
     expect(slugs.get(1)).toBe('saint-denis-re')
   })
 
+  it('keys a city on its own name, not on the ASCII spelling GeoNames gives it', () => {
+    // GeoNames' ASCII column writes ü as "ue" and Đ as "Gj": typed "Zürich" or "Zurich" found nothing,
+    // only "Zuer…", and 105 cities could not be found by their own name.
+    const cities = [
+      { id: 1, name: 'Zürich', ascii: 'Zuerich', latitude: 47.37, longitude: 8.55, country: 'CH', population: 341730, timeZone: 'Europe/Zurich' },
+      { id: 2, name: 'Đồng Hới', ascii: 'Gjong Hoi', latitude: 17.47, longitude: 106.6, country: 'VN', population: 60000, timeZone: 'Asia/Ho_Chi_Minh' },
+      { id: 3, name: 'ⴰⵎⵙⵎⵔⵔⵉ', ascii: 'Amsmrri', latitude: 30, longitude: -9, country: 'MA', population: 60000, timeZone: 'Africa/Casablanca' },
+    ]
+    const packets = buildPackets(cities)
+    expect(packets.get('z').rows[0].slice(0, 3)).toEqual(['zurich-ch', 'Zürich', 'zurich'])
+    expect(packets.get('d').rows[0].slice(0, 3)).toEqual(['dong-hoi-vn', 'Đồng Hới', 'dong hoi'])
+    // A name with no Latin letters at all falls back to the ASCII spelling rather than to nothing.
+    expect(packets.get('a').rows[0].slice(0, 3)).toEqual(['amsmrri-ma', 'ⴰⵎⵙⵎⵔⵔⵉ', 'amsmrri'])
+  })
+
   it('packs by first letter, rounds to a kilometre, and indexes the zones', () => {
     const cities = [
       { id: 1, name: 'Lyon', ascii: 'Lyon', latitude: 45.74846, longitude: 4.84671, country: 'FR', population: 522969, timeZone: 'Europe/Paris' },
