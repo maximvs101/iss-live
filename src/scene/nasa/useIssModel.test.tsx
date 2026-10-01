@@ -23,10 +23,15 @@ import { Group } from 'three'
 /** Attempts made through the mocked loader, and what each one should do. */
 let attempts = 0
 let outcomes: ('fail' | 'succeed')[] = []
+/** What the hook handed the Draco loader as its decoder. */
+let decoderPath: unknown = null
 
 vi.mock('three/examples/jsm/loaders/DRACOLoader.js', () => ({
+  DRACO_GLTF_CONFIG: { js: 'gltf/wrapper.js', wasm: 'gltf/decoder.wasm' },
   DRACOLoader: class {
-    setDecoderPath() {}
+    setDecoderPath(path: unknown) {
+      decoderPath = path
+    }
     dispose() {}
   },
 }))
@@ -69,6 +74,7 @@ let useIssModel: typeof import('./useIssModel').useIssModel
 beforeEach(async () => {
   attempts = 0
   outcomes = []
+  decoderPath = null
   // A fresh module each time: the download is cached in a module-level promise on purpose, and a
   // test that inherited the previous one would be asserting against the last test's result.
   vi.resetModules()
@@ -138,5 +144,13 @@ describe('loading the NASA model', () => {
     )
     await settle()
     expect(attempts).toBe(1)
+  })
+
+  it('decodes with the glTF decoder three.js ships, not a copy of its own', async () => {
+    // A path string here would mean a hand-kept copy again — and three falls back to a CDN when
+    // such a path 404s. The config object is the decoder Vite emits from three's own package.
+    render(<Probe />)
+    await settle()
+    expect(decoderPath).toEqual({ js: 'gltf/wrapper.js', wasm: 'gltf/decoder.wasm' })
   })
 })
