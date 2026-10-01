@@ -89,6 +89,9 @@ interface IssGltfProps {
   rotation?: [number, number, number]
 }
 
+/** Scratch for the joint rotation, reused every frame rather than allocated per joint per frame. */
+const spin = new Quaternion()
+
 export function IssGltf({ scene, rotation = [0, -Math.PI / 2, 0] }: IssGltfProps) {
   const selected = useSelectionStore((store) => store.selected)
   const hovered = useSelectionStore((store) => store.hovered)
@@ -330,12 +333,7 @@ export function IssGltf({ scene, rotation = [0, -Math.PI / 2, 0] }: IssGltfProps
       if (angle === null) continue
       joint.node.quaternion
         .copy(joint.rest)
-        .multiply(
-          new Quaternion().setFromAxisAngle(
-            joint.axis,
-            MathUtils.degToRad(jointAngle(joint.binding, angle)),
-          ),
-        )
+        .multiply(spin.setFromAxisAngle(joint.axis, MathUtils.degToRad(jointAngle(joint.binding, angle))))
     }
   })
 

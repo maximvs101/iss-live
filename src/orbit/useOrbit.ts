@@ -11,7 +11,6 @@ import {
   betaAngle,
   groundTrack,
   propagateIss,
-  subsolarPoint,
   type GroundTrackPoint,
   type OrbitState,
 } from './propagator'
@@ -47,15 +46,10 @@ interface OrbitStore {
   track: GroundTrackPoint[]
   /** Computed beta angle, in degrees. */
   beta: number | null
-  subsolar: { latitude: number; longitude: number } | null
   error: string | null
 
   setElements: (elements: OrbitalElements) => void
-  setState: (
-    state: OrbitState,
-    beta: number,
-    subsolar: { latitude: number; longitude: number },
-  ) => void
+  setState: (state: OrbitState, beta: number) => void
   setTrack: (track: GroundTrackPoint[]) => void
   setError: (error: string) => void
 }
@@ -65,11 +59,10 @@ export const useOrbitStore = create<OrbitStore>((set) => ({
   state: null,
   track: [],
   beta: null,
-  subsolar: null,
   error: null,
 
   setElements: (elements) => set({ elements, error: null }),
-  setState: (state, beta, subsolar) => set({ state, beta, subsolar }),
+  setState: (state, beta) => set({ state, beta }),
   setTrack: (track) => set({ track }),
   setError: (error) => set({ error }),
 }))
@@ -95,7 +88,7 @@ export function useOrbitEngine(): void {
         useOrbitStore.getState().setError('Orbit propagation failed.')
         return
       }
-      useOrbitStore.getState().setState(state, betaAngle(state, now), subsolarPoint(now))
+      useOrbitStore.getState().setState(state, betaAngle(state, now))
     }
 
     const refreshTrack = () => {

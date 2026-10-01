@@ -37,7 +37,7 @@ beforeEach(() => {
   vi.useFakeTimers()
   vi.setSystemTime(NOW)
   localStorage.clear()
-  useOrbitStore.setState({ elements: null, state: null, track: [], beta: null, subsolar: null })
+  useOrbitStore.setState({ elements: null, state: null, track: [], beta: null })
 
   vi.spyOn(console, 'warn').mockImplementation(() => {})
   fetches = 0

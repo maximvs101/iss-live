@@ -17,7 +17,7 @@ import type { DirectionalLight, Group } from 'three'
 import { useOrbitStore } from '../orbit/useOrbit'
 import { sunDirectionLvlh } from '../orbit/propagator'
 import { IssGltf } from './nasa/IssGltf'
-import { useIssModel } from './nasa/useIssModel'
+import { ISS_MODEL_MEGABYTES, useIssModel } from './nasa/useIssModel'
 import { Atmosphere } from './Atmosphere'
 import { EarthSurface } from './EarthSurface'
 import { clampTarget, farPlane } from './cameraReach'
@@ -419,7 +419,7 @@ function ModelProgress({ progress }: { progress: number }) {
       <span className="model-progress__track" aria-hidden="true">
         <span className="model-progress__bar" style={{ width: `${Math.max(percent, 2)}%` }} />
       </span>
-      <span className="model-progress__note">14.9 MB · cached by the browser afterwards</span>
+      <span className="model-progress__note">{ISS_MODEL_MEGABYTES} MB · cached by the browser afterwards</span>
     </div>
   )
 }

@@ -116,8 +116,19 @@ function unwrapRing(ring: number[][]): { points: number[][]; min: number; max: n
  * the ring's own range — otherwise a ring living at 170°…190° would never be matched by a point
  * reported at −175°.
  */
+/**
+ * Rings never change, and the lookup runs every second or two over the whole countries set: each
+ * ring is unwrapped once, the first time it is tested, instead of on every call.
+ */
+const unwrapped = new WeakMap<number[][], ReturnType<typeof unwrapRing>>()
+
 function pointInRing(longitude: number, latitude: number, ring: number[][]): boolean {
-  const { points, min, max } = unwrapRing(ring)
+  let cached = unwrapped.get(ring)
+  if (!cached) {
+    cached = unwrapRing(ring)
+    unwrapped.set(ring, cached)
+  }
+  const { points, min, max } = cached
 
   let x = longitude
   while (x < min - 180) x += 360

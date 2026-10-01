@@ -22,7 +22,9 @@ import { Group } from 'three'
 
 /** Attempts made through the mocked loader, and what each one should do. */
 let attempts = 0
-let outcomes: ('fail' | 'succeed')[] = []
+let outcomes: ('fail' | 'succeed' | 'hang')[] = []
+/** The progress callback of the last download, for a test to report chunks through. */
+let reportProgress: ((event: { loaded: number; total: number }) => void) | null = null
 /** What the hook handed the Draco loader as its decoder. */
 let decoderPath: unknown = null
 
@@ -42,11 +44,13 @@ vi.mock('three/examples/jsm/loaders/GLTFLoader.js', () => ({
     load(
       _url: string,
       onLoad: (gltf: { scene: Group }) => void,
-      _onProgress: unknown,
+      onProgress: (event: { loaded: number; total: number }) => void,
       onError: (error: Error) => void,
     ) {
       const outcome = outcomes[attempts] ?? 'succeed'
       attempts += 1
+      reportProgress = onProgress
+      if (outcome === 'hang') return
       // Asynchronous like the real one, so the hook goes through its loading state.
       queueMicrotask(() => {
         if (outcome === 'fail') onError(new Error('Failed to fetch'))
@@ -75,6 +79,7 @@ beforeEach(async () => {
   attempts = 0
   outcomes = []
   decoderPath = null
+  reportProgress = null
   // A fresh module each time: the download is cached in a module-level promise on purpose, and a
   // test that inherited the previous one would be asserting against the last test's result.
   vi.resetModules()
@@ -144,6 +149,25 @@ describe('loading the NASA model', () => {
     )
     await settle()
     expect(attempts).toBe(1)
+  })
+
+  it('re-renders on whole percents, not on every chunk of the download', async () => {
+    // A 15 MB file arrives in hundreds of chunks; each re-render reaches the whole 3D scene.
+    outcomes = ['hang']
+    let renders = 0
+    function Counter() {
+      useIssModel()
+      renders += 1
+      return null
+    }
+    render(<Counter />)
+    await settle()
+    const before = renders
+    // 0 → 10 % in two hundred chunks, each arriving on its own like network reads.
+    for (let i = 1; i <= 200; i += 1) {
+      await act(async () => reportProgress?.({ loaded: i * 500, total: 1_000_000 }))
+    }
+    expect(renders - before).toBeLessThanOrEqual(10)
   })
 
   it('decodes with the glTF decoder three.js ships, not a copy of its own', async () => {

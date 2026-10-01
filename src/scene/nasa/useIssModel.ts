@@ -30,14 +30,16 @@ import { deviceBudget } from '../deviceBudget'
 const FULL_MODEL_URL = `${import.meta.env.BASE_URL}models/iss-igoal.glb`
 const LIGHT_MODEL_URL = `${import.meta.env.BASE_URL}models/iss-igoal-mobile.glb`
 
-export const ISS_MODEL_URL = deviceBudget().light ? LIGHT_MODEL_URL : FULL_MODEL_URL
+const ISS_MODEL_URL = deviceBudget().light ? LIGHT_MODEL_URL : FULL_MODEL_URL
 
-/** True when the reduced build is being used, so the interface can say so rather than imply parity. */
-export const ISS_MODEL_IS_LIGHT = ISS_MODEL_URL === LIGHT_MODEL_URL
+const ISS_MODEL_IS_LIGHT = ISS_MODEL_URL === LIGHT_MODEL_URL
+
+/** Compressed size of the build being fetched, so the loading screen states the right one. */
+export const ISS_MODEL_MEGABYTES = ISS_MODEL_IS_LIGHT ? 11.5 : 14.9
 
 
 /** Compressed size of the model, used to report progress when the server sends no length. */
-const MODEL_BYTES = (ISS_MODEL_IS_LIGHT ? 11.5 : 14.9) * 1024 * 1024
+const MODEL_BYTES = ISS_MODEL_MEGABYTES * 1024 * 1024
 
 let pending: Promise<Group> | null = null
 /** Progress of the shared download, so a second mount does not restart from zero. */
@@ -78,7 +80,11 @@ function loadModel(): Promise<Group> {
         },
         (event) => {
           const total = event.total || MODEL_BYTES
+          const previous = Math.round(sharedProgress * 100)
           sharedProgress = Math.min(0.99, event.loaded / total)
+          // The screen shows whole percents. A 15 MB download reports hundreds of chunks, and each
+          // notification re-renders the Station view and everything inside its canvas.
+          if (Math.round(sharedProgress * 100) === previous) return
           for (const listener of progressListeners) listener(sharedProgress)
         },
         (error) => {
