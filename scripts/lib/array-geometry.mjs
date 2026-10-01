@@ -13,7 +13,7 @@
  * `jointAngle` — "the two carried their own copy of this arithmetic for a while, and both times the
  * rule changed, one of them was left behind". This is the same lesson, one level up.
  */
-import { readFileSync } from 'node:fs'
+import { readGlb } from './glb.mjs'
 import { Euler, Matrix4, Quaternion, Vector3 } from 'three'
 import { propagateIss, betaAngle, sunDirectionLvlh } from '../../src/orbit/propagator.ts'
 import { JOINT_BINDINGS, jointAngle } from '../../src/scene/nasa/nodeMapping.ts'
@@ -38,9 +38,7 @@ export const AXES = { x: new Vector3(1, 0, 0), y: new Vector3(0, 1, 0), z: new V
 
 // ---------------------------------------------------------------- the model
 
-const buffer = readFileSync(MODEL)
-const jsonLength = buffer.readUInt32LE(12)
-const gltf = JSON.parse(buffer.subarray(20, 20 + jsonLength).toString('utf8'))
+const { json: gltf } = readGlb(MODEL)
 
 /** node index -> { name, local, children, parent } */
 export const nodes = gltf.nodes.map((node, index) => {

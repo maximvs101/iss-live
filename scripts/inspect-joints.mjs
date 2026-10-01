@@ -12,23 +12,12 @@
  *
  * Usage: node scripts/inspect-joints.mjs
  */
-import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
+import { readGlb } from './lib/glb.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const buffer = readFileSync(resolve(root, 'public/models/iss-igoal.glb'))
-
-let offset = 12
-let json = null
-while (offset < buffer.length) {
-  const length = buffer.readUInt32LE(offset)
-  const type = buffer.readUInt32LE(offset + 4)
-  if (type === 0x4e4f534a) {
-    json = JSON.parse(buffer.subarray(offset + 8, offset + 8 + length).toString('utf8'))
-  }
-  offset += 8 + length + ((4 - (length % 4)) % 4)
-}
+const { json } = readGlb(resolve(root, 'public/models/iss-igoal.glb'))
 
 const nodes = json.nodes ?? []
 const meshes = json.meshes ?? []

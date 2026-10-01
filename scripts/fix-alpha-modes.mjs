@@ -28,7 +28,8 @@
  *
  * Usage: node scripts/fix-alpha-modes.mjs [path.glb] [--dry-run]
  */
-import { readFileSync, writeFileSync } from 'node:fs'
+import { writeFileSync } from 'node:fs'
+import { BIN_CHUNK, JSON_CHUNK, readGlb } from './lib/glb.mjs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import sharp from 'sharp'
@@ -65,24 +66,6 @@ const MIN_TRANSLUCENT_BLOB = 100
  * convenience.
  */
 const MIN_TEXTURE_WIDTH = 512
-
-const JSON_CHUNK = 0x4e4f534a
-const BIN_CHUNK = 0x004e4942
-
-function readGlb(path) {
-  const buffer = readFileSync(path)
-  const chunks = []
-  let offset = 12
-  while (offset < buffer.length) {
-    const length = buffer.readUInt32LE(offset)
-    const type = buffer.readUInt32LE(offset + 4)
-    chunks.push({ type, data: buffer.subarray(offset + 8, offset + 8 + length) })
-    offset += 8 + length + ((4 - (length % 4)) % 4)
-  }
-  const jsonChunk = chunks.find((c) => c.type === JSON_CHUNK)
-  const binChunk = chunks.find((c) => c.type === BIN_CHUNK)
-  return { json: JSON.parse(jsonChunk.data.toString('utf8')), bin: binChunk?.data ?? null }
-}
 
 function writeGlb(path, json, bin) {
   const jsonBytes = Buffer.from(JSON.stringify(json), 'utf8')

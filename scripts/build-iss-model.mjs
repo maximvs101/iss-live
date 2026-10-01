@@ -21,7 +21,8 @@
  * Usage: node scripts/build-iss-model.mjs
  */
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs'
+import { readGlb } from './lib/glb.mjs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import { NodeIO } from '@gltf-transform/core'
@@ -110,24 +111,14 @@ execFileSync('node', [resolve(root, 'scripts/fix-alpha-modes.mjs'), TARGET], {
 console.log('corrected')
 
 // Verification: the model is only worth its structure, not merely its size.
-const buffer = readFileSync(TARGET)
-let offset = 12
-let json = null
-while (offset < buffer.length) {
-  const length = buffer.readUInt32LE(offset)
-  const type = buffer.readUInt32LE(offset + 4)
-  if (type === 0x4e4f534a) {
-    json = JSON.parse(buffer.subarray(offset + 8, offset + 8 + length).toString('utf8'))
-  }
-  offset += 8 + length + ((4 - (length % 4)) % 4)
-}
+const { json } = readGlb(TARGET)
 
 const nodes = json?.nodes ?? []
 const named = nodes.filter((node) => node.name).length
 const pivots = nodes.filter((node) => /ALPHA_ROT|BETA_ROT|TRRJ_GAMMA_ROT/.test(node.name ?? ''))
 
 console.log(`\nresult: ${TARGET}`)
-console.log(`  size        : ${mb(buffer.length)}`)
+console.log(`  size        : ${mb(statSync(TARGET).size)}`)
 console.log(`  named nodes : ${named} / ${nodes.length}`)
 console.log(`  joints found: ${pivots.length} / 12`)
 

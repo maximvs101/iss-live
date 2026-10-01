@@ -12,30 +12,21 @@
  *
  * Usage: node scripts/verify-model-mapping.mjs
  */
-import { readFileSync } from 'node:fs'
+import { readFileSync, statSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
+import { readGlb } from './lib/glb.mjs'
 import { JOINT_BINDINGS, MAPPED_ELEMENT_NAMES, partOfNode } from '../src/scene/nasa/nodeMapping.ts'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const MODEL = resolve(root, 'public/models/iss-igoal.glb')
 
-const buffer = readFileSync(MODEL)
-let offset = 12
-let json = null
-while (offset < buffer.length) {
-  const length = buffer.readUInt32LE(offset)
-  const type = buffer.readUInt32LE(offset + 4)
-  if (type === 0x4e4f534a) {
-    json = JSON.parse(buffer.subarray(offset + 8, offset + 8 + length).toString('utf8'))
-  }
-  offset += 8 + length + ((4 - (length % 4)) % 4)
-}
+const { json } = readGlb(MODEL)
 
 const nodes = json.nodes ?? []
 let failures = 0
 
-console.log(`model: ${(buffer.length / 1024 / 1024).toFixed(2)} MB, ${nodes.length} nodes\n`)
+console.log(`model: ${(statSync(MODEL).size / 1024 / 1024).toFixed(2)} MB, ${nodes.length} nodes\n`)
 
 console.log('1. Joints')
 for (const binding of JOINT_BINDINGS) {

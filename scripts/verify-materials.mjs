@@ -21,6 +21,7 @@
  * Usage: npm run verify:materials
  */
 import { readFileSync, existsSync } from 'node:fs'
+import { readGlb } from './lib/glb.mjs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import sharp from 'sharp'
@@ -51,14 +52,6 @@ const check = (ok, label, detail) => {
 }
 
 // ---------------------------------------------------------------- reading
-
-function readGlb(path) {
-  const buffer = readFileSync(path)
-  const jsonLength = buffer.readUInt32LE(12)
-  const json = JSON.parse(buffer.subarray(20, 20 + jsonLength).toString('utf8'))
-  const bin = buffer.subarray(20 + jsonLength + 8)
-  return { json, bin }
-}
 
 /** Width and height from a WebP header, without decoding the image. */
 function webpSize(bytes) {
