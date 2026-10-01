@@ -35,16 +35,6 @@ export const ISS_MODEL_URL = deviceBudget().light ? LIGHT_MODEL_URL : FULL_MODEL
 /** True when the reduced build is being used, so the interface can say so rather than imply parity. */
 export const ISS_MODEL_IS_LIGHT = ISS_MODEL_URL === LIGHT_MODEL_URL
 
-/**
- * Draco decoder served by the application itself: by default three would fetch it from a Google
- * CDN, which would make displaying the station depend on a third party.
- */
-/*
- * And the same base, for the same reason with sharper teeth: three.js does not fail when this
- * path 404s, it quietly falls back to Google's CDN — which is the exact dependency the local
- * copy exists to remove, restored without a word.
- */
-const DRACO_DECODER_PATH = `${import.meta.env.BASE_URL}draco/`
 
 /** Compressed size of the model, used to report progress when the server sends no length. */
 const MODEL_BYTES = (ISS_MODEL_IS_LIGHT ? 11.5 : 14.9) * 1024 * 1024
@@ -62,14 +52,18 @@ function loadModel(): Promise<Group> {
   // stays on the orbital view never fetches them. Both views share three.js itself, so that
   // cannot be deferred — these two can.
   pending = (async () => {
-    const [{ GLTFLoader }, { DRACOLoader }] = await Promise.all([
+    const [{ GLTFLoader }, { DRACOLoader, DRACO_GLTF_CONFIG }] = await Promise.all([
       import('three/examples/jsm/loaders/GLTFLoader.js'),
       import('three/examples/jsm/loaders/DRACOLoader.js'),
     ])
 
     return new Promise<Group>((resolve, reject) => {
+      // The decoder three.js ships for glTF, which Vite emits under /assets/ with a hashed name:
+      // served by the site itself, never by a CDN, and always the build matching this three.js.
+      // It used to be a hand-made copy in public/draco/, identical to this one byte for byte, while
+      // Vite emitted this one anyway — the same 250 kB published twice.
       const draco = new DRACOLoader()
-      draco.setDecoderPath(DRACO_DECODER_PATH)
+      draco.setDecoderPath(DRACO_GLTF_CONFIG)
 
       const loader = new GLTFLoader()
       loader.setDRACOLoader(draco)

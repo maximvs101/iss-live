@@ -16,7 +16,7 @@
 
 # The textures are 94.5 MB of the 113, and every Station visit fetches the month's base map (4.1 MB)
 # and the cloud layer (2.2 MB). Uncached, that is the single largest waste on the site — and until
-# now it was uncovered, because netlify.toml named /assets, /models and /draco and stopped there.
+# now it was uncovered, because netlify.toml named /assets, /models and the decoder and stopped there.
 #
 # A week rather than for ever, for the same reason as the model below: these names carry no hash,
 # so an immutable header would pin a visitor to whichever version they saw first. The base maps have
@@ -24,12 +24,9 @@
 /textures/*
   Cache-Control: public, max-age=604800, stale-while-revalidate=86400
 
-# The model and the Draco decoder are copied verbatim from public/, without a hash in the name. A
+# The model is copied verbatim from public/, without a hash in the name. A
 # week, revalidated in the background, keeps the 14.9 MB download rare without pinning anyone.
 /models/*
-  Cache-Control: public, max-age=604800, stale-while-revalidate=86400
-
-/draco/*
   Cache-Control: public, max-age=604800, stale-while-revalidate=86400
 
 # The entry point must not be cached, or a deploy reaches nobody: it is the only file naming the
