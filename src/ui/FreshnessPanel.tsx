@@ -9,7 +9,7 @@
  * is almost never "which symbol" but "which part of the station has gone quiet", and the stalled
  * sensors are all in one of them.
  */
-import { useEffect, useState } from 'react'
+import { memo, useEffect, useState } from 'react'
 import { SUBSYSTEMS, getChannel } from '../telemetry/subsystems'
 import { useTelemetryStore } from '../telemetry/store'
 import { formatAge } from '../telemetry/health'
@@ -21,7 +21,7 @@ import {
   readingOf,
   summarise,
   tally,
-  type Reading,
+  type Freshness,
 } from '../telemetry/freshness'
 
 /**
@@ -33,6 +33,13 @@ import {
  */
 const REFRESH_MS = 5_000
 
+/** Each subsystem's symbols, once: the catalogue is fixed, and this ran on every flush. */
+const GROUPS = SUBSYSTEMS.map((subsystem) => ({
+  id: subsystem.id,
+  label: subsystem.label,
+  puis: [...new Set(subsystem.sections.flatMap((s) => s.channels.map((c) => c.pui)))],
+}))
+
 export function FreshnessPanel() {
   const samples = useTelemetryStore((store) => store.samples)
   const fold = useFold('freshness')
@@ -43,12 +50,9 @@ export function FreshnessPanel() {
     return () => clearInterval(timer)
   }, [])
 
-  const groups = SUBSYSTEMS.map((subsystem) => ({
-    id: subsystem.id,
-    label: subsystem.label,
-    readings: [...new Set(subsystem.sections.flatMap((s) => s.channels.map((c) => c.pui)))].map(
-      (pui) => readingOf(pui, samples[pui], now),
-    ),
+  const groups = GROUPS.map((group) => ({
+    ...group,
+    readings: group.puis.map((pui) => readingOf(pui, samples[pui], now)),
   }))
   const all = groups.flatMap((group) => group.readings)
   const counts = tally(all)
@@ -86,7 +90,7 @@ export function FreshnessPanel() {
           </h3>
           <div className="freshness__grid">
             {group.readings.map((reading) => (
-              <Cell key={reading.pui} reading={reading} />
+              <Cell key={reading.pui} pui={reading.pui} state={reading.state} ageMs={reading.ageMs} />
             ))}
           </div>
         </div>
@@ -112,17 +116,21 @@ export function FreshnessPanel() {
   )
 }
 
-function Cell({ reading }: { reading: Reading }) {
-  const label = getChannel(reading.pui)?.label ?? reading.pui
-  const age = reading.ageMs === null ? 'nothing received' : `${formatAge(reading.ageMs)} old`
+/**
+ * Memoised on plain values: the store flushes four times a second, but between two ticks of the
+ * five-second clock a cell only changes when its own symbol does.
+ */
+const Cell = memo(function Cell({ pui, state, ageMs }: { pui: string; state: Freshness; ageMs: number | null }) {
+  const label = getChannel(pui)?.label ?? pui
+  const age = ageMs === null ? 'nothing received' : `${formatAge(ageMs)} old`
   return (
     <span
-      className={`freshness__cell freshness__cell--${reading.state}`}
+      className={`freshness__cell freshness__cell--${state}`}
       // Colour alone says nothing to a screen reader and little to a reader who cannot separate
       // these hues; the state is spelled out here and the legend names every one of them.
-      title={`${label} — ${age} · ${FRESHNESS_LABELS[reading.state]}`}
+      title={`${label} — ${age} · ${FRESHNESS_LABELS[state]}`}
       role="img"
-      aria-label={`${label}, ${FRESHNESS_LABELS[reading.state]}`}
+      aria-label={`${label}, ${FRESHNESS_LABELS[state]}`}
     />
   )
-}
+})

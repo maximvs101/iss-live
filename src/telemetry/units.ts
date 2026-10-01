@@ -252,7 +252,7 @@ export function formatValue(
  */
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-export function formatOnboardTime(raw: string, year: number | null): FormattedValue {
+function formatOnboardTime(raw: string, year: number | null): FormattedValue {
   const milliseconds = Number.parseFloat(raw)
   if (Number.isNaN(milliseconds)) return { text: raw, unit: null, state: null }
 

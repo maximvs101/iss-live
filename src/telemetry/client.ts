@@ -92,7 +92,7 @@ function mapConnectionStatus(status: string): ConnectionState {
 const DROPOUT_ZEROS = 4
 
 /** The symbols in this batch that read zero because the broadcast dropped, not the station. */
-export function dropoutZeros(
+function dropoutZeros(
   batch: readonly TelemetrySample[],
   previous: (pui: string) => string | null | undefined,
 ): ReadonlySet<string> {

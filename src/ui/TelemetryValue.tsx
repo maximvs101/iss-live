@@ -8,7 +8,7 @@ import { getSymbol } from '../data/catalog'
 import { getChannel } from '../telemetry/subsystems'
 import { useSample, useTelemetryStore } from '../telemetry/store'
 import { formatValue, isUnitInferred, unitNote } from '../telemetry/units'
-import { LIVE_THRESHOLD_MS, formatAge, onboardTimestampToDate } from '../telemetry/health'
+import { LIVE_THRESHOLD_MS, formatAge } from '../telemetry/health'
 import { readingOf } from '../telemetry/freshness'
 import { useNow } from './useNow'
 
@@ -52,7 +52,8 @@ export function TelemetryValue({ pui, showLabel = true, showHint = false }: Tele
   // Age is measured from the station's own timestamp, not from when the packet reached us.
   // Several channels re-send month-old readings continuously; timing from arrival would present
   // them as fresh. Arrival time is the fallback for the rare sample with no usable timestamp.
-  const measuredAt = sample?.timestamp ? onboardTimestampToDate(sample.timestamp) : null
+  // The onboard time was parsed once, on receipt (see the client); it is not parsed again here.
+  const measuredAt = sample?.onboardAt != null ? new Date(sample.onboardAt) : null
   const ageMs = measuredAt ? now - measuredAt.getTime() : sample ? now - sample.receivedAt : null
   const isStale = ageMs !== null && ageMs > LIVE_THRESHOLD_MS
   const note = unitNote(pui)

@@ -279,7 +279,6 @@ function formatTime(t: number): string {
 }
 
 function formatTick(value: number): string {
-  if (Math.abs(value) >= 1000) return value.toFixed(0)
   if (Math.abs(value) >= 10) return value.toFixed(0)
   return value.toFixed(1)
 }

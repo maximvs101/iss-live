@@ -38,7 +38,6 @@ export interface StreamStatus {
   health: StreamHealth
   /** Age of the most recent data, in milliseconds. null if nothing ever arrived. */
   ageMs: number | null
-  detail: string | null
   subscribedCount: number
   updateCount: number
 }
@@ -58,7 +57,7 @@ export function streamAgeMs(now: number): number | null {
 }
 
 function computeStreamStatus(now: number): StreamStatus {
-  const { connection, connectionDetail, subscribedCount, updateCount, samples } =
+  const { connection, subscribedCount, updateCount, samples } =
     useTelemetryStore.getState()
 
   /*
@@ -74,7 +73,7 @@ function computeStreamStatus(now: number): StreamStatus {
    * only ever reached before the first timestamped sample has landed.
    */
   const ageMs = streamAgeMs(now)
-  const base = { ageMs, detail: connectionDetail, subscribedCount, updateCount }
+  const base = { ageMs, subscribedCount, updateCount }
 
   if (connection === 'idle') return { ...base, health: 'idle' }
   if (connection === 'disconnected') return { ...base, health: 'offline' }

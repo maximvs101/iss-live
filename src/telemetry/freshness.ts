@@ -34,7 +34,7 @@ import type { TelemetrySample } from './store'
 export type Freshness = 'live' | 'minutes' | 'hours' | 'stopped' | 'steady' | 'none'
 
 /** Past a day, a continuous channel is not slow — it has stopped. */
-export const STOPPED_MS = 24 * 3_600_000
+const STOPPED_MS = 24 * 3_600_000
 /** Between a minute and this, a channel is simply slow; several legitimately are. */
 const SLOW_MS = 3_600_000
 
