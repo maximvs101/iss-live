@@ -14,8 +14,11 @@ export const STATUS_HEADERS = {
 }
 
 export async function status(env, now = Date.now()) {
-  const live = await env.DB.prepare('SELECT at FROM liveness WHERE pushes > 0 ORDER BY at DESC LIMIT 1').first()
-  const last = await env.DB.prepare('SELECT at FROM liveness ORDER BY at DESC LIMIT 1').first()
+  // Independent reads, so they go out together: one round trip to D1 instead of two.
+  const [live, last] = await Promise.all([
+    env.DB.prepare('SELECT at FROM liveness WHERE pushes > 0 ORDER BY at DESC LIMIT 1').first(),
+    env.DB.prepare('SELECT at FROM liveness ORDER BY at DESC LIMIT 1').first(),
+  ])
   const lastLive = live?.at ?? null
   const checkedAt = last?.at ?? null
   // Only the collector's own recent run can say anything. If it has stopped — or never ran — the

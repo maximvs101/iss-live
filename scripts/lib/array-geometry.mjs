@@ -24,7 +24,7 @@ const MODEL = new URL('../../public/models/iss-igoal.glb', import.meta.url)
 
 /** Rotation the component applies to bring the model into the scene frame. */
 // +X starboard, +Y zenith, +Z aft — matches the `rotation` prop in IssGltf.
-export const MODEL_ROTATION = new Quaternion().setFromEuler(new Euler(0, -Math.PI / 2, 0))
+const MODEL_ROTATION = new Quaternion().setFromEuler(new Euler(0, -Math.PI / 2, 0))
 
 /**
  * The blanket's normal, in the beta joint's own frame.
@@ -41,7 +41,7 @@ export const AXES = { x: new Vector3(1, 0, 0), y: new Vector3(0, 1, 0), z: new V
 const { json: gltf } = readGlb(MODEL)
 
 /** node index -> { name, local, children, parent } */
-export const nodes = gltf.nodes.map((node, index) => {
+const nodes = gltf.nodes.map((node, index) => {
   const local = new Matrix4()
   if (node.matrix) local.fromArray(node.matrix)
   else
@@ -100,7 +100,7 @@ export function setJoint(binding, angle) {
 }
 
 /** Unit normal of a wing's blanket, in the scene frame. */
-export function blanketNormal(binding) {
+function blanketNormal(binding) {
   const world = worldMatrix(byName.get(binding.node))
   return BLANKET_NORMAL.clone().transformDirection(world).normalize()
 }
@@ -216,7 +216,7 @@ export function geometryFromState(position, velocity, date) {
 }
 
 /** Angle between a normal and the Sun, taking the blanket as two-sided. */
-export const offSunOf = (normal, sun) =>
+const offSunOf = (normal, sun) =>
   (Math.acos(Math.min(1, Math.abs(normal.dot(sun)))) * 180) / Math.PI
 
 /**

@@ -65,7 +65,7 @@ export function firstSentence(text) {
  * A description tag's length: about 155 characters is what a result snippet shows, and a sentence
  * cut mid-word by the engine reads worse than one cut here on a word.
  */
-export function clampDescription(text, max = 155) {
+function clampDescription(text, max = 155) {
   if (text.length <= max) return text
   const cut = text.slice(0, max - 1)
   return `${cut.slice(0, cut.lastIndexOf(' '))}…`
@@ -105,10 +105,10 @@ export function siteFooter() {
  * so a shared page unfurls the same way, plus a JSON-LD `TechArticle` that says what the page is
  * about. The stylesheet is one shared file rather than inline styles: eight pages, one download.
  */
-export const CARD_ALT =
+const CARD_ALT =
   "A dark world map with the station's ground track drawn as a green sine curve, titled ISS Live."
 
-export function layout({ path, title, headline, description, body, jsonLd, image, builtAt }) {
+function layout({ path, title, headline, description, body, jsonLd, image, builtAt }) {
   const url = `${SITE}${path}`
   const card = image ?? `${SITE}/social-card.png`
   const fullTitle = `${title} — ISS Live`
