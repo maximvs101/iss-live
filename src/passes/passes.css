@@ -1,7 +1,4 @@
 /* The pass finder, on top of /pages.css and its tokens. */
-:root {
-  --warn: #ffb03a;
-}
 
 .visually-hidden {
   position: absolute;
@@ -40,9 +37,12 @@
   font: inherit;
   color: var(--text-strong);
   background: none;
+  cursor: pointer;
+}
+
+.locate__here {
   border: 1px solid var(--border-strong);
   padding: 6px 10px;
-  cursor: pointer;
 }
 
 .link {

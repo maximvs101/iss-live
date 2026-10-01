@@ -27,9 +27,10 @@ function localDate(date: Date, timeZone: string): string {
 
 export function formatDay(date: Date, timeZone: string, now: Date): string {
   const day = localDate(date, timeZone)
-  if (day === localDate(now, timeZone)) return 'Today'
+  const today = localDate(now, timeZone)
+  if (day === today) return 'Today'
   // Noon to noon is always one calendar day later, whatever the clock does overnight.
-  const tomorrow = new Date(Date.parse(`${localDate(now, timeZone)}T12:00:00Z`) + 86_400_000)
+  const tomorrow = new Date(Date.parse(`${today}T12:00:00Z`) + 86_400_000)
   if (day === tomorrow.toISOString().slice(0, 10)) return 'Tomorrow'
   return cached(dayFormats, timeZone, () =>
     new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', timeZone }),

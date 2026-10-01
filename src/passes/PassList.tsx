@@ -90,7 +90,7 @@ export function PassList({ passes, place, now }: { passes: Pass[]; place: Place;
                 </span>
                 <span className="pass__how">
                   <span
-                    className={`pass__brightness pass__brightness--${word.replace(/ /g, '-')}`}
+                    className="pass__brightness"
                     title={`≈ ${v.magnitude.toFixed(1)} magnitude, give or take one`}
                   >
                     {word}

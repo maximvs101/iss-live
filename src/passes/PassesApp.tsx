@@ -14,6 +14,7 @@ import { PassList } from './PassList.tsx'
 import {
   initialChoice,
   locate,
+  observerOf,
   placeLabel,
   placeTimeZone,
   resolveChoice,
@@ -115,7 +116,7 @@ export function PassesApp({
   const passes = useMemo(
     () =>
       elements && place && !tooOld
-        ? findPasses(positionFrom(elements.satrec), place.kind === 'city' ? place.city : place, new Date(now))
+        ? findPasses(positionFrom(elements.satrec), observerOf(place), new Date(now))
         : null,
     [elements, place, now, tooOld],
   )

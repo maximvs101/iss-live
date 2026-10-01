@@ -23,6 +23,7 @@
   --text-strong: #e6edf5;
   --idle: #70839a;
   --live: #4ade80;
+  --warn: #ffb03a;
   --mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
   color-scheme: dark;
 }

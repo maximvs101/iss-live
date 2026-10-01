@@ -122,6 +122,11 @@ export function placeLabel(place: Place): string {
   return place.kind === 'city' ? `${place.city.name}, ${countryName(place.city.country)}` : 'your location'
 }
 
+/** The place as the pass finder takes it: a city's own coordinates, or the located point. */
+export function observerOf(place: Place) {
+  return place.kind === 'city' ? place.city : place
+}
+
 export function placeTimeZone(place: Place): string {
   return place.kind === 'city' ? place.city.timeZone : place.timeZone
 }

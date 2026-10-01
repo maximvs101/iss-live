@@ -30,7 +30,7 @@
 }
 
 .home__nasa {
-  color: #ffb03a;
+  color: var(--warn);
 }
 
 .home__nasa--live {

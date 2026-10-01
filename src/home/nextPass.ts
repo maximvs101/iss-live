@@ -7,7 +7,7 @@ import { elementsAgeHours, type OrbitalElements } from '../orbit/tle.ts'
 import { brightnessOf } from '../passes/brightness.ts'
 import type { Fetcher } from '../passes/cities.ts'
 import { MAX_ELEMENTS_AGE_HOURS, findPasses, positionFrom, type Pass } from '../passes/findPasses.ts'
-import { placeLabel, placeTimeZone, readStored, resolveChoice, type Place } from '../passes/place.ts'
+import { observerOf, placeLabel, placeTimeZone, readStored, resolveChoice, type Place } from '../passes/place.ts'
 import { formatDay, formatTime } from '../passes/time.ts'
 
 export type NextPass =
@@ -27,7 +27,7 @@ export async function nextVisible(
   const place = await resolveChoice({ source: 'stored', stored }, fetcher).catch(() => null)
   if (!place) return { kind: 'ask' }
   if (elementsAgeHours(elements, now) > MAX_ELEMENTS_AGE_HOURS) return { kind: 'stale' }
-  const observer = place.kind === 'city' ? place.city : place
+  const observer = observerOf(place)
   const pass = findPasses(positionFrom(elements.satrec), observer, new Date(now), 5).find(
     (p) => p.visible && p.visible.end.date.getTime() >= now,
   )
