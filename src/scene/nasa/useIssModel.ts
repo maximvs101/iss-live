@@ -60,12 +60,15 @@ function loadModel(): Promise<Group> {
     ])
 
     return new Promise<Group>((resolve, reject) => {
-      // The decoder three.js ships for glTF, which Vite emits under /assets/ with a hashed name:
-      // served by the site itself, never by a CDN, and always the build matching this three.js.
-      // It used to be a hand-made copy in public/draco/, identical to this one byte for byte, while
-      // Vite emitted this one anyway — the same 250 kB published twice.
+      // The decoders three.js ships, which Vite emits under /assets/ with hashed names: served by
+      // the site itself, never by a CDN, and always the build matching this three.js. They used to
+      // be a hand-made copy in public/draco/, while Vite emitted these anyway.
+      //
+      // The glTF build is the smaller (192 kB of WebAssembly against 286), but it has no pure-JS
+      // decoder, and without WebAssembly — Safari in Lockdown Mode — DRACOLoader then refuses to
+      // decode at all. There, three's defaults are kept: local as well, and with the JS fallback.
       const draco = new DRACOLoader()
-      draco.setDecoderPath(DRACO_GLTF_CONFIG)
+      if (typeof WebAssembly === 'object') draco.setDecoderPath(DRACO_GLTF_CONFIG)
 
       const loader = new GLTFLoader()
       loader.setDRACOLoader(draco)
@@ -90,6 +93,8 @@ function loadModel(): Promise<Group> {
         (error) => {
           draco.dispose()
           pending = null
+          // The next attempt starts from nothing; a later mount must not show this one's percent.
+          sharedProgress = 0
           reject(error)
         },
       )

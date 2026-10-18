@@ -1,7 +1,7 @@
 /**
  * Reading a binary glTF (.glb) without a library.
  *
- * Six scripts each had their own copy of this loop — two of them a shortcut that assumed the JSON
+ * Seven scripts each had their own copy of this loop — two of them a shortcut that assumed the JSON
  * chunk sits at byte 12, true of every file we produce and of no file guaranteed. One reader now.
  */
 import { readFileSync } from 'node:fs'

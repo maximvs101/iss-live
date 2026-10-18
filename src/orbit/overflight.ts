@@ -89,9 +89,10 @@ function loadCountries(): CountryFeature[] {
  * edges that jump — the first thing one reaches for — leaves the ring open, and an open ring
  * gives the wrong parity: Chukotka came back as ocean.
  */
-function unwrapRing(ring: number[][]): { points: number[][]; min: number; max: number } {
+export function unwrapRing(ring: number[][]): { points: number[][]; min: number; max: number } {
   const points: number[][] = []
   let offset = 0
+  let crosses = false
   let min = Infinity
   let max = -Infinity
 
@@ -101,12 +102,15 @@ function unwrapRing(ring: number[][]): { points: number[][]; min: number; max: n
       if (delta > 180) offset -= 360
       else if (delta < -180) offset += 360
     }
+    if (offset !== 0) crosses = true
     const longitude = ring[i][0] + offset
     if (longitude < min) min = longitude
     if (longitude > max) max = longitude
     points.push([longitude, ring[i][1]])
   }
-  return { points, min, max }
+  // Almost no ring crosses the antimeridian, and those that do not unwrap to themselves: they keep
+  // their own points, so the cache below holds two numbers for them rather than a second copy.
+  return { points: crosses ? points : ring, min, max }
 }
 
 /**

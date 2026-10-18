@@ -6,7 +6,7 @@
  * answer is not in doubt.
  */
 import { beforeAll, describe, expect, it } from 'vitest'
-import { marineReady, overflightAt, overflightLabel } from './overflight'
+import { marineReady, overflightAt, overflightLabel, unwrapRing } from './overflight'
 
 // The sea outlines load as their own chunk so they stay out of the first paint. Every sea
 // assertion below would otherwise race that import and read "not known yet".
@@ -131,5 +131,24 @@ describe('overflightLabel', () => {
     expect(overflightLabel({ name: 'France', kind: 'country' })).toBe('France')
     expect(overflightLabel({ name: 'South Atlantic Ocean', kind: 'marine' })).toBe('the South Atlantic Ocean')
     expect(overflightLabel({ name: 'open water', kind: 'water' })).toBe('open water')
+  })
+})
+
+describe('unwrapRing', () => {
+  it('hands back a ring that does not cross the antimeridian as it is, without a copy', () => {
+    // The unwrapped rings are cached for the life of the page; a copy of every country would
+    // double the geometry held in memory for nothing.
+    const france = [[2, 48], [3, 49], [2, 50], [2, 48]]
+    const { points, min, max } = unwrapRing(france)
+    expect(points).toBe(france)
+    expect([min, max]).toEqual([2, 3])
+  })
+
+  it('unwraps one that does, continuous past 180°', () => {
+    const fiji = [[179, -17], [-179, -17], [-179, -16], [179, -17]]
+    const { points, min, max } = unwrapRing(fiji)
+    expect(points).not.toBe(fiji)
+    expect(points.map((p) => p[0])).toEqual([179, 181, 181, 179])
+    expect([min, max]).toEqual([179, 181])
   })
 })

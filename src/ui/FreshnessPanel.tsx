@@ -9,7 +9,7 @@
  * is almost never "which symbol" but "which part of the station has gone quiet", and the stalled
  * sensors are all in one of them.
  */
-import { memo, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { SUBSYSTEMS, getChannel } from '../telemetry/subsystems'
 import { useTelemetryStore } from '../telemetry/store'
 import { formatAge } from '../telemetry/health'
@@ -40,13 +40,17 @@ const GROUPS = SUBSYSTEMS.map((subsystem) => ({
   puis: [...new Set(subsystem.sections.flatMap((s) => s.channels.map((c) => c.pui)))],
 }))
 
+/** The store as of now: read on the panel's clock rather than subscribed to. */
+function snapshot() {
+  return { now: Date.now(), samples: useTelemetryStore.getState().samples }
+}
+
 export function FreshnessPanel() {
-  const samples = useTelemetryStore((store) => store.samples)
   const fold = useFold('freshness')
-  const [now, setNow] = useState(() => Date.now())
+  const [{ now, samples }, setSnapshot] = useState(snapshot)
 
   useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), REFRESH_MS)
+    const timer = setInterval(() => setSnapshot(snapshot()), REFRESH_MS)
     return () => clearInterval(timer)
   }, [])
 
@@ -116,11 +120,7 @@ export function FreshnessPanel() {
   )
 }
 
-/**
- * Memoised on plain values: the store flushes four times a second, but between two ticks of the
- * five-second clock a cell only changes when its own symbol does.
- */
-const Cell = memo(function Cell({ pui, state, ageMs }: { pui: string; state: Freshness; ageMs: number | null }) {
+function Cell({ pui, state, ageMs }: { pui: string; state: Freshness; ageMs: number | null }) {
   const label = getChannel(pui)?.label ?? pui
   const age = ageMs === null ? 'nothing received' : `${formatAge(ageMs)} old`
   return (
@@ -133,4 +133,4 @@ const Cell = memo(function Cell({ pui, state, ageMs }: { pui: string; state: Fre
       aria-label={`${label}, ${FRESHNESS_LABELS[state]}`}
     />
   )
-})
+}

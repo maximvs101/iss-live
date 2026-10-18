@@ -25,6 +25,8 @@ let attempts = 0
 let outcomes: ('fail' | 'succeed' | 'hang')[] = []
 /** The progress callback of the last download, for a test to report chunks through. */
 let reportProgress: ((event: { loaded: number; total: number }) => void) | null = null
+/** Fails the download in progress, as a dropped connection would. */
+let failCurrent: (() => void) | null = null
 /** What the hook handed the Draco loader as its decoder. */
 let decoderPath: unknown = null
 
@@ -50,6 +52,7 @@ vi.mock('three/examples/jsm/loaders/GLTFLoader.js', () => ({
       const outcome = outcomes[attempts] ?? 'succeed'
       attempts += 1
       reportProgress = onProgress
+      failCurrent = () => onError(new Error('Failed to fetch'))
       if (outcome === 'hang') return
       // Asynchronous like the real one, so the hook goes through its loading state.
       queueMicrotask(() => {
@@ -80,6 +83,7 @@ beforeEach(async () => {
   outcomes = []
   decoderPath = null
   reportProgress = null
+  failCurrent = null
   // A fresh module each time: the download is cached in a module-level promise on purpose, and a
   // test that inherited the previous one would be asserting against the last test's result.
   vi.resetModules()
@@ -170,11 +174,45 @@ describe('loading the NASA model', () => {
     expect(renders - before).toBeLessThanOrEqual(10)
   })
 
-  it('decodes with the glTF decoder three.js ships, not a copy of its own', async () => {
+  it('decodes with the glTF decoder three.js ships when WebAssembly is there', async () => {
     // A path string here would mean a hand-kept copy again — and three falls back to a CDN when
     // such a path 404s. The config object is the decoder Vite emits from three's own package.
     render(<Probe />)
     await settle()
     expect(decoderPath).toEqual({ js: 'gltf/wrapper.js', wasm: 'gltf/decoder.wasm' })
+  })
+
+  it('leaves three its default decoders, JS fallback included, when WebAssembly is not', async () => {
+    // Safari in Lockdown Mode has no WebAssembly. The glTF config carries no JS decoder, and
+    // DRACOLoader then refuses outright; its defaults are local too and include one.
+    vi.stubGlobal('WebAssembly', undefined)
+    try {
+      render(<Probe />)
+      await settle()
+      expect(decoderPath).toBeNull()
+      expect(screen.getByTestId('state').textContent).toBe('loaded')
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('starts a new download from zero after a failed one', async () => {
+    // The failed attempt's percentage must not leak into the next mount's bar.
+    outcomes = ['hang']
+    render(<Probe />)
+    await settle()
+    await act(async () => reportProgress?.({ loaded: 570_000, total: 1_000_000 }))
+    cleanup()
+    ;({ useIssModel } = await import('./useIssModel'))
+    // Fail it through the loader's error path, then mount afresh.
+    await act(async () => failCurrent?.())
+    let seen = -1
+    function Bar() {
+      seen = useIssModel().progress
+      return null
+    }
+    outcomes = ['hang', 'hang']
+    render(<Bar />)
+    expect(seen).toBe(0)
   })
 })

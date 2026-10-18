@@ -8,6 +8,7 @@
  * Usage: node scripts/inspect-glb.mjs <file.glb> [--tree]
  */
 import { readFileSync } from 'node:fs'
+import { parseGlb } from './lib/glb.mjs'
 
 const file = process.argv[2]
 const showTree = process.argv.includes('--tree')
@@ -27,21 +28,14 @@ if (magic !== 0x46546c67) {
 const version = buffer.readUInt32LE(4)
 const totalLength = buffer.readUInt32LE(8)
 
-// Chunks: length, type, data. The first one is the scene JSON.
-let offset = 12
-let json = null
-let binLength = 0
-while (offset < buffer.length) {
-  const chunkLength = buffer.readUInt32LE(offset)
-  const chunkType = buffer.readUInt32LE(offset + 4)
-  const data = buffer.subarray(offset + 8, offset + 8 + chunkLength)
-  if (chunkType === 0x4e4f534a) json = JSON.parse(data.toString('utf8'))
-  if (chunkType === 0x004e4942) binLength = chunkLength
-  offset += 8 + chunkLength + ((4 - (chunkLength % 4)) % 4)
-}
-
-if (!json) {
-  console.error('JSON chunk not found')
+let json
+let binLength
+try {
+  const glb = parseGlb(buffer)
+  json = glb.json
+  binLength = glb.bin?.length ?? 0
+} catch (error) {
+  console.error(error.message)
   process.exit(2)
 }
 

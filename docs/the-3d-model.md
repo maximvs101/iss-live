@@ -94,6 +94,8 @@ was a second copy of the joint and selection logic to keep in step — the two h
 apart once. The view now reports the load honestly, with progress and a distinct message for the
 decoding phase the loader cannot measure, and says so plainly if the file fails.
 
-The Draco decoder is the one three.js ships for glTF, emitted by Vite under `/assets/` with a
-hashed name: served by the application rather than by a CDN, so the station stays displayable
-without depending on a third party, and always the build matching the three.js in use.
+The Draco decoder is the one three.js ships, emitted by Vite under `/assets/` with a hashed name:
+served by the application rather than by a CDN, so the station stays displayable without depending
+on a third party, and always the build matching the three.js in use. Where WebAssembly exists it
+is the smaller glTF build; where it does not — Safari in Lockdown Mode — three's default build,
+which carries a pure-JS decoder the glTF one lacks.

@@ -78,6 +78,8 @@ const decodedMB = (width, height) => (width * height * 4 * (4 / 3)) / 1024 / 102
 
 function inspect(path, { deep }) {
   const { json, bin } = readGlb(path)
+  // Every model we build embeds its buffers; one that points at external files is not ours.
+  if (!bin) throw new Error(`${path}: no binary chunk — its buffers are external files`)
   const bytesOf = (bufferView) => {
     const view = json.bufferViews[bufferView]
     const offset = view.byteOffset ?? 0
